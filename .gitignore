@@ -3,6 +3,7 @@
 # output formats
 *.png
 *.svg
+*.h5
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
