@@ -1,6 +1,4 @@
 import os
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   #if like me you do not have a lot of memory in your GPU
-os.environ["CUDA_VISIBLE_DEVICES"] = "" #then these two lines force keras to use your CPU
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -40,6 +38,40 @@ def read_data_df(path_dataset):
     df = pd.DataFrame(data=data, index=names_of_runs, columns=names_of_properties)
 
     return df
+# OLD read data before dataframe
+#def read_data(path_dataset):
+#    data = {}
+#    time_init =     "Time:  0.00000E+00 y"
+#    time_final =    "Time:  5.00000E+00 y"
+#    number_datapoints = 0
+#    names_of_runs = []
+#
+#    for file in tqdm(list(os.listdir(path_dataset))):
+#        try:
+#            path_data = os.path.join(path_dataset,file)
+#            if not os.path.isdir(path_data):
+#                continue
+#            print(file)
+#            names_of_runs.append(file)
+#            filename = os.path.join(path_data,"pflotran.h5") 
+#            with h5py.File(filename, "r") as f:
+#                for key, value in f[time_final].items():
+#                    if not key in data: # and not key=='Material_ID':
+#                        data[key] = []
+#                    #if not key=='Material_ID':
+#                    if key=='Liquid_Pressure [Pa]':
+#                        data[key].append(np.array(f[time_init]["Liquid_Pressure [Pa]"]))
+#                    else:
+#                        data[key].append(np.array(value))
+#            number_datapoints += 1
+#
+#        except Exception as e:
+#            tqdm.write(f"lololololololoo: {e}")
+#
+#    for key,value in data.items():
+#        data[key] = np.array(value)
+#
+#    return data, number_datapoints, names_of_runs
 
 ## helper function for plotting
 def aligned_colorbar(*args,**kwargs):
@@ -125,24 +157,64 @@ def plot_sample_df(df, run_id, view="top"):
         
     #plt.show()
     plt.savefig(f"plot_phys_props_plus_streamlines_{run_id}_{view}.jpg")
+#OLD plotting without dataframe
+#def plot_sample(data, sample_id, view="top"):
+#    n_dims = len(data)
+#    fig, axes = plt.subplots(n_dims,1,sharex=True,figsize=(20,3*n_dims))
+#    plt.figure(figsize= (20,3*n_dims))
+#    for i,(key,value) in zip(range(n_dims),data.items()):
+#        plt.sca(axes[i])
+#        field = value[sample_id]
+#        if len(field.shape) != 3:
+#            # no 3D data
+#            continue
+#        index = key.find(' [')
+#        title = key
+#        if index != -1:
+#            title = key[:index]
+#        plt.title(title)
+#        if view=="topish":
+#            plt.imshow(field[:,:,-3])
+#            plt.xlabel("y")
+#            plt.ylabel("x")
+#        elif view=="side":
+#            plt.imshow(field[11,:,::-1].T)
+#            plt.xlabel("y")
+#            plt.ylabel("z")
+#        elif view=="side_hp":
+#            plt.imshow(field[8,:,::-1].T)
+#            plt.xlabel("y")
+#            plt.ylabel("z")
+#        elif view=="top_hp":
+#            plt.imshow(field[:,:,8])
+#            plt.xlabel("y")
+#            plt.ylabel("x")
+#        elif view=="top":
+#            plt.imshow(field[:,:,-1])
+#            plt.xlabel("y")
+#            plt.ylabel("x")
+#        aligned_colorbar(label=key)
+#    plt.show()
 
 ## data cleaning: cut of edges - to get rid of problems with boundary conditions
-def data_cleaning(data):
-    for key, (value) in data.items():
-        data[key] = data[key][:,1:-1,1:-3,1:-1]
-        print(f"{key} :{np.shape(data[key])}")
-    return data
-
 def data_cleaning_df(df):
     for label, content in df.items():
         for index in range(len(content)):
             content[index] = content[index][1:-1,1:-3,1:-1]
     return df
+## helper to find inlet, outlet alias max and min Material_ID
+# print(np.where(data["Material_ID"]==np.max(data["Material_ID"])))
 
+# OLD data cleaning before df
+#def data_cleaning(data):
+#    for key, (value) in data.items():
+#        data[key] = data[key][:,1:-1,1:-3,1:-1]
+#        print(f"{key} :{np.shape(data[key])}")
+#    return data
 
-if __name__=="__main__":
+# main function combining all reading and visualizing of input
+def read_and_visualize_data_as_df(dataset_name, plot_bool=False, run_id="RUN_0", view_id="side_hp"):
     path_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/approach2_dataset_generation_simplified"
-    dataset_name = "dataset_HDF5_test" #dataset_HDF5_uniformly_distributed_data
     path_dataset = os.path.join(path_dir, dataset_name)
 
     # read data from file
@@ -152,4 +224,11 @@ if __name__=="__main__":
     df = data_cleaning_df(df)
 
     # visualize physical properties in one data point
-    plot_sample_df(df,"RUN_1",view="side_hp")
+    if plot_bool:
+        plot_sample_df(df,run_id,view=view_id)
+
+    return df
+
+
+if __name__=="__main__":
+    df = read_and_visualize_data_as_df(dataset_name = "dataset_HDF5_test", plot_bool=True, run_id = "RUN_1", view_id="side_hp")
