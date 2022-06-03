@@ -7,8 +7,9 @@ import h5py
 from tqdm.auto import tqdm
 
 ## read data from source folder into dataframe
-def read_data_df(path_dataset):
+def read_data_df(path_dataset, input_vars=["Liquid_Pressure [Pa]"]):
     time_init =     "Time:  0.00000E+00 y"
+    time_first =    "Time:  1.00000E-01 y"
     time_final =    "Time:  5.00000E+00 y"
     names_of_runs = []
     names_of_properties = []
@@ -25,8 +26,8 @@ def read_data_df(path_dataset):
             interim_array = []
             with h5py.File(filename, "r") as f:
                 for key, value in f[time_final].items():
-                    if key=='Liquid_Pressure [Pa]':
-                        interim_array.append(np.array(f[time_init]["Liquid_Pressure [Pa]"]))
+                    if key in input_vars:
+                        interim_array.append(np.array(f[time_first][key]))
                     else:
                         interim_array.append(np.array(value))
                 names_of_properties = list(f[time_final].keys())
@@ -213,12 +214,12 @@ def data_cleaning_df(df):
 #    return data
 
 # main function combining all reading and visualizing of input
-def read_and_visualize_data_as_df(dataset_name, plot_bool=False, run_id="RUN_0", view_id="side_hp"):
+def read_and_visualize_data_as_df(dataset_name, input_vars, plot_bool=False, run_id="RUN_0", view_id="side_hp"):
     path_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/approach2_dataset_generation_simplified"
     path_dataset = os.path.join(path_dir, dataset_name)
 
     # read data from file
-    df = read_data_df(path_dataset)
+    df = read_data_df(path_dataset, input_vars)
 
     # preprocessing
     df = data_cleaning_df(df)
@@ -231,4 +232,5 @@ def read_and_visualize_data_as_df(dataset_name, plot_bool=False, run_id="RUN_0",
 
 
 if __name__=="__main__":
-    df = read_and_visualize_data_as_df(dataset_name = "dataset_HDF5_test", plot_bool=True, run_id = "RUN_1", view_id="side_hp")
+    df = read_and_visualize_data_as_df(dataset_name = "dataset_HDF5_testtest", input_vars=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]",
+       "Liquid Z-Velocity [m_per_y]"], plot_bool=True, run_id = "RUN_1", view_id="side_hp")
