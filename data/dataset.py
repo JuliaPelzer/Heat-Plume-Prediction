@@ -8,7 +8,6 @@ import os
 import pickle
 
 import numpy as np
-from PIL import Image
 import h5py
 
 
@@ -53,7 +52,9 @@ Definition of GWF_HP dataset class
 """
 
 class GWF_HP_Dataset(Dataset):
-    """Groundwaterflow and heatpumps dataset class"""
+    """Groundwaterflow and heatpumps dataset class
+    dataset has dimensions of NxCxHxWxD,
+    where N is the number of runs/data points, C is the number of channels, HxWxD are the spatial dimensions"""
     def __init__(self, dataset_name="dataset_HDF5_testtest",
                  dataset_path="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/approach2_dataset_generation_simplified",
                  transform=None,
@@ -65,11 +66,10 @@ class GWF_HP_Dataset(Dataset):
         # self.time_init =     "Time:  0.00000E+00 y"
         self.time_first =    "Time:  1.00000E-01 y"
         self.time_final =    "Time:  5.00000E+00 y"
-        self.input_vars = [self.time_first, ["Temperature [C]", "Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]",
-       "Liquid Z-Velocity [m_per_y]", "Liquid_Pressure [Pa]", "Material_ID"]] #, "hp_power"]
-        self.output_vars = [self.time_final, ["Temperature [C]", "Liquid_Pressure [Pa]"]]
+        self.input_vars = [self.time_first, ["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]",
+       "Liquid Z-Velocity [m_per_y]", "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"]] #, "hp_power"]
+        self.output_vars = [self.time_final, ["Liquid_Pressure [Pa]", "Temperature [C]"]]
         
-        # transform function for data preprocessing #TODO
         self.transform = transform
 
     @staticmethod
@@ -100,40 +100,30 @@ class GWF_HP_Dataset(Dataset):
         # Return the length of the dataset (number of runs)
         return len(self.runs)
 
-    def load_data(self, data_path, vars):
+    def load_data_as_numpy(self, data_path, vars):
         """Load data from h5 file on data_path, but only the variables named in vars[1] at time stamp vars[0]"""
         time = vars[0]
         properties = vars[1]
-        data = {}
+        
+        data = []
         with h5py.File(data_path, "r") as f:
             for key, value in f[time].items():
                 if key in properties:
-                    data[key] = np.array(f[time][key])
+                    data.append(np.array(value))
+        data = np.array(data)
         return data
-
-    @staticmethod
-    #TODO translate to my use
-    def load_image_as_numpy(image_path):
-        """Load image from image_path as numpy array"""
-        return np.asarray(Image.open(image_path), dtype=float)
-
+        
     def __getitem__(self, index):
-        ########################################################################
         # create a dict of the data at the given index in your dataset         #
         # The dict should be of the following format:                          #
-        # {"image": <i-th image>,                                              #
-        # "label": <label of i-th image>}                                      #
-        # Hints:                                                               #
-        #   - use load_image_as_numpy() to load an image from a file path      #
-        #   - If applicable (Task 4: 'Transforms and Image Preprocessing'),    #
-        #     make sure to apply self.transform to the image if one is defined:#                           
-        #     image_transformed = self.transform(image)                        #
-        ########################################################################
+        # {"x": <i-th input data point>,                                       #
+        # "y": <label of i-th input data point>}                               #
+        # "run_id": <label of run ("RUN_Number")>}                             #
+        # dimensions: CxHxWxT (C=channels, HxWxT=spatial dimensions)           #
+        
         data_dict = {}
-        #data_dict["x"] = self.transform(self.load_image_as_numpy(self.images[index]))
-        data_dict["x"] = self.load_data(self.data_paths[index], self.input_vars)
-        print(self.data_paths[index])
-        data_dict["y"] = self.load_data(self.data_paths[index], self.output_vars)
+        data_dict["x"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.input_vars))
+        data_dict["y"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.output_vars))
         data_dict["run_id"] = self.runs[index]
 
         return data_dict
@@ -144,7 +134,7 @@ class GWF_HP_Dataset(Dataset):
     def get_output_properties(self):
         return self.output_vars[1]
 
-'''
+'''NICHT ÜBERARBEITET
 class MemoryImageFolderDataset(ImageFolderDataset):
     def __init__(self, root, *args,
                  transform=None,
@@ -169,7 +159,7 @@ class MemoryImageFolderDataset(ImageFolderDataset):
 
         self.transform = transform
 
-    def load_image_as_numpy(self, image_path):
+    def load_data_as_numpy(self, image_path):
         """Here we already have everything in memory,
         so we can just return the image"""
         return image_path
