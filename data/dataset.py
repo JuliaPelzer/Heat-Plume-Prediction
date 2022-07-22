@@ -10,6 +10,8 @@ import pickle
 import numpy as np
 import h5py
 
+from typing import List
+
 
 class Dataset(ABC):
     """
@@ -128,11 +130,18 @@ class GWF_HP_Dataset(Dataset):
 
         return data_dict
     
-    def get_input_properties(self):
+    def get_input_properties(self) -> List[str]:
         return self.input_vars[1]
 
-    def get_output_properties(self):
+    def get_output_properties(self) -> List[str]:
         return self.output_vars[1]
+
+# TODO: data cleaning: cut of edges - to get rid of problems with boundary conditions
+def data_cleaning_df(df):
+    for label, content in df.items():
+        for index in range(len(content)):
+            content[index] = content[index][1:-1,1:-3,1:-1]
+    return df
 
 '''NICHT ÜBERARBEITET
 class MemoryImageFolderDataset(ImageFolderDataset):
