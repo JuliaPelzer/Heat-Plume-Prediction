@@ -56,11 +56,16 @@ Definition of GWF_HP dataset class
 class GWF_HP_Dataset(Dataset):
     """Groundwaterflow and heatpumps dataset class
     dataset has dimensions of NxCxHxWxD,
-    where N is the number of runs/data points, C is the number of channels, HxWxD are the spatial dimensions"""
+    where N is the number of runs/data points, C is the number of channels, HxWxD are the spatial dimensions
+
+    Returns
+    -------
+    GWF_HP_Dataset of size NxCxHxWxD
+    """
     def __init__(self, dataset_name="dataset_HDF5_testtest",
                  dataset_path="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/approach2_dataset_generation_simplified",
                  transform=None,
-                 **kwargs):
+                 **kwargs)-> Dataset:
         super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         self.dataset_path = super().check_for_dataset()
         
@@ -103,7 +108,13 @@ class GWF_HP_Dataset(Dataset):
         return len(self.runs)
 
     def load_data_as_numpy(self, data_path, vars):
-        """Load data from h5 file on data_path, but only the variables named in vars[1] at time stamp vars[0]"""
+        """
+        Load data from h5 file on data_path, but only the variables named in vars[1] at time stamp vars[0]
+        
+        Returns
+        -------
+        data: numpy array of shape (C, H, W, D)
+        """
         time = vars[0]
         properties = vars[1]
         
@@ -116,13 +127,20 @@ class GWF_HP_Dataset(Dataset):
         return data
         
     def __getitem__(self, index):
-        # create a dict of the data at the given index in your dataset         #
-        # The dict should be of the following format:                          #
-        # {"x": <i-th input data point>,                                       #
-        # "y": <label of i-th input data point>}                               #
-        # "run_id": <label of run ("RUN_Number")>}                             #
-        # dimensions: CxHxWxT (C=channels, HxWxT=spatial dimensions)           #
+        """
+        Get a data point as a dict at a given index in the dataset
         
+        Parameters
+        ----------
+        index : int
+            Run_id of the data point to be loaded (check in list of paths)
+
+        Returns
+        -------
+        dict of data point at index with x being the input data and y being the labels
+        x is a numpy array of shape CxHxWxD (C=channels, HxWxD=spatial dimensions)
+        y is a numpy array of shape CxHxWxD (C= output channels, HxWxD=spatial dimensions)
+            """
         data_dict = {}
         data_dict["x"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.input_vars))
         data_dict["y"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.output_vars))
@@ -135,13 +153,6 @@ class GWF_HP_Dataset(Dataset):
 
     def get_output_properties(self) -> List[str]:
         return self.output_vars[1]
-
-# TODO: data cleaning: cut of edges - to get rid of problems with boundary conditions
-def data_cleaning_df(df):
-    for label, content in df.items():
-        for index in range(len(content)):
-            content[index] = content[index][1:-1,1:-3,1:-1]
-    return df
 
 '''NICHT ÜBERARBEITET
 class MemoryImageFolderDataset(ImageFolderDataset):
