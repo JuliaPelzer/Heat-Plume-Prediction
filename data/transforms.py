@@ -94,6 +94,23 @@ class NormalizeTransform:
 
         return data
 
+' TODO: implement flatten transform'
+
+
+class CutOffEdgesTransform:
+    """
+    Transform class to cut off edges of images
+    (data cleaning: cut of edges - to get rid of problems with boundary conditions)
+    """
+    def __init__(self):
+        pass
+
+    def __call__(self, data_np):
+        # cut off edges of images with unpretty boundary conditions
+        # TODO later: get rid of BC problems otherwise??
+        # no problem? just exponential behaviour at boundaries??
+        return data_np[:,1:-1,1:-3,1:-1]
+
 class ComposeTransform:
     """Transform class that combines multiple other transforms into one"""
     def __init__(self, transforms):
