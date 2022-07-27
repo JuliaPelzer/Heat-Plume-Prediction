@@ -65,6 +65,9 @@ class GWF_HP_Dataset(Dataset):
     def __init__(self, dataset_name="dataset_HDF5_testtest",
                  dataset_path="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/approach2_dataset_generation_simplified",
                  transform=None,
+                 input_vars=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
+                 "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"], # "hp_power"
+                 output_vars=["Liquid_Pressure [Pa]", "Temperature [C]"],
                  **kwargs)-> Dataset:
         super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         self.dataset_path = super().check_for_dataset()
@@ -73,9 +76,8 @@ class GWF_HP_Dataset(Dataset):
         # self.time_init =     "Time:  0.00000E+00 y"
         self.time_first =    "Time:  1.00000E-01 y"
         self.time_final =    "Time:  5.00000E+00 y"
-        self.input_vars = [self.time_first, ["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]",
-       "Liquid Z-Velocity [m_per_y]", "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"]] #, "hp_power"]
-        self.output_vars = [self.time_final, ["Liquid_Pressure [Pa]", "Temperature [C]"]]
+        self.input_vars = [self.time_first, input_vars]
+        self.output_vars = [self.time_final, output_vars]
         
         self.transform = transform
 
