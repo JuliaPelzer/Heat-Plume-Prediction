@@ -65,6 +65,10 @@ class DataLoader:
 
 
     def __len__(self):
+        """
+        Return the number of batches in the dataset
+        """
+        
         length = None
         if self.drop_last:
             length = len(self.dataset) // self.batch_size
