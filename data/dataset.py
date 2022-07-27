@@ -65,11 +65,21 @@ class GWF_HP_Dataset(Dataset):
     def __init__(self, dataset_name="dataset_HDF5_testtest",
                  dataset_path="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/approach2_dataset_generation_simplified",
                  transform=None,
+                 mode="train", split={'train': 0.6, 'val': 0.2, 'test': 0.2},
                  input_vars=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
                  "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"], # "hp_power"
                  output_vars=["Liquid_Pressure [Pa]", "Temperature [C]"],
                  **kwargs)-> Dataset:
         super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
+        assert mode in ["train", "val", "test"], "wrong mode for dataset given"
+
+        self.mode = mode
+        self.split = split
+        self.transform = transform
+
+        split_values = [v for k,v in split.items()]
+        assert sum(split_values) == 1.0
+
         self.dataset_path = super().check_for_dataset()
         
         self.data_paths, self.runs = self.make_dataset(self)
@@ -78,8 +88,44 @@ class GWF_HP_Dataset(Dataset):
         self.time_final =    "Time:  5.00000E+00 y"
         self.input_vars = [self.time_first, input_vars]
         self.output_vars = [self.time_final, output_vars]
+        # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
         
-        self.transform = transform
+
+    def select_split(self, data_paths, labels):
+        """
+        Depending on the mode of the dataset, deterministically split it.
+        
+        Parameters
+        ----------
+        data_paths: list containing paths to all data_points in the dataset
+        labels: list containing one label/RUN_xx per data_point
+        
+        Returns
+        -------
+        data_paths: where only the indices for the corresponding data split are selected
+        runs: where only the indices for the corresponding data split are selected
+        """
+
+        fraction_train = self.split['train']
+        fraction_val = self.split['val']
+        num_samples = len(data_paths)
+        num_train = int(num_samples * fraction_train)
+        num_valid = int(num_samples * fraction_val)
+        
+        np.random.seed(0)
+        rand_perm = np.random.permutation(num_samples)
+        
+        if self.mode == 'train':
+            idx = rand_perm[:num_train]
+        elif self.mode == 'val':
+            idx = rand_perm[num_train:num_train+num_valid]
+        elif self.mode == 'test':
+            idx = rand_perm[num_train+num_valid:]
+        
+        if isinstance(data_paths, list): 
+            return list(np.array(data_paths)[idx]), list(np.array(labels)[idx])
+        else: 
+            return data_paths[idx], list(np.array(labels)[idx])
 
     @staticmethod
     def make_dataset(self):
@@ -102,6 +148,8 @@ class GWF_HP_Dataset(Dataset):
                         runs.append(folder)
         # Sort the data and runs in ascending order
         data_paths, runs = (list(t) for t in zip(*sorted(zip(data_paths, runs))))
+        data_paths, runs = self.select_split(data_paths, runs)
+
         assert len(data_paths) == len(runs)
         return data_paths, runs
 
