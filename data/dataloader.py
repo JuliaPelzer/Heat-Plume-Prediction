@@ -1,6 +1,7 @@
 """Definition of Dataloader"""
 
 import numpy as np
+from torch import Tensor
 
 
 class DataLoader:
@@ -39,7 +40,18 @@ class DataLoader:
                     if key not in batch_dict:
                         batch_dict[key] = []
                     batch_dict[key].append(value)
+                    #print(key, value.shape)
+                    #if key=="run_id":
+                    #    print(value)
             return batch_dict
+
+        def run_id_to_int(run_id):
+            """
+            Converts a run_id to an integer
+            :param run_id: run_id
+            :returns: integer
+            """
+            return int(run_id.split("_")[-1])
 
         def batch_to_numpy(batch):
             """Transform all values of the given batch dict to numpy arrays"""
@@ -47,6 +59,19 @@ class DataLoader:
             for key, value in batch.items():
                 numpy_batch[key] = np.array(value)
             return numpy_batch
+
+        def batch_to_tensor(batch):
+            """Transform all values of the given batch dict to tensors"""
+            tensor_batch = {}
+            for key, value in batch.items():
+                if key=="run_id":
+                    tensor_batch[key] = Tensor([run_id_to_int(id) for id in value])
+                else:
+                    tensor_batch[key] = Tensor(value)
+                #print(value, value[0].shape)
+                #print(tensor_batch[key].shape)
+            return tensor_batch
+
 
         if self.shuffle:
             index_iterator = iter(np.random.permutation(len(self.dataset)))
@@ -57,11 +82,11 @@ class DataLoader:
         for index in index_iterator:
             batch.append(self.dataset[index])
             if len(batch) == self.batch_size:
-                yield batch_to_numpy(combine_batch_dicts(batch))
+                yield batch_to_tensor(combine_batch_dicts(batch))
                 batch = []
 
         if len(batch) > 0 and not self.drop_last:
-            yield batch_to_numpy(combine_batch_dicts(batch))
+            yield batch_to_tensor(combine_batch_dicts(batch))
 
 
     def __len__(self):

@@ -97,19 +97,39 @@ class NormalizeTransform:
 ' TODO: implement flatten transform'
 
 
-class CutOffEdgesTransform:
+class PowerOfTwoTransform: #CutOffEdgesTransform:
     """
-    Transform class to cut off edges of images
-    (data cleaning: cut of edges - to get rid of problems with boundary conditions)
+    Transform class to reduce dimensionality to be a power of 2
+    (TODO ?? data cleaning: cut of edges - to get rid of problems with boundary conditions)
+    """
+    def __init__(self):
+        ...
+
+    def __call__(self, data_np):
+        # cut off edges of images with unpretty boundary conditions
+        # no problem? just exponential behaviour at boundaries??
+            
+        def po2(array, axis):
+            dim = array.shape[axis]
+            target = 2 ** int(np.log2(dim))
+            delta = (dim - target)//2
+
+            return np.take(array, range(delta, target+delta), axis=axis)
+        for axis in (1,2,3): # for axis width, length, depth
+            data_np = po2(data_np, axis)
+        return data_np
+        #return data_np[:,1:-1,1:-3,1:-1]
+
+class ReduceTo2DTransform:
+    """
+    Transform class to reduce data to 2D, reduce in x, in height of hp: x=8
     """
     def __init__(self):
         pass
 
-    def __call__(self, data_np):
-        # cut off edges of images with unpretty boundary conditions
-        # TODO later: get rid of BC problems otherwise??
-        # no problem? just exponential behaviour at boundaries??
-        return data_np[:,1:-1,1:-3,1:-1]
+    def __call__(self, data_np, x=8):
+        # reduce data to 2D
+        return data_np[:,x,:,:]
 
 class ComposeTransform:
     """Transform class that combines multiple other transforms into one"""
