@@ -78,6 +78,9 @@ class DataLoader:
         else:
             index_iterator = iter(range(len(self.dataset)))
 
+        # TODO AUFRUF DATASET KAPUTT
+        print("o",len(self.dataset[0]))
+
         batch = []
         for index in index_iterator:
             batch.append(self.dataset[index])
