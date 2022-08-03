@@ -90,7 +90,6 @@ class GWF_HP_Dataset(Dataset):
         self.output_vars = [self.time_final, output_vars]
         # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
         
-
     def select_split(self, data_paths, labels):
         """
         Depending on the mode of the dataset, deterministically split it.
@@ -192,8 +191,26 @@ class GWF_HP_Dataset(Dataset):
         y is a numpy array of shape CxHxWxD (C= output channels, HxWxD=spatial dimensions)
             """
         data_dict = {}
-        data_dict["x"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.input_vars))
-        data_dict["y"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.output_vars))
+        index_material_id = self.get_input_properties().index('Material_ID')
+        data_dict["x"], data_dict["x_mean"], data_dict["x_std"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.input_vars), index_material_id=index_material_id)
+        #print(f"test{data_dict['x_mean']}")
+        self.index_material_id = None
+        data_dict["y"], data_dict["y_mean"], data_dict["y_std"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.output_vars))
+        #data_dict["y_mean"] = self.transform.mean
+        #data_dict["y_std"] = self.transform.std
+        data_dict["run_id"] = self.runs[index]
+
+        return data_dict
+
+    def reverse_transform(self, index, x_mean=None, x_std=None, y_mean=None, y_std=None):
+        """
+        Reverse the transformation of the data.
+        """
+        data_dict = {}
+        index_material_id = self.get_input_properties().index('Material_ID')
+        data_dict["x"] = self.transform.reverse(self[index]["x"], mean=x_mean, std=x_std, index_material_id=index_material_id)
+        self.index_material_id = None
+        data_dict["y"] = self.transform.reverse(self[index]["y"], mean=y_mean, std=y_std)
         data_dict["run_id"] = self.runs[index]
 
         return data_dict
