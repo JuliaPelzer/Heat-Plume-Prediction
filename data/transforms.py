@@ -151,8 +151,6 @@ class ComposeTransform:
         for transform in self.transforms:
             data = transform(data, **kwargs)
             try:
-                #print(f"mean of transform {transform.mean}")
-                #print(f"std of transform {transform.std}")
                 self.mean = transform.mean
                 self.std = transform.std
             except:
