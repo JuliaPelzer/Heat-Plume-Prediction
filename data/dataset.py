@@ -193,11 +193,8 @@ class GWF_HP_Dataset(Dataset):
         data_dict = {}
         index_material_id = self.get_input_properties().index('Material_ID')
         data_dict["x"], data_dict["x_mean"], data_dict["x_std"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.input_vars), index_material_id=index_material_id)
-        #print(f"test{data_dict['x_mean']}")
         self.index_material_id = None
         data_dict["y"], data_dict["y_mean"], data_dict["y_std"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.output_vars))
-        #data_dict["y_mean"] = self.transform.mean
-        #data_dict["y_std"] = self.transform.std
         data_dict["run_id"] = self.runs[index]
 
         return data_dict
