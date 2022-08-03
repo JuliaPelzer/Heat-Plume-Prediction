@@ -9,6 +9,7 @@ from tqdm.auto import tqdm
 from typing import List
 
 from data.dataset import GWF_HP_Dataset
+import torch
 
 # TODO: look at vispy library for plotting 3D data
 
@@ -17,7 +18,7 @@ def aligned_colorbar(*args,**kwargs):
     cax = make_axes_locatable(plt.gca()).append_axes("right",size= 0.3,pad= 0.05)
     plt.colorbar(*args,cax=cax,**kwargs)
     
-def plot_datapoint(dataset : GWF_HP_Dataset, run_id : int, view="top", prefix="", plot_streamlines=False) -> None:
+def plot_datapoint(dataset : GWF_HP_Dataset, run_id : int, view="top", prefix="", plot_streamlines=False, oriented="center") -> None:
     """
     Plot all physical properties of one data point, depending on the `view` also with streamlines.. if they work at some time...
     
@@ -34,13 +35,24 @@ def plot_datapoint(dataset : GWF_HP_Dataset, run_id : int, view="top", prefix=""
     -------
         None
     """
-    n_dims = len(dataset.get_input_properties()) + len(dataset.get_output_properties())
-    n_subplots = n_dims + 1 if plot_streamlines else n_dims
-
+    property_names_in = dataset.get_input_properties()
+    property_names_out = dataset.get_output_properties()
     data = dataset[run_id]
+
+    plot_data_inner(data=data, property_names_in=property_names_in, property_names_out=property_names_out, run_id=run_id, view=view, plot_streamlines=plot_streamlines, oriented=oriented)
+
+def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str], property_names_out : List[str], run_id=42, view="top", plot_streamlines=False, oriented="center") -> None:
+    # function excluded to also be able to plot the reversed dataset, #TODO make reversing cleaner so this step is unnecessary
     index_overall = 0
+    n_dims = len(property_names_in) + len(property_names_out)
+    n_subplots = n_dims + 1 if plot_streamlines else n_dims
+    
     fig, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(20,3*(n_subplots)))
 
+    if oriented=="center":
+        cut_x_hp = 7
+    elif oriented=="left":
+        cut_x_hp = 9
     # dictionary of all potential views with respective labels and positions where to slice the data 
     view_dict = {
         "top": {
@@ -52,7 +64,7 @@ def plot_datapoint(dataset : GWF_HP_Dataset, run_id : int, view="top", prefix=""
         "top_hp": {
             "x_label": "y",
             "y_label": "x",
-            "cut_slice": np.s_[:,:,8],
+            "cut_slice": np.s_[:,:,9], #8
             "transpose" : False
         },
         "topish": {
@@ -64,13 +76,15 @@ def plot_datapoint(dataset : GWF_HP_Dataset, run_id : int, view="top", prefix=""
         "side": {
             "x_label": "y",
             "y_label": "z",
-            "cut_slice": np.s_[11,:,::-1],
+            "cut_slice": np.s_[11,:,:], # Tensor
+            # Numpy: "cut_slice": np.s_[11,:,::-1]
             "transpose" : True
         },
         "side_hp": {
             "x_label": "y",
             "y_label": "z",
-            "cut_slice": np.s_[8,:,::-1],
+            "cut_slice": np.s_[cut_x_hp,:,:], # Tensor
+            # Numpy: "cut_slice": np.s_[9,:,::-1],
             "transpose" : True
         }
     }
@@ -98,7 +112,6 @@ def plot_datapoint(dataset : GWF_HP_Dataset, run_id : int, view="top", prefix=""
         for channel in np.arange(len(data)):
             plt.sca(axes[index_overall])
             field = data[channel, :, :, :]
-
             if len(field.shape) != 3:
                 raise ValueError("Data is not 3D")
 
@@ -118,9 +131,10 @@ def plot_datapoint(dataset : GWF_HP_Dataset, run_id : int, view="top", prefix=""
 
             aligned_colorbar(label=property_names[channel])
             index_overall += 1
-        
-    plot_properties(data['x'], property_names=dataset.get_input_properties(), prefix = "Input ")
-    plot_properties(data['y'], property_names=dataset.get_output_properties(), prefix = "Output ")
+            #print(torch.mean(field), torch.std(field))
+    
+    plot_properties(data['x'], property_names=property_names_in, prefix = "Input ")
+    plot_properties(data['y'], property_names=property_names_out, prefix = "Output ")
 
     #streamlines
     if plot_streamlines:
@@ -170,6 +184,7 @@ def plot_datapoint(dataset : GWF_HP_Dataset, run_id : int, view="top", prefix=""
     else:
         title_extension = ""
     plt.savefig(f"visualization/pics/plot_phys_props{title_extension}_RUN_{run_id}_VIEW_{view}.jpg")
+
 
 ## helper to find inlet, outlet alias max and min Material_ID
 # print(np.where(data["Material_ID"]==np.max(data["Material_ID"])))
