@@ -5,7 +5,7 @@ import torch.nn as nn
 
 class UNet(nn.Module):
     def __init__(self, in_channels=2, out_channels=1, init_features=32):
-        super(UNet, self).__init__()
+        super().__init__()
 
         features = init_features
         self.encoder1 = UNet._block(in_channels, features, name="enc1")
@@ -32,6 +32,7 @@ class UNet(nn.Module):
         self.conv = nn.Conv2d(in_channels=features, out_channels=out_channels, kernel_size=1)
 
     def forward(self, x):
+        # print("forw", x.shape, x.dtype, self.encoder1(x).dtype)
         enc1 = self.encoder1(x)
         enc2 = self.encoder2(self.pool1(enc1))
         enc3 = self.encoder3(self.pool2(enc2))
@@ -58,6 +59,7 @@ class UNet(nn.Module):
 
     @staticmethod
     def _block(in_channels, features, name):
+        #print("unet-block ", name, ": ", in_channels, features)
         return nn.Sequential(
             OrderedDict(
                 [

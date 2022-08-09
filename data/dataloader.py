@@ -1,7 +1,7 @@
 """Definition of Dataloader"""
 
 import numpy as np
-from torch import Tensor
+from torch import Tensor, stack
 
 
 class DataLoader:
@@ -26,6 +26,9 @@ class DataLoader:
         self.drop_last = drop_last
 
     def __iter__(self):
+        """
+        Returns the next batch of data with keywords like run_id, x, x_mean, y, ...; each referring to a
+            Tensor with the shape of (batch_size, channels, H, W, (D))"""
         def combine_batch_dicts(batch):
             """
             Combines a given batch (list of dicts) to a dict of numpy arrays
@@ -41,8 +44,8 @@ class DataLoader:
                         batch_dict[key] = []
                     batch_dict[key].append(value)
                     #print(key, value.shape)
-                    #if key=="run_id":
-                    #    print(value)
+                    # if key=="run_id":
+                    #     print(value)
             return batch_dict
 
         def run_id_to_int(run_id):
@@ -61,15 +64,27 @@ class DataLoader:
             return numpy_batch
 
         def batch_to_tensor(batch):
+            """
+            Returns a dict of tensors with keywords like run_id, x, x_mean, y, ...
+            Tensor has the shape of (batch_size, C, H, W, (D))"""
             """Transform all values of the given batch dict to tensors"""
             tensor_batch = {}
-            for key, value in batch.items():
-                if key=="run_id":
-                    tensor_batch[key] = Tensor([run_id_to_int(id) for id in value])
-                else:
-                    tensor_batch[key] = Tensor(value)
-                #print(value, value[0].shape)
-                #print(tensor_batch[key].shape)
+            for key, values in batch.items():
+                if key=="run_id": # expects the value to not be a Tensor and therefore needs to be converted to one
+                    #print("run id", key, values)
+                    #if not isinstance(values, Tensor):
+                    tensor_batch[key] = Tensor([run_id_to_int(id) for id in values]).float()
+                    #print("wuuop")
+                    #print(tensor_batch[key])
+                else: # expects the value to be a Tensor and therefore does not need to be converted to one
+                    values = stack([value for value in values])
+                    #print("before", key, values.shape, values.dtype)
+                    if not isinstance(values, Tensor):
+                        print("careful: not a tensor so far - but don't worry, I'll take care of it")
+                        tensor_batch[key] = Tensor(values)
+                    else:
+                        tensor_batch[key] = values
+            #print("after ", len(tensor_batch), tensor_batch["x"].shape, tensor_batch["x"].dtype)
             return tensor_batch
 
 
@@ -78,18 +93,17 @@ class DataLoader:
         else:
             index_iterator = iter(range(len(self.dataset)))
 
-        # TODO AUFRUF DATASET KAPUTT
-        print("o",len(self.dataset[0]))
-
         batch = []
         for index in index_iterator:
             batch.append(self.dataset[index])
+            #print(len(batch), batch[0]["x"].shape, batch[0]["x"].dtype)
             if len(batch) == self.batch_size:
                 yield batch_to_tensor(combine_batch_dicts(batch))
                 batch = []
 
         if len(batch) > 0 and not self.drop_last:
             yield batch_to_tensor(combine_batch_dicts(batch))
+        
 
 
     def __len__(self):
