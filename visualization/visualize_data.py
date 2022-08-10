@@ -185,6 +185,54 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
         title_extension = ""
     plt.savefig(f"visualization/pics/plot_phys_props{title_extension}_RUN_{run_id}_VIEW_{view}.jpg")
 
+def slice_y(y, property):
+    property = 0 if property == "temperature" else property #1
+    return y.detach().numpy()[0,property,:,:]
+
+def plot_y(data, name_pic="plot_y_exemplary"):
+    n_subplots = len(data)
+    fig, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(20,3*(n_subplots)))
+    plt.title("Exemplary Comparison Input Output")
+    
+    for index, data_point in enumerate(data):
+        plt.sca(axes[index])
+        plt.imshow(slice_y(data_point["data"], data_point["property"]).T)
+        aligned_colorbar(label=data_point["property"])
+
+    plt.savefig(f"visualization/pics/{name_pic}.jpg")
+
+def plot_exemplary_learned_result(model, dataloaders, name_pic="plot_y_exemplary"):
+    """not pretty but functional to get a first glimpse of how y_out looks compared to y_truth"""
+
+    for data in dataloaders["train"]:
+        x_exemplary = data["x"].float()
+        y_true_exemplary = data["y"].float()
+        y_out_exemplary = model(x_exemplary)
+        # writer.add_image("y_out_test_0", y_out_test[0,0,:,:], dataformats="WH", global_step=0)
+        # writer.add_image("y_true_test_0", y_true_test[0,0,:,:], dataformats="WH", global_step=0)
+        # 
+        # mse_loss = loss_fn(y_out_test, y_true_test)
+        # loss = mse_loss
+        # 
+        # writer.add_scalar("loss", loss.item(), 0)
+        break
+
+    def make_dict(data, property):
+        dict = {"data" : data, "property" : property}
+        return dict
+
+    list_to_plot = [
+        make_dict(y_true_exemplary, "temperature"),
+        make_dict(y_out_exemplary, "temperature"),
+        make_dict(x_exemplary, 0),
+        make_dict(x_exemplary, 1),
+        make_dict(x_exemplary, 2),
+        make_dict(x_exemplary, 3),
+        make_dict(x_exemplary, 4)
+    ]
+
+    plot_y(list_to_plot, name_pic=name_pic)
+
 
 ## helper to find inlet, outlet alias max and min Material_ID
 # print(np.where(data["Material_ID"]==np.max(data["Material_ID"])))
