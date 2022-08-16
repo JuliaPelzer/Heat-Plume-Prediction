@@ -70,8 +70,10 @@ class NormalizeTransform:
         # manual shift of material IDs  TODO change this in pflotran file!! not here
         if index_material_id:
             data[index_material_id,:,:,:] -= 1
-        mask = data[index_material_id,:,:,:] == 2
-        data[index_material_id,:,:,:][mask] = -1
+
+            # only required, if extraction well (with ID=3) exists
+            mask = data[index_material_id,:,:,:] == 2
+            data[index_material_id,:,:,:][mask] = -1
             
         # calc mean, std per channel then normalize data to mean and std, including broadcasting
         self.mean = data.mean(dim=(1, 2, 3), keepdim=True)
@@ -88,6 +90,8 @@ class NormalizeTransform:
         # manual shift of material IDs  TODO change this in pflotran file!! not here
         if index_material_id:
             mask = data[index_material_id,:,:,:] == -1
+
+            # only required, if extraction well (with ID=3) exists
             data[index_material_id,:,:,:][mask] = 2
             data[index_material_id,:,:,:] += 1
 
