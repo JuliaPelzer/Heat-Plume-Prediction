@@ -123,6 +123,8 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
             # plot field, if view_dict transpose is true, transpose the field
             if view_dict[view]["transpose"]:
                 plt.imshow(field[view_dict[view]["cut_slice"]].T)
+                plt.gca().invert_yaxis()
+
             else:
                 plt.imshow(field[view_dict[view]["cut_slice"]])
             
@@ -196,11 +198,25 @@ def plot_y(data, name_pic="plot_y_exemplary"):
     
     for index, data_point in enumerate(data):
         plt.sca(axes[index])
-        plt.imshow(slice_y(data_point["data"], data_point["property"]).T)
+        plt.imshow(data_point["data"], data_point["index"].T)
         aligned_colorbar(label=data_point["property"])
 
     plt.savefig(f"visualization/pics/{name_pic}.jpg")
 
+def make_dict(data, property):
+    dict = {"data" : data, "property" : property}
+    if property == "temperature" or property == "y-velocity":
+        dict["index"] = 0
+    elif property == "z-velocity":
+        dict["index"] = 1
+    elif property == "pressure":
+        dict["index"] = 2
+    elif property == "hp location":
+        dict["index"] = 3
+    elif property == "init temperature":
+        dict["index"] = 4
+    return dict
+    
 def plot_exemplary_learned_result(model, dataloaders, name_pic="plot_y_exemplary"):
     """not pretty but functional to get a first glimpse of how y_out looks compared to y_truth"""
 
@@ -217,18 +233,14 @@ def plot_exemplary_learned_result(model, dataloaders, name_pic="plot_y_exemplary
         # writer.add_scalar("loss", loss.item(), 0)
         break
 
-    def make_dict(data, property):
-        dict = {"data" : data, "property" : property}
-        return dict
-
     list_to_plot = [
         make_dict(y_true_exemplary, "temperature"),
         make_dict(y_out_exemplary, "temperature"),
-        make_dict(x_exemplary, 0),
-        make_dict(x_exemplary, 1),
-        make_dict(x_exemplary, 2),
-        make_dict(x_exemplary, 3),
-        make_dict(x_exemplary, 4)
+        make_dict(x_exemplary, "y_velocity"),
+        make_dict(x_exemplary, "z_velocity"),
+        make_dict(x_exemplary, "pressure"),
+        make_dict(x_exemplary, "hp location"),
+        make_dict(x_exemplary, "init temperature"),
     ]
 
     plot_y(list_to_plot, name_pic=name_pic)
