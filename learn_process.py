@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # create and directly split dataset into train, val, test
-def init_data(reduce_to_2D = True, overfit = False, normalize=True, dataset_name="dataset_HDF5_testtest", batch_size=100):
+def init_data(reduce_to_2D = True, overfit = False, normalize=True, dataset_name="approach2_dataset_generation_simplified/dataset_HDF5_testtest", batch_size=100):
     """
     Initialize dataset and dataloader for training.
 
