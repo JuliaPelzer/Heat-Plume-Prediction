@@ -63,7 +63,7 @@ class GWF_HP_Dataset(Dataset):
     GWF_HP_Dataset of size NxCxHxWxD
     """
     def __init__(self, dataset_name="dataset_HDF5_testtest",
-                 dataset_path="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/approach2_dataset_generation_simplified",
+                 dataset_path="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth",
                  transform=None,
                  mode="train", split={'train': 0.6, 'val': 0.2, 'test': 0.2},
                  input_vars=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
@@ -137,7 +137,8 @@ class GWF_HP_Dataset(Dataset):
         """
         directory = self.dataset_path
         data_paths, runs = [], []
-
+        found_dataset = False
+    
         print(f"Directory of currently used dataset is: {directory}")
         for _, folders, _ in os.walk(directory):
             for folder in folders:
@@ -145,10 +146,13 @@ class GWF_HP_Dataset(Dataset):
                     if file.endswith(".h5"):
                         data_paths.append(os.path.join(directory, folder, file))
                         runs.append(folder)
+                        found_dataset = True
         # Sort the data and runs in ascending order
         data_paths, runs = (list(t) for t in zip(*sorted(zip(data_paths, runs))))
         data_paths, runs = self.select_split(data_paths, runs)
-
+        
+        if not found_dataset:
+            raise ValueError("No dataset found")
         assert len(data_paths) == len(runs)
         return data_paths, runs
 
@@ -192,9 +196,14 @@ class GWF_HP_Dataset(Dataset):
             """
         data_dict = {}
         index_material_id = self.get_input_properties().index('Material_ID')
-        data_dict["x"], data_dict["x_mean"], data_dict["x_std"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.input_vars), index_material_id=index_material_id)
-        self.index_material_id = None
-        data_dict["y"], data_dict["y_mean"], data_dict["y_std"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.output_vars))
+        try:
+            data_dict["x"], data_dict["x_mean"], data_dict["x_std"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.input_vars), index_material_id=index_material_id)
+            self.index_material_id = None
+            data_dict["y"], data_dict["y_mean"], data_dict["y_std"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.output_vars))
+        except Exception as e:
+            print("no transforms applied")
+            data_dict["x"] = self.load_data_as_numpy(self.data_paths[index], self.input_vars)
+            data_dict["y"] = self.load_data_as_numpy(self.data_paths[index], self.output_vars)
         data_dict["run_id"] = self.runs[index]
 
         return data_dict

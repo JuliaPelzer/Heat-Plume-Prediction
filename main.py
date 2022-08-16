@@ -3,7 +3,7 @@ from torch.nn import MSELoss
 import learn_process as lp
 from networks.unet_leiterrl import TurbNetG, UNet
 from networks.dummy_network import DummyNet
-from visualization.visualize_data import plot_exemplary_learned_result
+import visualization.visualize_data as vis
 
 # parameters of model and training
 loss_fn = MSELoss()
@@ -24,6 +24,6 @@ datasets_2D, dataloaders_2D = lp.init_data(reduce_to_2D=True, overfit=True)
 # train model
 lp.train_model(unet_model, dataloaders_2D, loss_fn, n_epochs, lr)
 # visualize results, pic in folder visualization/pics under plot_y_exemplary
-plot_exemplary_learned_result(unet_model, dataloaders_2D, name_pic="plot_y_exemplary")
+vis.plot_exemplary_learned_result(unet_model, dataloaders_2D, name_pic="plot_y_exemplary")
 
 # print(dataloaders_2D["train"].dataset[0]['x'].shape)
