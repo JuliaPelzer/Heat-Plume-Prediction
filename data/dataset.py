@@ -5,12 +5,10 @@ Dataset Class
 from abc import ABC, abstractmethod
 
 import os
-import pickle
-
 import numpy as np
 import h5py
-
 from typing import List
+import logging
 
 
 class Dataset(ABC):
@@ -62,7 +60,7 @@ class GWF_HP_Dataset(Dataset):
     -------
     GWF_HP_Dataset of size NxCxHxWxD
     """
-    def __init__(self, dataset_name="dataset_HDF5_testtest",
+    def __init__(self, dataset_name="approach2_dataset_generation_simplified/dataset_HDF5_testtest",
                  dataset_path="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth",
                  transform=None,
                  mode="train", split={'train': 0.6, 'val': 0.2, 'test': 0.2},
@@ -72,7 +70,7 @@ class GWF_HP_Dataset(Dataset):
                  **kwargs)-> Dataset:
         super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         assert mode in ["train", "val", "test"], "wrong mode for dataset given"
-
+        
         self.mode = mode
         self.split = split
         self.transform = transform
@@ -139,7 +137,7 @@ class GWF_HP_Dataset(Dataset):
         data_paths, runs = [], []
         found_dataset = False
     
-        print(f"Directory of currently used dataset is: {directory}")
+        logging.info(f"Directory of currently used dataset is: {directory}")
         for _, folders, _ in os.walk(directory):
             for folder in folders:
                 for file in os.listdir(os.path.join(directory, folder)):
@@ -201,7 +199,7 @@ class GWF_HP_Dataset(Dataset):
             self.index_material_id = None
             data_dict["y"], data_dict["y_mean"], data_dict["y_std"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.output_vars))
         except Exception as e:
-            print("no transforms applied")
+            logging.info("no transforms applied")
             data_dict["x"] = self.load_data_as_numpy(self.data_paths[index], self.input_vars)
             data_dict["y"] = self.load_data_as_numpy(self.data_paths[index], self.output_vars)
         data_dict["run_id"] = self.runs[index]

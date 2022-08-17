@@ -10,7 +10,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # create and directly split dataset into train, val, test
-def init_data(reduce_to_2D = True, overfit = False, normalize=True, dataset_name="approach2_dataset_generation_simplified/dataset_HDF5_testtest", batch_size=100):
+def init_data(reduce_to_2D = True, overfit = False, normalize=True, just_plotting=False, batch_size=100,
+            dataset_name="approach2_dataset_generation_simplified/dataset_HDF5_testtest", path_to_datasets="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth"):
     """
     Initialize dataset and dataloader for training.
 
@@ -45,9 +46,14 @@ def init_data(reduce_to_2D = True, overfit = False, normalize=True, dataset_name
     transforms = ComposeTransform(transforms_list)
     split = {'train': 0.6, 'val': 0.2, 'test': 0.2} if not overfit else {'train': 0.2, 'val': 0.2, 'test': 0.6}
     
+    # just plotting (for Marius)
+    if just_plotting:
+        split = {'train': 1, 'val': 0, 'test': 0}
+        transforms = None
+
     for mode in ['train', 'val', 'test']:
         temp_dataset = GWF_HP_Dataset(
-            dataset_name =dataset_name, transform = transforms,
+            dataset_name =dataset_name, dataset_path=path_to_datasets, transform = transforms,
             input_vars=["Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]",  #"Liquid X-Velocity [m_per_y]",
             "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"],
             output_vars=["Temperature [C]"], #. "Liquid_Pressure [Pa]"

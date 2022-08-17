@@ -181,11 +181,14 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
         #    
         #plt.show()
 
+    pic_file_name = "visualization/pics/plot_phys_props"
     if plot_streamlines:
-        title_extension = "_with_streamlines"
-    else:
-        title_extension = ""
-    plt.savefig(f"visualization/pics/plot_phys_props{title_extension}_RUN_{run_id}_VIEW_{view}.jpg")
+        pic_file_name += "_with_streamlines"
+    if run_id:
+        pic_file_name += "_RUN_" + str(run_id)
+    pic_file_name += "_VIEW_" + view + ".jpg"
+    print(f"Resulting picture is at {pic_file_name}")
+    plt.savefig(pic_file_name)
 
 def slice_y(y, property):
     property = 0 if property == "temperature" else property #1
