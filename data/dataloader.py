@@ -1,7 +1,8 @@
-"""Definition of Dataloader"""
+"""Definition of Dataloader class"""
 
 import numpy as np
 from torch import Tensor, stack
+import logging
 
 
 class DataLoader:
@@ -43,9 +44,6 @@ class DataLoader:
                     if key not in batch_dict:
                         batch_dict[key] = []
                     batch_dict[key].append(value)
-                    #print(key, value.shape)
-                    # if key=="run_id":
-                    #     print(value)
             return batch_dict
 
         def run_id_to_int(run_id):
@@ -56,12 +54,12 @@ class DataLoader:
             """
             return int(run_id.split("_")[-1])
 
-        def batch_to_numpy(batch):
-            """Transform all values of the given batch dict to numpy arrays"""
-            numpy_batch = {}
-            for key, value in batch.items():
-                numpy_batch[key] = np.array(value)
-            return numpy_batch
+        # def batch_to_numpy(batch):
+        #     """Transform all values of the given batch dict to numpy arrays"""
+        #     numpy_batch = {}
+        #     for key, value in batch.items():
+        #         numpy_batch[key] = np.array(value)
+        #     return numpy_batch
 
         def batch_to_tensor(batch):
             """
@@ -71,20 +69,22 @@ class DataLoader:
             tensor_batch = {}
             for key, values in batch.items():
                 if key=="run_id": # expects the value to not be a Tensor and therefore needs to be converted to one
-                    #print("run id", key, values)
                     #if not isinstance(values, Tensor):
                     tensor_batch[key] = Tensor([run_id_to_int(id) for id in values]).float()
-                    #print("wuuop")
-                    #print(tensor_batch[key])
                 else: # expects the value to be a Tensor and therefore does not need to be converted to one
-                    values = stack([value for value in values])
-                    #print("before", key, values.shape, values.dtype)
+                    try:
+                        values = stack([value for value in values])
+                    except:
+                        # values contains only one element
+                        logging.info("Values contains only one element?")
+                        values = values[0]
+
                     if not isinstance(values, Tensor):
-                        print("careful: not a tensor so far - but don't worry, I'll take care of it")
+                        logging.info("careful: not a tensor so far - but don't worry, I'll take care of it")
                         tensor_batch[key] = Tensor(values)
                     else:
                         tensor_batch[key] = values
-            #print("after ", len(tensor_batch), tensor_batch["x"].shape, tensor_batch["x"].dtype)
+            # print("after ", len(tensor_batch), tensor_batch["x"].shape, tensor_batch["x"].dtype)
             return tensor_batch
 
 
@@ -96,7 +96,6 @@ class DataLoader:
         batch = []
         for index in index_iterator:
             batch.append(self.dataset[index])
-            #print(len(batch), batch[0]["x"].shape, batch[0]["x"].dtype)
             if len(batch) == self.batch_size:
                 yield batch_to_tensor(combine_batch_dicts(batch))
                 batch = []
@@ -104,7 +103,6 @@ class DataLoader:
         if len(batch) > 0 and not self.drop_last:
             yield batch_to_tensor(combine_batch_dicts(batch))
         
-
 
     def __len__(self):
         """

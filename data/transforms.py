@@ -18,7 +18,7 @@ def compute_data_max_and_min(data):
     # Calculate the per-channel max and min of the data
     max = np.max(data, axis=(1,2,3), keepdims=True)
     min = np.min(data, axis=(1,2,3), keepdims=True)
-    
+
     return max, min
     
 class RescaleTransform:
@@ -55,7 +55,7 @@ class NormalizeTransform:
             then normalize each image channel separately
     """
 
-    def __init__(self):
+    def __init__(self, reduced_to_2D=False):
         """
         :param mean: mean of data to be normalized
             can be a single value, or a numpy array of size C
@@ -64,21 +64,51 @@ class NormalizeTransform:
         """
         self.mean = None
         self.std = None
+        self.reduced_to_2D = reduced_to_2D
 
     def __call__(self, data, index_material_id=None):
-
         # manual shift of material IDs  TODO change this in pflotran file!! not here
-        if index_material_id:
-            data[index_material_id,:,:,:] -= 1
+        if self.reduced_to_2D:
+            if index_material_id:
+                data[index_material_id,:,:] -= 1
+                # only required, if extraction well (with ID=3) exists
+                mask = data[index_material_id,:,:] == 2
+                data[index_material_id,:,:][mask] = -1
+        else:
+            if index_material_id:
+                data[index_material_id,:,:,:] -= 1
+                # only required, if extraction well (with ID=3) exists
+                mask = data[index_material_id,:,:,:] == 2
+                data[index_material_id,:,:,:][mask] = -1
 
-            # only required, if extraction well (with ID=3) exists
-            mask = data[index_material_id,:,:,:] == 2
-            data[index_material_id,:,:,:][mask] = -1
-            
-        # calc mean, std per channel then normalize data to mean and std, including broadcasting
-        self.mean = data.mean(dim=(1, 2, 3), keepdim=True)
-        self.std = data.std(dim=(1, 2, 3), keepdim=True)
+        bool_just_one_input=False
+        # ugly workaround for just one input variable
+        if data.shape[0] == 1: # if only one input variable like Material_ID
+            bool_just_one_input = True
+            temp_zeros = torch.zeros(data.shape)
+            data = torch.cat([data, temp_zeros], dim=0)
+
+        if self.reduced_to_2D:
+            # calc mean, std per channel then normalize data to mean and std, including broadcasting
+            self.mean = data.mean(dim=(1, 2), keepdim=True)
+            self.std = data.std(dim=(1, 2), keepdim=True)
+        else:
+            # calc mean, std per channel then normalize data to mean and std, including broadcasting
+            self.mean = data.mean(dim=(1, 2, 3), keepdim=True)
+            self.std = data.std(dim=(1, 2, 3), keepdim=True)
+        
+        # ugly workaround for just one input variable
+        if bool_just_one_input:
+            self.mean = torch.tensor_split(self.mean, 2)[0]
+            self.std = torch.tensor_split(self.std, 2)[0]
+            data = torch.tensor_split(data, 2)[0]
+        
         data = Normalize(self.mean, self.std, inplace=True)(data)
+        # assert if rounded value of mean is not 0
+
+        assert torch.abs(torch.round(data.mean(dim=(0,1,2)),decimals=12)) == 0
+        assert torch.abs(torch.round(data.std(dim=(0,1,2)),decimals=12)) <= 1
+        assert torch.abs(torch.round(data.std(dim=(0,1,2)),decimals=12)) >= 0.999
         return data
 
     def reverse(self, data, mean=None, std=None, index_material_id=None):
@@ -88,12 +118,20 @@ class NormalizeTransform:
         #TODO why is data numpy format??
         
         # manual shift of material IDs  TODO change this in pflotran file!! not here
-        if index_material_id:
-            mask = data[index_material_id,:,:,:] == -1
+        if self.reduced_to_2D:
+            if index_material_id:
+                mask = data[index_material_id,:,:] == -1
 
-            # only required, if extraction well (with ID=3) exists
-            data[index_material_id,:,:,:][mask] = 2
-            data[index_material_id,:,:,:] += 1
+                # only required, if extraction well (with ID=3) exists
+                data[index_material_id,:,:][mask] = 2
+                data[index_material_id,:,:] += 1
+        else:
+            if index_material_id:
+                mask = data[index_material_id,:,:,:] == -1
+
+                # only required, if extraction well (with ID=3) exists
+                data[index_material_id,:,:,:][mask] = 2
+                data[index_material_id,:,:,:] += 1
 
         return data #, data.mean(dim=(1, 2, 3), keepdim=True), data.std(dim=(1, 2, 3), keepdim=True)
 
@@ -102,13 +140,13 @@ class PowerOfTwoTransform: #CutOffEdgesTransform:
     Transform class to reduce dimensionality to be a power of 2
     (TODO ?? data cleaning: cut of edges - to get rid of problems with boundary conditions)
         # cut off edges of images with unpretty boundary conditions
-        # problem: "exponential" behaviour at boundaries??
+        # problem?: "exponential" behaviour at boundaries??
     """
     def __init__(self, oriented="center"):
         self.orientation = oriented
 
-    def __call__(self, data_np, **kwargs):
-
+    def __call__(self, data, **kwargs):
+        
         def po2(array, axis):
             dim = array.shape[axis]
             target = 2 ** int(np.log2(dim))
@@ -118,21 +156,29 @@ class PowerOfTwoTransform: #CutOffEdgesTransform:
             elif self.orientation == "left": # cut off only from right
                 result = np.take(array, range(0, target), axis=axis)
             return result
+        
         for axis in (1,2,3): # for axis width, length, depth
-            data_np = po2(data_np, axis)
-        return data_np
+            data = po2(data, axis)
+
+        return data
         #return data_np[:,1:-1,1:-3,1:-1]
 
 class ReduceTo2DTransform:
     """
-    Transform class to reduce data to 2D, reduce in x, in height of hp: x=8
+    Transform class to reduce data to 2D, reduce in x, in height of hp: x=7 (if after Normalize)
+    #TODO still np?
     """
-    def __init__(self):
-        pass
+    def __init__(self, reduce_to_2D_wrong=False):
+        # if reduce_to_2D_wrong then the data will still be reduced to 2D but in x,y dimension instead of y,z
+        self.reduce_to_2D_wrong = reduce_to_2D_wrong
 
-    def __call__(self, data_np, x=7, **kwargs):
+    def __call__(self, data, x=9, **kwargs):
         # reduce data to 2D
-        return data_np[:,x,:,:]
+        if self.reduce_to_2D_wrong:
+            x = 9
+            data.transpose_(1,3)
+        
+        return data[:,x,:,:]
 
 class ToTensorTransform:
     """Transform class to convert np.array-data to torch.Tensor"""

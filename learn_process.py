@@ -3,6 +3,7 @@ from data.dataloader import DataLoader
 from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, PowerOfTwoTransform, ToTensorTransform
 from networks.unet_leiterrl import weights_init
 from tqdm.auto import tqdm
+import logging
 
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
@@ -10,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # create and directly split dataset into train, val, test
-def init_data(reduce_to_2D = True, overfit = False, normalize=True, just_plotting=False, batch_size=100,
+def init_data(reduce_to_2D = True, reduce_to_2D_wrong = False, overfit = False, normalize=True, just_plotting=False, batch_size=100, inputs="all",
             dataset_name="approach2_dataset_generation_simplified/dataset_HDF5_testtest", path_to_datasets="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth"):
     """
     Initialize dataset and dataloader for training.
@@ -38,24 +39,40 @@ def init_data(reduce_to_2D = True, overfit = False, normalize=True, just_plottin
     
     datasets = {}
     transforms_list = [ToTensorTransform(), PowerOfTwoTransform(oriented="left")]
-    if normalize:
-        transforms_list.append(NormalizeTransform())
     if reduce_to_2D:
-        transforms_list.append(ReduceTo2DTransform())
+        transforms_list.append(ReduceTo2DTransform(reduce_to_2D_wrong=reduce_to_2D_wrong))
+    if normalize:
+        transforms_list.append(NormalizeTransform(reduced_to_2D=reduce_to_2D))
+    logging.info(f"transforms_list: {transforms_list}")
+
 
     transforms = ComposeTransform(transforms_list)
-    split = {'train': 0.6, 'val': 0.2, 'test': 0.2} if not overfit else {'train': 0.2, 'val': 0.2, 'test': 0.6}
+    split = {'train': 0.6, 'val': 0.2, 'test': 0.2} if not overfit else {'train': 1, 'val': 0, 'test': 0}
     
     # just plotting (for Marius)
     if just_plotting:
         split = {'train': 1, 'val': 0, 'test': 0}
         transforms = None
 
+    input_list = [inputs[i] for i in range(len(inputs))]
+    input_vars = []
+    if 'x' in input_list:
+        input_vars.append("Liquid X-Velocity [m_per_y]")
+    if 'y' in input_list:
+        input_vars.append("Liquid Y-Velocity [m_per_y]")
+    if 'z' in input_list:
+        input_vars.append("Liquid Z-Velocity [m_per_y]")
+    if 'p' in input_list:
+        input_vars.append("Liquid_Pressure [Pa]")
+    if 't' in input_list:
+        input_vars.append("Temperature [C]")
+    #if '-' not in input_list:
+    input_vars.append("Material_ID")
+
     for mode in ['train', 'val', 'test']:
         temp_dataset = GWF_HP_Dataset(
             dataset_name =dataset_name, dataset_path=path_to_datasets, transform = transforms,
-            input_vars=["Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]",  #"Liquid X-Velocity [m_per_y]",
-            "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"],
+            input_vars=input_vars,
             output_vars=["Temperature [C]"], #. "Liquid_Pressure [Pa]"
             mode=mode, split=split
         )
@@ -84,7 +101,7 @@ def init_data(reduce_to_2D = True, overfit = False, normalize=True, just_plottin
 
     return datasets, dataloaders
 
-def train_model(model, dataloaders, loss_fn, n_epochs, lr):
+def train_model(model, dataloaders, loss_fn, n_epochs, lr, name_folder, debugging=False):
     """
     Train the model for a certain number of epochs.
         
@@ -100,12 +117,19 @@ def train_model(model, dataloaders, loss_fn, n_epochs, lr):
         Number of epochs to train for
     lr : float
         Learning rate to use
+
+    Returns
+    -------
+        model : torch.nn.Module
+            Trained model, ready to be applied to data;
+            returns data in format of (Batch_id, channel_id, H, W)
     """
 
     # initialize Adam optimizer
     optimizer = Adam(model.parameters(), lr=lr) 
     # initialize tensorboard
-    writer = SummaryWriter()
+    if not debugging:
+        writer = SummaryWriter(f"runs/{name_folder}")
     loss_hist = []
     
     model.apply(weights_init)
@@ -128,17 +152,22 @@ def train_model(model, dataloaders, loss_fn, n_epochs, lr):
             epochs.set_postfix_str(f"loss: {loss.item():.4f}")
 
             loss_hist.append(loss.item())
-            writer.add_scalar("loss", loss.item(), epoch*len(dataloaders["train"])+batch_idx)
-            writer.add_image("y_out_0", y_out[0,0,:,:], dataformats="WH", global_step=epoch*len(dataloaders["train"])+batch_idx)
-            #writer.add_image("y_out_1", y_out[0,1,:,:], dataformats="WH")
+            if not debugging:
+                writer.add_scalar("loss", loss.item(), epoch*len(dataloaders["train"])+batch_idx)
+                writer.add_image("y_out_0", y_out[0,0,:,:], dataformats="WH", global_step=epoch*len(dataloaders["train"])+batch_idx)
+                #writer.add_image("y_out_1", y_out[0,1,:,:], dataformats="WH")
 
-        writer.add_image("x_0", x[0,0,:,:], dataformats="WH")
-        # writer.add_image("x_1", x[0,1,:,:], dataformats="WH")
-        # writer.add_image("x_2", x[0,2,:,:], dataformats="WH")
-        # writer.add_image("x_3", x[0,3,:,:], dataformats="WH")
-        # writer.add_image("x_4", x[0,4,:,:], dataformats="WH")
-        # writer.add_image("y_0", y[0,0,:,:], dataformats="WH")
-        # #writer.add_image("y_1", y[0,1,:,:], dataformats="WH")
+        if not debugging:
+            writer.add_image("x_0", x[0,0,:,:], dataformats="WH")
+            # writer.add_image("x_1", x[0,1,:,:], dataformats="WH")
+            # writer.add_image("x_2", x[0,2,:,:], dataformats="WH")
+            # writer.add_image("x_3", x[0,3,:,:], dataformats="WH")
+            # writer.add_image("x_4", x[0,4,:,:], dataformats="WH")
+            # writer.add_image("y_0", y[0,0,:,:], dataformats="WH")
+            # #writer.add_image("y_1", y[0,1,:,:], dataformats="WH")
 
-    #writer.add_graph(model, x)
+    # if not debugging:
+    #     writer.add_graph(model, x)
     print('Finished Training')
+
+    return loss_hist
