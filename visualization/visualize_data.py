@@ -190,35 +190,27 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
     print(f"Resulting picture is at {pic_file_name}")
     plt.savefig(pic_file_name)
 
-def slice_y(y, property):
-    property = 0 if property == "temperature" else property #1
-    return y.detach().numpy()[0,property,:,:]
+# def slice_y(y, property):
+#     property = 0 if property == "temperature" else property #1
+#     return y.detach().numpy()[0,property,:,:]
 
 def plot_y(data, name_pic="plot_y_exemplary"):
     n_subplots = len(data)
     fig, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(20,3*(n_subplots)))
-    plt.title("Exemplary Comparison Input Output")
+    #plt.title("Exemplary Comparison Input Output")
     
     for index, data_point in enumerate(data):
         plt.sca(axes[index])
-        plt.imshow(data_point["data"], data_point["index"].T)
+        plt.imshow(data_point["data"].T)
+        plt.gca().invert_yaxis()
+
+        plt.xlabel("y")
+        plt.ylabel("z")
         aligned_colorbar(label=data_point["property"])
-
-    plt.savefig(f"visualization/pics/{name_pic}.jpg")
-
-def make_dict(data, property):
-    dict = {"data" : data, "property" : property}
-    if property == "temperature" or property == "y-velocity":
-        dict["index"] = 0
-    elif property == "z-velocity":
-        dict["index"] = 1
-    elif property == "pressure":
-        dict["index"] = 2
-    elif property == "hp location":
-        dict["index"] = 3
-    elif property == "init temperature":
-        dict["index"] = 4
-    return dict
+    
+    pic_file_name = f"runs/{name_pic}.jpg"
+    print(f"Resulting picture is at {pic_file_name}")  
+    plt.savefig(pic_file_name)
     
 def plot_exemplary_learned_result(model, dataloaders, name_pic="plot_y_exemplary"):
     """not pretty but functional to get a first glimpse of how y_out looks compared to y_truth"""
@@ -236,17 +228,49 @@ def plot_exemplary_learned_result(model, dataloaders, name_pic="plot_y_exemplary
         # writer.add_scalar("loss", loss.item(), 0)
         break
 
+    def make_dict(data, property, index):
+        dict = {"data" : data, "property" : property}
+        dict["data"] = dict["data"].detach().numpy()[0,index,:,:]
+        # always uses first batch element
+        # if property == "temperature" or property == "y-velocity":
+        #     #dict["index"] = 0
+        # elif property == "z-velocity":
+        #     dict["data"] = dict["data"].detach().numpy()[0,1,:,:]
+        #     #dict["index"] = 1
+        # elif property == "pressure":
+        #     dict["data"] = dict["data"].detach().numpy()[0,2,:,:]
+        #     #dict["index"] = 2
+        # elif property == "hp location":
+        #     dict["data"] = dict["data"].detach().numpy()[0,3,:,:]
+        #     #dict["index"] = 3
+        # elif property == "init temperature":
+        #     dict["data"] = dict["data"].detach().numpy()[0,4,:,:]
+        #     #dict["index"] = 4
+        return dict
+
+    # list_to_plot = [
+    #     make_dict(y_true_exemplary, "temperature", 0),
+    #     make_dict(y_out_exemplary, "temperature", 0),
+    #     make_dict(x_exemplary, "y_velocity", 0),
+    #     make_dict(x_exemplary, "z_velocity", 1),
+    #     make_dict(x_exemplary, "pressure", 2),
+    #     make_dict(x_exemplary, "hp location", 3),
+    #     make_dict(x_exemplary, "init temperature", 4),
+    # ]
+    error = y_true_exemplary-y_out_exemplary
+    error_abs = torch.abs(error)
     list_to_plot = [
-        make_dict(y_true_exemplary, "temperature"),
-        make_dict(y_out_exemplary, "temperature"),
-        make_dict(x_exemplary, "y_velocity"),
-        make_dict(x_exemplary, "z_velocity"),
-        make_dict(x_exemplary, "pressure"),
-        make_dict(x_exemplary, "hp location"),
-        make_dict(x_exemplary, "init temperature"),
+        make_dict(y_true_exemplary, "temperature true", 0),
+        make_dict(y_out_exemplary, "temperature out", 0),
+        make_dict(error, "error", 0),
+        #make_dict(error_abs, "error abs", 0),
+        make_dict(x_exemplary, "pressure", 0),
+        make_dict(x_exemplary, "hp location", 1),
     ]
 
     plot_y(list_to_plot, name_pic=name_pic)
+
+    return error
 
 
 ## helper to find inlet, outlet alias max and min Material_ID
