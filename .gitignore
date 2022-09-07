@@ -1,6 +1,10 @@
 # test files, old files
 old/
 
+# interim files
+events.out.*
+
+
 # output formats
 *.png
 *.svg
