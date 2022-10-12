@@ -82,7 +82,42 @@ class DatasetSimulationData(Dataset):
         self.output_vars = [self.time_final, output_vars]
         # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
         
-    def select_split(self, data_paths, labels) -> Tuple[List[str], List[str]]:
+    def __len__(self):
+        # Return the length of the dataset (number of runs)
+        return len(self.runs)
+
+    @staticmethod
+    def make_dataset(self) -> Tuple[List[str], List[str]]:
+        """
+        Create the simulation dataset by preparing a list of samples
+        Simulation data are sorted in an ascending order by run number
+        :returns: (data_paths, runs) where:
+            - data_paths is a list containing paths to all simulation runs in the dataset, NOT the actual simulated data
+            - runs is a list containing one label per run
+        """
+        directory = self.dataset_path
+        data_paths, runs = [], []
+        found_dataset = False
+    
+        logging.info(f"Directory of currently used dataset is: {directory}")
+        for _, folders, _ in os.walk(directory):
+            for folder in folders:
+                for file in os.listdir(os.path.join(directory, folder)):
+                    if file.endswith(".h5"):
+                        data_paths.append(os.path.join(directory, folder, file))
+                        runs.append(folder)
+                        found_dataset = True
+        # Sort the data and runs in ascending order
+        data_paths, runs = (list(t) for t in zip(*sorted(zip(data_paths, runs))))
+        data_paths, runs = self._select_split(data_paths, runs)
+        
+        if not found_dataset:
+            raise ValueError("No dataset found")
+        assert len(data_paths) == len(runs)
+        return data_paths, runs
+
+
+    def _select_split(self, data_paths:List[str], labels:List[str]) -> Tuple[List[str], List[str]]:
         """
         Depending on the mode of the dataset, deterministically split it.
         
@@ -117,40 +152,6 @@ class DatasetSimulationData(Dataset):
             return list(np.array(data_paths)[indices]), list(np.array(labels)[indices])
         else: 
             return data_paths[indices], list(np.array(labels)[indices])
-
-    @staticmethod
-    def make_dataset(self) -> Tuple[List[str], List[str]]:
-        """
-        Create the simulation dataset by preparing a list of samples
-        Simulation data are sorted in an ascending order by run number
-        :returns: (data_paths, runs) where:
-            - data_paths is a list containing paths to all simulation runs in the dataset, NOT the actual simulated data
-            - runs is a list containing one label per run
-        """
-        directory = self.dataset_path
-        data_paths, runs = [], []
-        found_dataset = False
-    
-        logging.info(f"Directory of currently used dataset is: {directory}")
-        for _, folders, _ in os.walk(directory):
-            for folder in folders:
-                for file in os.listdir(os.path.join(directory, folder)):
-                    if file.endswith(".h5"):
-                        data_paths.append(os.path.join(directory, folder, file))
-                        runs.append(folder)
-                        found_dataset = True
-        # Sort the data and runs in ascending order
-        data_paths, runs = (list(t) for t in zip(*sorted(zip(data_paths, runs))))
-        data_paths, runs = self.select_split(data_paths, runs)
-        
-        if not found_dataset:
-            raise ValueError("No dataset found")
-        assert len(data_paths) == len(runs)
-        return data_paths, runs
-
-    def __len__(self):
-        # Return the length of the dataset (number of runs)
-        return len(self.runs)
 
     def load_data_as_numpy(self, data_path, vars):
         """
