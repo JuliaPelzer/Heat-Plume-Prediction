@@ -4,7 +4,7 @@ import numpy as np
 from torch import Tensor, stack
 import logging
 from dataclasses import dataclass
-from typing import List
+from typing import Dict, List
 from data.dataset import GWF_HP_Dataset
 
 @dataclass
@@ -12,22 +12,22 @@ class DataLoader:
     """
     Defines an iterable batch-sampler over a given dataset
     """
-    dataset:GWF_HP_Dataset  #where to load the data from
+    dataset:Dict[str, GWF_HP_Dataset]  #where to load the data from
     batch_size:int=1        #how many samples per batch to load
     shuffle:bool=False      #set to True to have the data reshuffled at every epoch
     drop_last:bool=False    #set to True to drop the last incomplete batch, if the dataset size is not divisible by the batch size. If False and the size of dataset is not divisible by the batch size, then the last batch will be smaller.
 
-    def __iter__(self):
+    def __iter__(self) -> List(Dict[str, Tensor]):
         """
         Returns the next batch of data with keywords like run_id, x, x_mean, y, ...; each referring to a
         Tensor with the shape of (batch_size, channels, H, W, (D))
         """
-        def combine_batch_dicts(batch):
+        def combine_batch_dicts(batch:List(Dict[str, GWF_HP_Dataset])) -> Dict[str, List(GWF_HP_Dataset)]:
             """
             Combines a given batch (list of dicts) to a dict of numpy arrays
             :param batch: batch, list of dicts
                 e.g. [{k1: v1, k2: v2, ...}, {k1:, v3, k2: v4, ...}, ...]
-            :returns: dict of numpy arrays
+            :returns: dict
                 e.g. {k1: [v1, v3, ...], k2: [v2, v4, ...], ...}
             """
             batch_dict = {}
@@ -38,34 +38,26 @@ class DataLoader:
                     batch_dict[key].append(value)
             return batch_dict
 
-        def run_id_to_int(run_id):
+        def run_id_to_int(run_id:str) -> int:
             """
-            Converts a run_id to an integer
-            :param run_id: run_id
-            :returns: integer
+            :param run_id: "RUN_xx""
+            :returns: int(xx)
             """
             return int(run_id.split("_")[-1])
 
-        # def batch_to_numpy(batch):
-        #     """Transform all values of the given batch dict to numpy arrays"""
-        #     numpy_batch = {}
-        #     for key, value in batch.items():
-        #         numpy_batch[key] = np.array(value)
-        #     return numpy_batch
-
-        def batch_to_tensor(batch:List(GWF_HP_Dataset)):
+        def batch_to_tensor(batch:Dict[str, List(GWF_HP_Dataset)]) -> Dict[str, Tensor]:
             """
             Returns a dict of tensors with keywords like run_id, x, x_mean, y, ...
-            Tensor has the shape of (batch_size, C, H, W, (D))"""
-            """Transform all values of the given batch dict to tensors"""
+            Tensor has the shape of (batch_size, C, H, W, (D))
+            Transform all values of the given batch dict to tensors
+            """
             tensor_batch = {}
             for key, values in batch.items():
-                if key=="run_id": # expects the value to not be a Tensor and therefore needs to be converted to one
-                    #if not isinstance(values, Tensor):
+                if key=="run_id": # expects the value not to be a Tensor and therefore needs to be converted to one
                     tensor_batch[key] = Tensor([run_id_to_int(id) for id in values]).float()
-                else: # expects the value to be a Tensor and therefore does not need to be converted to one
+                else: # expects the value to be a Tensor  -> no convertion needed
                     try:
-                        values = stack([value for value in values])
+                        values = stack(value for value in values)
                     except:
                         # values contains only one element
                         logging.info("Values contains only one element?")
@@ -76,15 +68,14 @@ class DataLoader:
                         tensor_batch[key] = Tensor(values)
                     else:
                         tensor_batch[key] = values
-            # print("after ", len(tensor_batch), tensor_batch["x"].shape, tensor_batch["x"].dtype)
             return tensor_batch
 
 
-        if self.shuffle:
-            index_iterator = iter(np.random.permutation(len(self.dataset)))
-        else:
-            index_iterator = iter(range(len(self.dataset)))
+        # shuffle and make iterator
+        index_iterator = np.random.permutation(len(self.dataset)) if self.shuffle else range(len(self.dataset))
+        index_iterator = iter(index_iterator)
 
+        # get next batch
         batch = []
         for index in index_iterator:
             batch.append(self.dataset[index])
@@ -96,9 +87,9 @@ class DataLoader:
             yield batch_to_tensor(combine_batch_dicts(batch))
         
 
-    def __len__(self):
+    def __len__(self) -> int:
         """
-        Return the number of batches in the dataset
+        Return the number of batches in the dataset, depending on whether drop_last is set
         """
         
         length = None
@@ -107,4 +98,5 @@ class DataLoader:
         else:
             length = int(np.ceil(len(self.dataset) / self.batch_size))
 
+        assert isinstance(length, int), "length is not an integer"
         return length
