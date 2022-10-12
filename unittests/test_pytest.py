@@ -6,10 +6,18 @@ import numpy as np
 import torch
 
 def test_compute_data_max_and_min():
-    data = np.array([[[[1,2,3],[4,5,6]]]])
+    # Fixture
+    data = np.array([[[[1.0,2.0,3],[4,5,6]]]])
+    # Expected result
     max = np.array([[[[6]]]])
     min = np.array([[[[1]]]])
-    assert trans.compute_data_max_and_min(data) == (max, min)
+    # Actual result
+    actual_result = trans.compute_data_max_and_min(data)
+    # Test
+    assert actual_result == (max, min)
+    # does not test keepdim part - necessary?
+    # float numbers? expected_vlaue = pytest.approx(value, abs=0.001)
+
 
 def test_normalize_transform():
     data = torch.Tensor(np.array([[[[-2, -1, -1],[-1, 0, -1], [-1, -1, -1]]]]))
