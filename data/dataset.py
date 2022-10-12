@@ -2,14 +2,12 @@
 Dataset Class
 """
 
+import logging
+from typing import List
 from abc import ABC, abstractmethod
-
 import os
 import numpy as np
 import h5py
-from typing import List
-import logging
-
 
 class Dataset(ABC):
     """
@@ -18,13 +16,9 @@ class Dataset(ABC):
     """
     def __init__(self, dataset_name, dataset_path=None):
         """Usually the dataset is stored where it is produced and just referred to but if no path is given, it is supposed to be in a neighbouring folder called datasets"""
-        if dataset_path is None:
-            root = os.path.dirname(os.path.abspath(os.getcwd()))
-            dataset_path = os.path.join(root, "datasets")
-        self.dataset_path = dataset_path
+        self.dataset_path = dataset_path if dataset_path else os.path.join(os.path.dirname(os.path.abspath(os.getcwd())), "datasets")
         self.dataset_name = dataset_name
-        # The actual archive name should be all the text of the url after the
-        # last '/'.
+        # The actual archive name should be all the text of the url after the last '/'.
 
     @abstractmethod
     def __getitem__(self, index):
