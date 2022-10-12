@@ -138,7 +138,7 @@ class DatasetSimulationData(Dataset):
         num_train = int(num_samples * fraction_train)
         num_valid = int(num_samples * fraction_val)
         
-        np.random.seed(0)
+        np.random.seed(0) # TODO remove later only for testing
         rand_perm = np.random.permutation(num_samples)
         
         if self.mode == 'train':
