@@ -105,7 +105,7 @@ def init_data(reduce_to_2D = True, reduce_to_2D_wrong = False, overfit = False, 
 
     return datasets, dataloaders
 
-def train_model(model, dataloaders, loss_fn, n_epochs, lr, name_folder, debugging=False):
+def train_model(model, dataloaders, loss_fn, n_epochs:int, lr:float, name_folder:str="default", debugging:bool=False):
     """
     Train the model for a certain number of epochs.
         
