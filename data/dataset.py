@@ -199,8 +199,8 @@ class DatasetSimulationData(Dataset):
         properties = variables[1]
         
         data = []
-        with h5py.File(data_path, "r") as f:
-            for key, value in f[time].items():
+        with h5py.File(data_path, "r") as file:
+            for key, value in file[time].items():
                 if key in properties:
                     data.append(np.array(value))
         data = np.array(data)
