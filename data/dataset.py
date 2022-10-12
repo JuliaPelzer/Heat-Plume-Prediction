@@ -116,6 +116,40 @@ class DatasetSimulationData(Dataset):
         assert len(data_paths) == len(runs)
         return data_paths, runs
 
+    def get_input_properties(self) -> List[str]:
+        return self.input_vars[1]
+
+    def get_output_properties(self) -> List[str]:
+        return self.output_vars[1]
+
+    def __getitem__(self, index:int) -> Dict[str, np.ndarray]:
+        """
+        Get a data point as a dict at a given index in the dataset
+        
+        Parameters
+        ----------
+        index : int
+            Run_id of the data point to be loaded (check in list of paths)
+
+        Returns
+        -------
+        dict of data point at index with x being the input data and y being the labels
+        x is a numpy array of shape CxHxWxD (C=channels, HxWxD=spatial dimensions)
+        y is a numpy array of shape CxHxWxD (C= output channels, HxWxD=spatial dimensions)
+            """
+        data_dict = {}
+        index_material_id = self.get_input_properties().index('Material_ID')
+        try:
+            data_dict["x"], data_dict["x_mean"], data_dict["x_std"] = self.transform(self._load_data_as_numpy(self.data_paths[index], self.input_vars), index_material_id=index_material_id)
+            self.index_material_id = None
+            data_dict["y"], data_dict["y_mean"], data_dict["y_std"] = self.transform(self._load_data_as_numpy(self.data_paths[index], self.output_vars))
+        except Exception as e:
+            logging.info("no transforms applied")
+            data_dict["x"] = self._load_data_as_numpy(self.data_paths[index], self.input_vars)
+            data_dict["y"] = self._load_data_as_numpy(self.data_paths[index], self.output_vars)
+        data_dict["run_id"] = self.runs[index]
+
+        return data_dict
 
     def _select_split(self, data_paths:List[str], labels:List[str]) -> Tuple[List[str], List[str]]:
         """
@@ -138,7 +172,7 @@ class DatasetSimulationData(Dataset):
         num_train = int(num_samples * fraction_train)
         num_valid = int(num_samples * fraction_val)
         
-        np.random.seed(0) # TODO remove later only for testing
+        np.random.seed(0)   # TODO remove later only for testing
         rand_perm = np.random.permutation(num_samples)
         
         if self.mode == 'train':
@@ -152,17 +186,17 @@ class DatasetSimulationData(Dataset):
             return list(np.array(data_paths)[indices]), list(np.array(labels)[indices])
         else: 
             return data_paths[indices], list(np.array(labels)[indices])
-
-    def load_data_as_numpy(self, data_path, vars):
+        
+    def _load_data_as_numpy(self, data_path:str, variables:List) -> np.ndarray:
         """
         Load data from h5 file on data_path, but only the variables named in vars[1] at time stamp vars[0]
-        
+        variables: list of two elements, first element is the time stamp (str), second element is a list of variables (List[str])
         Returns
         -------
         data: numpy array of shape (C, H, W, D)
         """
-        time = vars[0]
-        properties = vars[1]
+        time = variables[0]
+        properties = variables[1]
         
         data = []
         with h5py.File(data_path, "r") as f:
@@ -171,54 +205,20 @@ class DatasetSimulationData(Dataset):
                     data.append(np.array(value))
         data = np.array(data)
         return data
-        
-    def __getitem__(self, index):
-        """
-        Get a data point as a dict at a given index in the dataset
-        
-        Parameters
-        ----------
-        index : int
-            Run_id of the data point to be loaded (check in list of paths)
 
-        Returns
-        -------
-        dict of data point at index with x being the input data and y being the labels
-        x is a numpy array of shape CxHxWxD (C=channels, HxWxD=spatial dimensions)
-        y is a numpy array of shape CxHxWxD (C= output channels, HxWxD=spatial dimensions)
-            """
-        data_dict = {}
-        index_material_id = self.get_input_properties().index('Material_ID')
-        try:
-            data_dict["x"], data_dict["x_mean"], data_dict["x_std"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.input_vars), index_material_id=index_material_id)
-            self.index_material_id = None
-            data_dict["y"], data_dict["y_mean"], data_dict["y_std"] = self.transform(self.load_data_as_numpy(self.data_paths[index], self.output_vars))
-        except Exception as e:
-            logging.info("no transforms applied")
-            data_dict["x"] = self.load_data_as_numpy(self.data_paths[index], self.input_vars)
-            data_dict["y"] = self.load_data_as_numpy(self.data_paths[index], self.output_vars)
-        data_dict["run_id"] = self.runs[index]
+    # def reverse_transform(self, index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
+    #     """
+    #     Reverse the transformation of the data.
+    #     """
+    #     data_dict = {}
+    #     index_material_id = self.get_input_properties().index('Material_ID')
+    #     data_dict["x"] = self.transform.reverse(self[index]["x"], mean=x_mean, std=x_std, index_material_id=index_material_id)
+    #     self.index_material_id = None
+    #     data_dict["y"] = self.transform.reverse(self[index]["y"], mean=y_mean, std=y_std)
+    #     data_dict["run_id"] = self.runs[index]
 
-        return data_dict
-
-    def reverse_transform(self, index, x_mean=None, x_std=None, y_mean=None, y_std=None):
-        """
-        Reverse the transformation of the data.
-        """
-        data_dict = {}
-        index_material_id = self.get_input_properties().index('Material_ID')
-        data_dict["x"] = self.transform.reverse(self[index]["x"], mean=x_mean, std=x_std, index_material_id=index_material_id)
-        self.index_material_id = None
-        data_dict["y"] = self.transform.reverse(self[index]["y"], mean=y_mean, std=y_std)
-        data_dict["run_id"] = self.runs[index]
-
-        return data_dict
+    #     return data_dict
     
-    def get_input_properties(self) -> List[str]:
-        return self.input_vars[1]
-
-    def get_output_properties(self) -> List[str]:
-        return self.output_vars[1]
 
 '''NICHT ÜBERARBEITET
 class MemoryImageFolderDataset(ImageFolderDataset):
