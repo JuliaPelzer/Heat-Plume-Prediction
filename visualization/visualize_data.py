@@ -8,7 +8,7 @@ import h5py
 from tqdm.auto import tqdm
 from typing import List
 
-from data.dataset import GWF_HP_Dataset
+from data.dataset import DatasetSimulationData
 import torch
 
 # TODO: look at vispy library for plotting 3D data
@@ -18,7 +18,7 @@ def aligned_colorbar(*args,**kwargs):
     cax = make_axes_locatable(plt.gca()).append_axes("right",size= 0.3,pad= 0.05)
     plt.colorbar(*args,cax=cax,**kwargs)
     
-def plot_datapoint(dataset : GWF_HP_Dataset, run_id : int, view="top", prefix="", plot_streamlines=False, oriented="center") -> None:
+def plot_datapoint(dataset : DatasetSimulationData, run_id : int, view="top", prefix="", plot_streamlines=False, oriented="center") -> None:
     """
     Plot all physical properties of one data point, depending on the `view` also with streamlines.. if they work at some time...
     

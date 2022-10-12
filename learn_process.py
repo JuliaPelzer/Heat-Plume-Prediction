@@ -1,4 +1,4 @@
-from data.dataset import GWF_HP_Dataset
+from data.dataset import DatasetSimulationData
 from data.dataloader import DataLoader
 from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, PowerOfTwoTransform, ToTensorTransform
 from networks.unet_leiterrl import weights_init
@@ -75,14 +75,13 @@ def init_data(reduce_to_2D = True, reduce_to_2D_wrong = False, overfit = False, 
     input_vars.append("Material_ID")
 
     for mode in ['train', 'val', 'test']:
-        temp_dataset = GWF_HP_Dataset(
-            dataset_name =dataset_name, dataset_path=path_to_datasets, transform = transforms,
-            input_vars=input_vars,
+        temp_dataset = DatasetSimulationData(
+            dataset_name=dataset_name, dataset_path=path_to_datasets, 
+            transform=transforms, input_vars=input_vars,
             output_vars=["Temperature [C]"], #. "Liquid_Pressure [Pa]"
             mode=mode, split=split
         )
         datasets[mode] = temp_dataset
-
 
     # Create a dataloader for each split.
     dataloaders = {}
@@ -180,3 +179,6 @@ def train_model(model, dataloaders, loss_fn, n_epochs, lr, name_folder, debuggin
     print('Finished Training')
 
     return loss_hist
+
+if __name__ == "__main__":
+    init_data()
