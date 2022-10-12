@@ -1,30 +1,29 @@
-import os
+from dataclasses import dataclass
 from typing import Dict
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import h5py
-from tqdm.auto import tqdm
 from typing import List
-
-from data.dataset import DatasetSimulationData
 import torch
+from data.dataset import DatasetSimulationData
 
 # TODO: look at vispy library for plotting 3D data
 
-## helper function for plotting
-def aligned_colorbar(*args,**kwargs):
-    cax = make_axes_locatable(plt.gca()).append_axes("right",size= 0.3,pad= 0.05)
-    plt.colorbar(*args,cax=cax,**kwargs)
-    
+@dataclass
+class View:
+    name:str
+    x_label:str
+    y_label:str
+    cut_slice:np.array=None
+    transpose:bool=False
+
 def plot_datapoint(dataset : DatasetSimulationData, run_id : int, view="top", prefix="", plot_streamlines=False, oriented="center") -> None:
     """
     Plot all physical properties of one data point, depending on the `view` also with streamlines.. if they work at some time...
     
     Parameters
     ----------
-        dataset : GWF_HP_Dataset
+        dataset : DatasetSimulationData
             Dataset to take the data point and information about the physical properties from
         run_id : int
             Index of the data point to plot
@@ -41,102 +40,64 @@ def plot_datapoint(dataset : DatasetSimulationData, run_id : int, view="top", pr
 
     plot_data_inner(data=data, property_names_in=property_names_in, property_names_out=property_names_out, run_id=run_id, view=view, plot_streamlines=plot_streamlines, oriented=oriented)
 
-def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str], property_names_out : List[str], run_id=42, view="top", plot_streamlines=False, oriented="center") -> None:
+def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str], property_names_out : List[str], run_id:int=42, view:str="top", plot_streamlines=False, oriented="center") -> None:
     # function excluded to also be able to plot the reversed dataset, #TODO make reversing cleaner so this step is unnecessary
+    assert view in ["top", "topish", "top_hp", "side", "side_hp"], "view must be one of 'top', 'topish', 'top_hp', 'side', 'side_hp'"
+    assert isinstance(run_id, int), "run_id must be an integer"
+
     index_overall = 0
     n_dims = len(property_names_in) + len(property_names_out)
     n_subplots = n_dims + 1 if plot_streamlines else n_dims
     
-    fig, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(20,3*(n_subplots)))
+    _, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(20,3*(n_subplots)))
 
     if oriented=="center":
         cut_x_hp = 7
     elif oriented=="left":
         cut_x_hp = 9
     # dictionary of all potential views with respective labels and positions where to slice the data 
-    view_dict = {
-        "top": {
-            "x_label": "y",
-            "y_label": "x",
-            "cut_slice": np.s_[:,:,-1],
-            "transpose": False
-        },
-        "top_hp": {
-            "x_label": "y",
-            "y_label": "x",
-            "cut_slice": np.s_[:,:,9], #8
-            "transpose" : False
-        },
-        "topish": {
-            "x_label": "y",
-            "y_label": "x",
-            "cut_slice": np.s_[:,:,-3],
-            "transpose" : False
-        },
-        "side": {
-            "x_label": "y",
-            "y_label": "z",
-            "cut_slice": np.s_[11,:,:], # Tensor
-            # Numpy: "cut_slice": np.s_[11,:,::-1]
-            "transpose" : True
-        },
-        "side_hp": {
-            "x_label": "y",
-            "y_label": "z",
-            "cut_slice": np.s_[cut_x_hp,:,:], # Tensor
-            # Numpy: "cut_slice": np.s_[9,:,::-1],
-            "transpose" : True
-        }
-    }
-
-    def plot_properties(data : np.ndarray, property_names : List[str], prefix = "") -> None:
-        """
-        Plot all properties of one data point
-
-        Parameters
-        ----------
-            data : np.ndarray
-                Datapoint to plot, dimensions: channels x HxWxD
-            property_names : List[str]
-                List of all properties to plot
-            prefix : str
-                Prefix to add to the title of the plot like "Input " or "Output "
-
-        Returns
-        -------
-            None
-
-        """
-        nonlocal index_overall
-
-        for channel in np.arange(len(data)):
-            plt.sca(axes[index_overall])
-            field = data[channel, :, :, :]
-            if len(field.shape) != 3:
-                raise ValueError("Data is not 3D")
-
-            index = property_names[channel].find(' [')
-            title = prefix + property_names[channel]
-            if index != -1:
-                title = prefix + property_names[channel][:index]
-            plt.title(title)
-            # plot field, if view_dict transpose is true, transpose the field
-            if view_dict[view]["transpose"]:
-                plt.imshow(field[view_dict[view]["cut_slice"]].T)
-                plt.gca().invert_yaxis()
-
-            else:
-                plt.imshow(field[view_dict[view]["cut_slice"]])
-            
-            plt.xlabel(view_dict[view]["x_label"])
-            plt.ylabel(view_dict[view]["y_label"])
-
-            aligned_colorbar(label=property_names[channel])
-            index_overall += 1
-            #print(torch.mean(field), torch.std(field))
+    # view_dict = {
+    #     "top": {
+    #         "x_label": "y",
+    #         "y_label": "x",
+    #         "cut_slice": np.s_[:,:,-1],
+    #         "transpose": False
+    #     },
+    #     "top_hp": {
+    #         "x_label": "y",
+    #         "y_label": "x",
+    #         "cut_slice": np.s_[:,:,9], #8
+    #         "transpose" : False
+    #     },
+    #     "topish": {
+    #         "x_label": "y",
+    #         "y_label": "x",
+    #         "cut_slice": np.s_[:,:,-3],
+    #         "transpose" : False
+    #     },
+    #     "side": {
+    #         "x_label": "y",
+    #         "y_label": "z",
+    #         "cut_slice": np.s_[11,:,:], # Tensor
+    #         # Numpy: "cut_slice": np.s_[11,:,::-1]
+    #         "transpose" : True
+    #     },
+    #     "side_hp": {
+    #         "x_label": "y",
+    #         "y_label": "z",
+    #         "cut_slice": np.s_[cut_x_hp,:,:], # Tensor
+    #         # Numpy: "cut_slice": np.s_[9,:,::-1],
+    #         "transpose" : True
+    #     }
+    # }
+    view_dict = {"top": View(name="top", x_label="y", y_label="x", cut_slice=np.s_[:, :, -1], transpose=False),
+                "top_hp": View(name="top_hp", x_label="y", y_label="x", cut_slice=np.s_[:, :, 9], transpose=False),
+                "topish": View(name="topish", x_label="y", y_label="x", cut_slice=np.s_[:, :, -3], transpose=False),
+                "side": View(name="side", x_label="y", y_label="z", cut_slice=np.s_[11, :, :], transpose=True),
+                "side_hp": View(name="side_hp", x_label="y", y_label="z", cut_slice=np.s_[cut_x_hp, :, :], transpose=True)}
     
-    plot_properties(data['x'], property_names=property_names_in, prefix = "Input ")
-    plot_properties(data['y'], property_names=property_names_out, prefix = "Output ")
+    index_overall = _plot_properties(data['x'], index_overall, view_dict[view], axes, property_names=property_names_in, prefix = "Input ")
+    index_overall = _plot_properties(data['y'], index_overall, view_dict[view], axes, property_names=property_names_out, prefix = "Output ")
 
     #streamlines
     if plot_streamlines:
