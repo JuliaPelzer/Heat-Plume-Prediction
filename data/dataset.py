@@ -5,23 +5,25 @@ Dataset Class
 import logging
 from typing import List
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 import os
 import numpy as np
 import h5py
 
+@dataclass
 class Dataset(ABC):
     """
     Abstract Dataset Base Class
     All subclasses must define __getitem__() and __len__()
     """
-    def __init__(self, dataset_name, dataset_path=None):
-        """Usually the dataset is stored where it is produced and just referred to but if no path is given, it is supposed to be in a neighbouring folder called datasets"""
-        self.dataset_path = dataset_path if dataset_path else os.path.join(os.path.dirname(os.path.abspath(os.getcwd())), "datasets")
-        self.dataset_name = dataset_name
-        # The actual archive name should be all the text of the url after the last '/'.
+    dataset_name:str
+    dataset_path:str=None
+    """Usually the dataset is stored where it is produced and just referred to but if no path is given, it is supposed to be in a neighbouring folder called datasets"""
+    dataset_path = dataset_path if dataset_path else os.path.join(os.path.dirname(os.path.abspath(os.getcwd())), "datasets")
+    # The actual archive name should be all the text of the url after the last '/'.
 
     @abstractmethod
-    def __getitem__(self, index):
+    def __getitem__(self, index: int):
         """Return data sample at given index"""
 
     @abstractmethod
@@ -29,10 +31,10 @@ class Dataset(ABC):
         """Return size of the dataset"""
 
     
-    def check_for_dataset(self):
+    def check_for_dataset(self) -> str:
         """
         Check if the dataset exists and is not empty.
-        Dataset should be in the following folder dataset_path\<dataset_name>
+        Dataset should be in the following folder self.dataset_path/<dataset_name>
         """
         dataset_path_full = os.path.join(self.dataset_path, self.dataset_name)
         if not os.path.exists(dataset_path_full):
@@ -42,20 +44,19 @@ class Dataset(ABC):
         return dataset_path_full
 
 """
-Definition of GWF_HP dataset class
+Definition of DatasetSimulationData dataset class
 """
-
-class GWF_HP_Dataset(Dataset):
+class DatasetSimulationData(Dataset):
     """Groundwaterflow and heatpumps dataset class
     dataset has dimensions of NxCxHxWxD,
     where N is the number of runs/data points, C is the number of channels, HxWxD are the spatial dimensions
 
     Returns
     -------
-    GWF_HP_Dataset of size NxCxHxWxD
+    DatasetSimulationData of size NxCxHxWxD
     """
-    def __init__(self, dataset_name="approach2_dataset_generation_simplified/dataset_HDF5_testtest",
-                 dataset_path="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth",
+    def __init__(self, dataset_name:str="approach2_dataset_generation_simplified/dataset_HDF5_testtest",
+                 dataset_path:str="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth",
                  transform=None,
                  mode="train", split={'train': 0.6, 'val': 0.2, 'test': 0.2},
                  input_vars=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
