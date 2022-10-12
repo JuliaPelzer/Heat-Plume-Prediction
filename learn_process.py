@@ -16,23 +16,18 @@ def test_dummy():
     assert 1 == 1
 
 # create and directly split dataset into train, val, test
-def init_data(reduce_to_2D = True, reduce_to_2D_wrong = False, overfit = False, normalize=True, just_plotting=False, batch_size=100, inputs="all",
-            dataset_name="approach2_dataset_generation_simplified/dataset_HDF5_testtest", path_to_datasets="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth"):
+def init_data(reduce_to_2D:bool = True, reduce_to_2D_wrong:bool = False, overfit:bool = False, normalize:bool = True, just_plotting:bool = False, batch_size:int = 100, inputs:str = "xyzpt",
+            dataset_name:str = "approach2_dataset_generation_simplified/dataset_HDF5_testtest", path_to_datasets:str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth"):
     """
     Initialize dataset and dataloader for training.
 
     Parameters
     ----------
-    reduce_to_2D : bool
-        If true, reduce the dataset to 2D instead of 3D
-    overfit : bool
-        If true, only use a small subset of the dataset for training, achieved by cheating: changing the split ratio
-    normalize : bool
-        If true, normalize the dataset, usually the case; not true for testing input data magnitudes etc 
-    dataset_name : str
-        Name of the dataset to use (has to be the same as in the folder)
-    batch_size : int
-        Size of the batch to use for training
+    reduce_to_2D : If true, reduce the dataset to 2D instead of 3D
+    overfit : If true, only use a small subset of the dataset for training, achieved by cheating: changing the split ratio
+    normalize : If true, normalize the dataset, usually the case; not true for testing input data magnitudes etc 
+    dataset_name : Name of the dataset to use (has to be the same as in the folder)
+    batch_size : Size of the batch to use for training
     
     Returns
     -------
@@ -41,7 +36,10 @@ def init_data(reduce_to_2D = True, reduce_to_2D_wrong = False, overfit = False, 
     dataloaders : dict
         Dictionary of dataloaders, with keys "train", "val", "test"
     """
-    
+    assert isinstance(reduce_to_2D, bool) and isinstance(reduce_to_2D_wrong, bool) and isinstance(overfit, bool) and isinstance(normalize, bool) and isinstance(just_plotting, bool), "input parameters reduce_to_2D, reduce_to_2D_wrong, overfit, normalize, just_plotting have to be bool"
+    assert isinstance(batch_size, int), "input parameter batch_size has to be int"
+    assert isinstance(dataset_name, str) and isinstance(path_to_datasets, str), "input parameters dataset_name, path_to_datasets have to be str"
+
     datasets = {}
     transforms_list = [ToTensorTransform(), PowerOfTwoTransform(oriented="left")]
     if reduce_to_2D:
@@ -49,7 +47,6 @@ def init_data(reduce_to_2D = True, reduce_to_2D_wrong = False, overfit = False, 
     if normalize:
         transforms_list.append(NormalizeTransform(reduced_to_2D=reduce_to_2D))
     logging.info(f"transforms_list: {transforms_list}")
-
 
     transforms = ComposeTransform(transforms_list)
     split = {'train': 0.6, 'val': 0.2, 'test': 0.2} if not overfit else {'train': 1, 'val': 0, 'test': 0}
@@ -60,6 +57,8 @@ def init_data(reduce_to_2D = True, reduce_to_2D_wrong = False, overfit = False, 
         transforms = None
 
     input_list = [inputs[i] for i in range(len(inputs))]
+    for i in input_list:
+        assert i in ["x", "y", "z", "p", "t"], "input parameter inputs has to be a string of characters, each of which is either x, y, z, p, t"
     input_vars = []
     if 'x' in input_list:
         input_vars.append("Liquid X-Velocity [m_per_y]")
@@ -94,13 +93,13 @@ def init_data(reduce_to_2D = True, reduce_to_2D_wrong = False, overfit = False, 
         )
         dataloaders[mode] = temp_dataloader
 
-    # # Assert if data is not 2D
-    # def assertion_error_2d(datasets):
-    #     for dataset in datasets["train"]:
-    #         shape_data = len(dataset['x'].shape)
-    #         break
-    #     assert shape_data == 3, "Data is not 2D"
-    # 
+    # Assert if data is not 2D
+    def assertion_error_2d(datasets):
+        for dataset in datasets["train"]:
+            shape_data = len(dataset['x'].shape)
+            break
+        assert shape_data == 3, "Data is not 2D"
+    
     # assertion_error_2d(datasets)
 
     return datasets, dataloaders
