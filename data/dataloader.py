@@ -1,8 +1,8 @@
 """Definition of Dataloader class"""
 
+import logging
 import numpy as np
 from torch import Tensor, stack
-import logging
 from dataclasses import dataclass
 from typing import Dict, List
 from data.dataset import GWF_HP_Dataset
