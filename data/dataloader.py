@@ -17,12 +17,12 @@ class DataLoader:
     shuffle:bool=False      #set to True to have the data reshuffled at every epoch
     drop_last:bool=False    #set to True to drop the last incomplete batch, if the dataset size is not divisible by the batch size. If False and the size of dataset is not divisible by the batch size, then the last batch will be smaller.
 
-    def __iter__(self) -> List(Dict[str, Tensor]):
+    def __iter__(self) -> List[Dict[str, Tensor]]:
         """
         Returns the next batch of data with keywords like run_id, x, x_mean, y, ...; each referring to a
         Tensor with the shape of (batch_size, channels, H, W, (D))
         """
-        def combine_batch_dicts(batch:List(Dict[str, GWF_HP_Dataset])) -> Dict[str, List(GWF_HP_Dataset)]:
+        def combine_batch_dicts(batch:List[Dict[str, GWF_HP_Dataset]]) -> Dict[str, List[GWF_HP_Dataset]]:
             """
             Combines a given batch (list of dicts) to a dict of numpy arrays
             :param batch: batch, list of dicts
@@ -45,7 +45,7 @@ class DataLoader:
             """
             return int(run_id.split("_")[-1])
 
-        def batch_to_tensor(batch:Dict[str, List(GWF_HP_Dataset)]) -> Dict[str, Tensor]:
+        def batch_to_tensor(batch:Dict[str, List[GWF_HP_Dataset]]) -> Dict[str, Tensor]:
             """
             Returns a dict of tensors with keywords like run_id, x, x_mean, y, ...
             Tensor has the shape of (batch_size, C, H, W, (D))
