@@ -3,33 +3,25 @@
 import numpy as np
 from torch import Tensor, stack
 import logging
+from dataclasses import dataclass
+from typing import List
+from data.dataset import GWF_HP_Dataset
 
-
+@dataclass
 class DataLoader:
     """
-    Dataloader Class
     Defines an iterable batch-sampler over a given dataset
     """
-
-    def __init__(self, dataset, batch_size=1, shuffle=False, drop_last=False):
-        """
-        :param dataset: dataset from which to load the data
-        :param batch_size: how many samples per batch to load
-        :param shuffle: set to True to have the data reshuffled at every epoch
-        :param drop_last: set to True to drop the last incomplete batch,
-            if the dataset size is not divisible by the batch size.
-            If False and the size of dataset is not divisible by the batch
-            size, then the last batch will be smaller.
-        """
-        self.dataset = dataset
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.drop_last = drop_last
+    dataset:GWF_HP_Dataset  #where to load the data from
+    batch_size:int=1        #how many samples per batch to load
+    shuffle:bool=False      #set to True to have the data reshuffled at every epoch
+    drop_last:bool=False    #set to True to drop the last incomplete batch, if the dataset size is not divisible by the batch size. If False and the size of dataset is not divisible by the batch size, then the last batch will be smaller.
 
     def __iter__(self):
         """
         Returns the next batch of data with keywords like run_id, x, x_mean, y, ...; each referring to a
-            Tensor with the shape of (batch_size, channels, H, W, (D))"""
+        Tensor with the shape of (batch_size, channels, H, W, (D))
+        """
         def combine_batch_dicts(batch):
             """
             Combines a given batch (list of dicts) to a dict of numpy arrays
@@ -61,7 +53,7 @@ class DataLoader:
         #         numpy_batch[key] = np.array(value)
         #     return numpy_batch
 
-        def batch_to_tensor(batch):
+        def batch_to_tensor(batch:List(GWF_HP_Dataset)):
             """
             Returns a dict of tensors with keywords like run_id, x, x_mean, y, ...
             Tensor has the shape of (batch_size, C, H, W, (D))"""
