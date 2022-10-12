@@ -45,8 +45,7 @@ class Dataset(ABC):
         return dataset_path_full
 
 class DatasetSimulationData(Dataset):
-    """Groundwaterflow and heatpumps dataset class
-    dataset has dimensions of NxCxHxWxD,
+    """Groundwaterflow and heatpumps dataset class dataset has dimensions of NxCxHxWxD,
     where N is the number of runs/data points, C is the number of channels, HxWxD are the spatial dimensions
 
     Returns
@@ -151,6 +150,19 @@ class DatasetSimulationData(Dataset):
 
         return data_dict
 
+    def reverse_transform(self, index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
+        """
+        Reverse the transformation of the data.
+        """
+        data_dict = {}
+        index_material_id = self.get_input_properties().index('Material_ID')
+        data_dict["x"] = self.transform.reverse(self[index]["x"], mean=x_mean, std=x_std, index_material_id=index_material_id)
+        self.index_material_id = None
+        data_dict["y"] = self.transform.reverse(self[index]["y"], mean=y_mean, std=y_std)
+        data_dict["run_id"] = self.runs[index]
+
+        return data_dict
+    
     def _select_split(self, data_paths:List[str], labels:List[str]) -> Tuple[List[str], List[str]]:
         """
         Depending on the mode of the dataset, deterministically split it.
@@ -205,20 +217,6 @@ class DatasetSimulationData(Dataset):
                     data.append(np.array(value))
         data = np.array(data)
         return data
-
-    # def reverse_transform(self, index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
-    #     """
-    #     Reverse the transformation of the data.
-    #     """
-    #     data_dict = {}
-    #     index_material_id = self.get_input_properties().index('Material_ID')
-    #     data_dict["x"] = self.transform.reverse(self[index]["x"], mean=x_mean, std=x_std, index_material_id=index_material_id)
-    #     self.index_material_id = None
-    #     data_dict["y"] = self.transform.reverse(self[index]["y"], mean=y_mean, std=y_std)
-    #     data_dict["run_id"] = self.runs[index]
-
-    #     return data_dict
-    
 
 '''NICHT ÜBERARBEITET
 class MemoryImageFolderDataset(ImageFolderDataset):
