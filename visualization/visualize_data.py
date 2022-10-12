@@ -155,24 +155,6 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
 #     property = 0 if property == "temperature" else property #1
 #     return y.detach().numpy()[0,property,:,:]
 
-def plot_y(data, name_pic="plot_y_exemplary"):
-    n_subplots = len(data)
-    fig, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(20,3*(n_subplots)))
-    #plt.title("Exemplary Comparison Input Output")
-    
-    for index, data_point in enumerate(data):
-        plt.sca(axes[index])
-        plt.imshow(data_point["data"].T)
-        plt.gca().invert_yaxis()
-
-        plt.xlabel("y")
-        plt.ylabel("z")
-        aligned_colorbar(label=data_point["property"])
-    
-    pic_file_name = f"runs/{name_pic}.jpg"
-    print(f"Resulting picture is at {pic_file_name}")  
-    plt.savefig(pic_file_name)
-    
 def plot_exemplary_learned_result(model, dataloaders, name_pic="plot_y_exemplary"):
     """not pretty but functional to get a first glimpse of how y_out looks compared to y_truth"""
 
@@ -182,32 +164,10 @@ def plot_exemplary_learned_result(model, dataloaders, name_pic="plot_y_exemplary
         y_out_exemplary = model(x_exemplary)
         # writer.add_image("y_out_test_0", y_out_test[0,0,:,:], dataformats="WH", global_step=0)
         # writer.add_image("y_true_test_0", y_true_test[0,0,:,:], dataformats="WH", global_step=0)
-        # 
         # mse_loss = loss_fn(y_out_test, y_true_test)
         # loss = mse_loss
-        # 
         # writer.add_scalar("loss", loss.item(), 0)
         break
-
-    def make_dict(data, property, index):
-        dict = {"data" : data, "property" : property}
-        dict["data"] = dict["data"].detach().numpy()[0,index,:,:]
-        # always uses first batch element
-        # if property == "temperature" or property == "y-velocity":
-        #     #dict["index"] = 0
-        # elif property == "z-velocity":
-        #     dict["data"] = dict["data"].detach().numpy()[0,1,:,:]
-        #     #dict["index"] = 1
-        # elif property == "pressure":
-        #     dict["data"] = dict["data"].detach().numpy()[0,2,:,:]
-        #     #dict["index"] = 2
-        # elif property == "hp location":
-        #     dict["data"] = dict["data"].detach().numpy()[0,3,:,:]
-        #     #dict["index"] = 3
-        # elif property == "init temperature":
-        #     dict["data"] = dict["data"].detach().numpy()[0,4,:,:]
-        #     #dict["index"] = 4
-        return dict
 
     # list_to_plot = [
     #     make_dict(y_true_exemplary, "temperature", 0),
@@ -219,20 +179,108 @@ def plot_exemplary_learned_result(model, dataloaders, name_pic="plot_y_exemplary
     #     make_dict(x_exemplary, "init temperature", 4),
     # ]
     error = y_true_exemplary-y_out_exemplary
-    error_abs = torch.abs(error)
+    # error_abs = torch.abs(error)
     list_to_plot = [
-        make_dict(y_true_exemplary, "temperature true", 0),
-        make_dict(y_out_exemplary, "temperature out", 0),
-        make_dict(error, "error", 0),
-        #make_dict(error_abs, "error abs", 0),
-        make_dict(x_exemplary, "pressure", 0),
-        make_dict(x_exemplary, "hp location", 1),
+        _make_dict(y_true_exemplary, "temperature true", 0),
+        _make_dict(y_out_exemplary, "temperature out", 0),
+        _make_dict(error, "error", 0),
+        #_make_dict(error_abs, "error abs", 0),
+        _make_dict(x_exemplary, "pressure", 0),
+        _make_dict(x_exemplary, "hp location", 1),
     ]
 
-    plot_y(list_to_plot, name_pic=name_pic)
+    _plot_y(list_to_plot, name_pic=name_pic)
 
     return error
 
+## helper functions for plotting
+def _make_dict(data, physical_property, index):
+    data_dict = {"data" : data, "property" : physical_property}
+    data_dict["data"] = data_dict["data"].detach().numpy()[0,index,:,:]
+    # always uses first batch element
+    # if property == "temperature" or property == "y-velocity":
+    #     #dict["index"] = 0
+    # elif property == "z-velocity":
+    #     dict["data"] = dict["data"].detach().numpy()[0,1,:,:]
+    #     #dict["index"] = 1
+    # elif property == "pressure":
+    #     dict["data"] = dict["data"].detach().numpy()[0,2,:,:]
+    #     #dict["index"] = 2
+    # elif property == "hp location":
+    #     dict["data"] = dict["data"].detach().numpy()[0,3,:,:]
+    #     #dict["index"] = 3
+    # elif property == "init temperature":
+    #     dict["data"] = dict["data"].detach().numpy()[0,4,:,:]
+    #     #dict["index"] = 4
+    return data_dict
 
+def _plot_properties(data : np.ndarray, index_overall:int, view: View, axes, property_names : List[str], prefix:str = "") -> None:
+    """
+    Plot all properties of one data point
+
+    Parameters
+    ----------
+        data : np.ndarray
+            Datapoint to plot, dimensions: channels x HxWxD
+        property_names : List[str]
+            List of all properties to plot
+        prefix : str
+            Prefix to add to the title of the plot like "Input " or "Output "
+
+    Returns
+    -------
+        None
+
+    """
+
+    for channel in np.arange(len(data)):
+        plt.sca(axes[index_overall])
+        field = data[channel, :, :, :]
+        if len(field.shape) != 3:
+            raise ValueError("Data is not 3D")
+
+        index = property_names[channel].find(' [')
+        title = prefix + property_names[channel]
+        if index != -1:
+            title = prefix + property_names[channel][:index]
+        plt.title(title)
+        # plot field, if views transpose is true, transpose the field
+        if view.transpose:
+            plt.imshow(field[view.cut_slice].T)
+            plt.gca().invert_yaxis()
+
+        else:
+            plt.imshow(field[view.cut_slice])
+        
+        plt.xlabel(view.x_label)
+        plt.ylabel(view.y_label)
+
+        _aligned_colorbar(label=property_names[channel])
+        index_overall += 1
+    
+    return index_overall
+
+def _plot_y(data, name_pic="plot_y_exemplary"):
+    n_subplots = len(data)
+    _, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(20,3*(n_subplots)))
+    #plt.title("Exemplary Comparison Input Output")
+    
+    for index, data_point in enumerate(data):
+        plt.sca(axes[index])
+        plt.imshow(data_point["data"].T)
+        plt.gca().invert_yaxis()
+
+        plt.xlabel("y")
+        plt.ylabel("z")
+        _aligned_colorbar(label=data_point["property"])
+    
+    pic_file_name = f"runs/{name_pic}.jpg"
+    print(f"Resulting picture is at {pic_file_name}")  
+    plt.savefig(pic_file_name)
+
+def _aligned_colorbar(*args,**kwargs):
+    cax = make_axes_locatable(plt.gca()).append_axes("right",size= 0.3,pad= 0.05)
+    plt.colorbar(*args,cax=cax,**kwargs)
+    
 ## helper to find inlet, outlet alias max and min Material_ID
 # print(np.where(data["Material_ID"]==np.max(data["Material_ID"])))
