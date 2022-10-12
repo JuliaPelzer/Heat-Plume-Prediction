@@ -3,9 +3,10 @@ Dataset Class
 """
 
 import logging
-from typing import List
+from typing import List, Dict, Tuple
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from data.transforms import ComposeTransform
 import os
 import numpy as np
 import h5py
@@ -18,7 +19,7 @@ class Dataset(ABC):
     """
     dataset_name:str
     dataset_path:str=None
-    """Usually the dataset is stored where it is produced and just referred to but if no path is given, it is supposed to be in a neighbouring folder called datasets"""
+    # Usually the dataset is stored where it is produced and just referred to but if no path is given, it is supposed to be in a neighbouring folder called datasets
     dataset_path = dataset_path if dataset_path else os.path.join(os.path.dirname(os.path.abspath(os.getcwd())), "datasets")
     # The actual archive name should be all the text of the url after the last '/'.
 
@@ -43,9 +44,6 @@ class Dataset(ABC):
             raise ValueError(f"Dataset {self.dataset_name} is empty")
         return dataset_path_full
 
-"""
-Definition of DatasetSimulationData dataset class
-"""
 class DatasetSimulationData(Dataset):
     """Groundwaterflow and heatpumps dataset class
     dataset has dimensions of NxCxHxWxD,
@@ -53,15 +51,16 @@ class DatasetSimulationData(Dataset):
 
     Returns
     -------
-    DatasetSimulationData of size NxCxHxWxD
+    dataset of size NxCxHxWxD
     """
     def __init__(self, dataset_name:str="approach2_dataset_generation_simplified/dataset_HDF5_testtest",
                  dataset_path:str="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth",
-                 transform=None,
-                 mode="train", split={'train': 0.6, 'val': 0.2, 'test': 0.2},
-                 input_vars=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
+                 transform:ComposeTransform=None,
+                 mode:str="train",
+                 split:Dict[str, float]={'train': 0.6, 'val': 0.2, 'test': 0.2},
+                 input_vars:List[str]=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
                  "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"], # "hp_power"
-                 output_vars=["Liquid_Pressure [Pa]", "Temperature [C]"],
+                 output_vars:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"],
                  **kwargs)-> Dataset:
         super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         assert mode in ["train", "val", "test"], "wrong mode for dataset given"
@@ -83,7 +82,7 @@ class DatasetSimulationData(Dataset):
         self.output_vars = [self.time_final, output_vars]
         # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
         
-    def select_split(self, data_paths, labels):
+    def select_split(self, data_paths, labels) -> Tuple[List[str], List[str]]:
         """
         Depending on the mode of the dataset, deterministically split it.
         
@@ -108,19 +107,19 @@ class DatasetSimulationData(Dataset):
         rand_perm = np.random.permutation(num_samples)
         
         if self.mode == 'train':
-            idx = rand_perm[:num_train]
+            indices = rand_perm[:num_train]
         elif self.mode == 'val':
-            idx = rand_perm[num_train:num_train+num_valid]
+            indices = rand_perm[num_train:num_train+num_valid]
         elif self.mode == 'test':
-            idx = rand_perm[num_train+num_valid:]
-        
+            indices = rand_perm[num_train+num_valid:]
+
         if isinstance(data_paths, list): 
-            return list(np.array(data_paths)[idx]), list(np.array(labels)[idx])
+            return list(np.array(data_paths)[indices]), list(np.array(labels)[indices])
         else: 
-            return data_paths[idx], list(np.array(labels)[idx])
+            return data_paths[indices], list(np.array(labels)[indices])
 
     @staticmethod
-    def make_dataset(self):
+    def make_dataset(self) -> Tuple[List[str], List[str]]:
         """
         Create the simulation dataset by preparing a list of samples
         Simulation data are sorted in an ascending order by run number
