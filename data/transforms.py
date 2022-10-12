@@ -13,6 +13,11 @@ def compute_data_max_and_min(data):
         (for N data points with C channels of spatial size HxWxD)
     :returns: per-channels mean and std; numpy array of shape C
     """
+    # does not check the input type
+    for n in data:
+        assert type(n) == np.ndarray, "Data is not a numpy array"
+    # TODO does this produce/assert the correct output?
+
     max, min = None, None
 
     # Calculate the per-channel max and min of the data
