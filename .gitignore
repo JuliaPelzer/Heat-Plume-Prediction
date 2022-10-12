@@ -1,5 +1,10 @@
+# exclude for now in testing phase
+models/
+fully_convolutional_network/
+
 # test files, old files
 old/
+OLD/
 
 # interim files
 events.out.*
