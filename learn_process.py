@@ -5,10 +5,15 @@ from networks.unet_leiterrl import weights_init
 from tqdm.auto import tqdm
 import logging
 
-from torch.optim import Adam
+from torch.optim import Adam, lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 import torch.nn as nn
 import torch.nn.functional as F
+
+def test_dummy():
+    # dummy test
+    #TODO ask Ishaan
+    assert 1 == 1
 
 # create and directly split dataset into train, val, test
 def init_data(reduce_to_2D = True, reduce_to_2D_wrong = False, overfit = False, normalize=True, just_plotting=False, batch_size=100, inputs="all",
@@ -131,7 +136,8 @@ def train_model(model, dataloaders, loss_fn, n_epochs, lr, name_folder, debuggin
     if not debugging:
         writer = SummaryWriter(f"runs/{name_folder}")
     loss_hist = []
-    
+    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer)
+
     model.apply(weights_init)
     epochs = tqdm(range(n_epochs), desc = "epochs")
     for epoch in epochs:
@@ -152,6 +158,8 @@ def train_model(model, dataloaders, loss_fn, n_epochs, lr, name_folder, debuggin
             epochs.set_postfix_str(f"loss: {loss.item():.4f}")
 
             loss_hist.append(loss.item())
+            scheduler.step(loss)
+            
             if not debugging:
                 writer.add_scalar("loss", loss.item(), epoch*len(dataloaders["train"])+batch_idx)
                 writer.add_image("y_out_0", y_out[0,0,:,:], dataformats="WH", global_step=epoch*len(dataloaders["train"])+batch_idx)
@@ -165,6 +173,7 @@ def train_model(model, dataloaders, loss_fn, n_epochs, lr, name_folder, debuggin
             # writer.add_image("x_4", x[0,4,:,:], dataformats="WH")
             # writer.add_image("y_0", y[0,0,:,:], dataformats="WH")
             # #writer.add_image("y_1", y[0,1,:,:], dataformats="WH")
+
 
     # if not debugging:
     #     writer.add_graph(model, x)
