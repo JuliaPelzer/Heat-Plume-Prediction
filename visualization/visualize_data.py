@@ -56,61 +56,58 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
     elif oriented=="left":
         cut_x_hp = 9
     # dictionary of all potential views with respective labels and positions where to slice the data 
-    # view_dict = {
-    #     "top": {
-    #         "x_label": "y",
-    #         "y_label": "x",
-    #         "cut_slice": np.s_[:,:,-1],
-    #         "transpose": False
-    #     },
-    #     "top_hp": {
-    #         "x_label": "y",
-    #         "y_label": "x",
-    #         "cut_slice": np.s_[:,:,9], #8
-    #         "transpose" : False
-    #     },
-    #     "topish": {
-    #         "x_label": "y",
-    #         "y_label": "x",
-    #         "cut_slice": np.s_[:,:,-3],
-    #         "transpose" : False
-    #     },
-    #     "side": {
-    #         "x_label": "y",
-    #         "y_label": "z",
-    #         "cut_slice": np.s_[11,:,:], # Tensor
-    #         # Numpy: "cut_slice": np.s_[11,:,::-1]
-    #         "transpose" : True
-    #     },
-    #     "side_hp": {
-    #         "x_label": "y",
-    #         "y_label": "z",
-    #         "cut_slice": np.s_[cut_x_hp,:,:], # Tensor
-    #         # Numpy: "cut_slice": np.s_[9,:,::-1],
-    #         "transpose" : True
-    #     }
-    # }
     view_dict = {"top": View(name="top", x_label="y", y_label="x", cut_slice=np.s_[:, :, -1], transpose=False),
                 "top_hp": View(name="top_hp", x_label="y", y_label="x", cut_slice=np.s_[:, :, 9], transpose=False),
                 "topish": View(name="topish", x_label="y", y_label="x", cut_slice=np.s_[:, :, -3], transpose=False),
                 "side": View(name="side", x_label="y", y_label="z", cut_slice=np.s_[11, :, :], transpose=True),
                 "side_hp": View(name="side_hp", x_label="y", y_label="z", cut_slice=np.s_[cut_x_hp, :, :], transpose=True)}
     
-    index_overall = _plot_properties(data['x'], index_overall, view_dict[view], axes, property_names=property_names_in, prefix = "Input ")
-    index_overall = _plot_properties(data['y'], index_overall, view_dict[view], axes, property_names=property_names_out, prefix = "Output ")
-
-    #streamlines
+    # index_overall = _plot_properties(data['x'], index_overall, view_dict[view], axes, property_names=property_names_in, prefix = "Input ")
+    # index_overall = _plot_properties(data['y'], index_overall, view_dict[view], axes, property_names=property_names_out, prefix = "Output ")
     if plot_streamlines:
-        plt.sca(axes[index_overall])
-        plt.title("Streamlines")
-        #TODO FIELD? REINPACKEN IN die DEF?
-        #if view=="side":
-        #    Z, Y = np.mgrid[0:len(field[0,0,:]),0:len(field[0,:,0])]
-        #    U = df.at[run_id,'Liquid Y-Velocity [m_per_y]'][11,:,::-1]
-        #    V = df.at[run_id,'Liquid Z-Velocity [m_per_y]'][11,:,::-1]
-        #    plt.streamplot(Y, Z, U.T, V.T, density=[2, 0.7])
-        #    plt.xlabel("y")
-        #    plt.ylabel("z")
+        index_overall = _plot_streamlines(data['y'], index_overall, view_dict[view], axes, property_names=property_names_out, prefix = "Streamlines ")
+
+    pic_file_name = "visualization/pics/plot_phys_props"
+    if plot_streamlines:
+        pic_file_name += "_with_streamlines"
+    if run_id:
+        pic_file_name += "_RUN_" + str(run_id)
+    pic_file_name += "_VIEW_" + view + ".jpg"
+    print(f"Resulting picture is at {pic_file_name}")
+    plt.savefig(pic_file_name)
+
+# def slice_y(y, property):
+#     property = 0 if property == "temperature" else property #1
+#     return y.detach().numpy()[0,property,:,:]
+def _plot_streamlines(data : np.ndarray, index_overall:int, view: View, axes, property_names : List[str], prefix:str = "") -> int:
+    
+    field = data[0, :, :, :]
+    
+    if len(field.shape) != 3:
+        raise ValueError("Data is not 3D")
+
+    # if view.transpose:
+    #     plt.imshow(field[view.cut_slice].T)
+    #     plt.gca().invert_yaxis()
+
+    # else:
+    #     plt.imshow(field[view.cut_slice])
+    
+    #streamlines
+    plt.sca(axes[index_overall])
+    #TODO FIELD? REINPACKEN IN die DEF?
+    if view=="side":
+        Z, Y = np.mgrid[0:len(field[0,0,:]),0:len(field[0,:,0])]
+        U = data[1][11,:,::-1] # "Y Velocity"
+        V = data[2][11,:,::-1] # "Z Velocity"
+        plt.title("Streamlines of Y,Z-Velocity")
+        plt.streamplot(Y, Z, U.T, V.T, density=[2, 0.7])
+        plt.xlabel(view.x_label)
+        plt.ylabel(view.y_label)
+        _aligned_colorbar(label="Y,Z-Velocity [m_per_year](hardcoded)")
+
+    return index_overall
+     
         #elif view=="side_hp":
         #    Z, Y = np.mgrid[0:len(field[0,0,:]),0:len(field[0,:,0])]
         #    U = df.at[run_id,'Liquid Y-Velocity [m_per_y]'][8,:,::-1]
@@ -141,19 +138,6 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
         #    plt.ylabel("x")
         #    
         #plt.show()
-
-    pic_file_name = "visualization/pics/plot_phys_props"
-    if plot_streamlines:
-        pic_file_name += "_with_streamlines"
-    if run_id:
-        pic_file_name += "_RUN_" + str(run_id)
-    pic_file_name += "_VIEW_" + view + ".jpg"
-    print(f"Resulting picture is at {pic_file_name}")
-    plt.savefig(pic_file_name)
-
-# def slice_y(y, property):
-#     property = 0 if property == "temperature" else property #1
-#     return y.detach().numpy()[0,property,:,:]
 
 def plot_exemplary_learned_result(model, dataloaders, name_pic="plot_y_exemplary"):
     """not pretty but functional to get a first glimpse of how y_out looks compared to y_truth"""
