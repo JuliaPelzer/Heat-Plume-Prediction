@@ -214,7 +214,7 @@ def _make_dict(data, physical_property, index):
     #     #dict["index"] = 4
     return data_dict
 
-def _plot_properties(data : np.ndarray, index_overall:int, view: View, axes, property_names : List[str], prefix:str = "") -> None:
+def _plot_properties(data : np.ndarray, index_overall:int, view: View, axes, property_names : List[str], prefix:str = "") -> int:
     """
     Plot all properties of one data point
 
