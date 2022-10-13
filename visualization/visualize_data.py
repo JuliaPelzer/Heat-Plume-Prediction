@@ -65,7 +65,7 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
     index_overall = _plot_properties(data['x'], index_overall, view_dict[view], axes, property_names=property_names_in, prefix = "Input ")
     index_overall = _plot_properties(data['y'], index_overall, view_dict[view], axes, property_names=property_names_out, prefix = "Output ")
     if plot_streamlines:
-        index_overall = _plot_streamlines(data['x'], index_overall, view_dict[view], axes)
+        index_overall = _plot_streamlines(data['x'], index_overall, view_dict[view], axes, property_names=property_names_in)
 
     pic_file_name = "visualization/pics/plot_phys_props"
     if plot_streamlines:
@@ -141,10 +141,7 @@ def _plot_properties(data : np.ndarray, index_overall:int, view: View, axes, pro
         if len(field.shape) != 3:
             raise ValueError("Data is not 3D")
 
-        index = property_names[channel].find(' [')
-        title = prefix + property_names[channel]
-        if index != -1:
-            title = prefix + property_names[channel][:index]
+        title = _build_title(prefix, property_names, channel)
         plt.title(title)
         # plot field, if views transpose is true, transpose the field
         if view.transpose:
@@ -162,12 +159,16 @@ def _plot_properties(data : np.ndarray, index_overall:int, view: View, axes, pro
     
     return index_overall
 
-def _plot_streamlines(data : np.ndarray, index_overall:int, view: View, axes) -> int:
+def _plot_streamlines(data : np.ndarray, index_overall:int, view: View, axes, property_names) -> int:
     
-    field_U = data[1, :, :, :] # "Liquid Y-Velocity [m_per_y]"
-    field_V = data[2, :, :, :] # "Liquid Z-Velocity [m_per_y]"
+    assert "Liquid Y-Velocity [m_per_y]" in property_names and "Liquid Z-Velocity [m_per_y]" in property_names, "Y- and Z-Velocity are not in the properties"
+    index_y_velocity = property_names.index("Liquid Y-Velocity [m_per_y]")
+    index_z_velocity = property_names.index("Liquid Z-Velocity [m_per_y]")
+
+    field_U = data[index_y_velocity, :, :, :] # "Liquid Y-Velocity [m_per_y]"
+    field_V = data[index_z_velocity, :, :, :] # "Liquid Z-Velocity [m_per_y]"
     
-    assert field_U.shape == field_V.shape, "U and V have different shapes"
+    assert field_U.shape == field_V.shape, "Field of Y-velocity and Z-velocity have different shapes"
     assert field_U.shape != 3, "Data is not 3D"
 
     plt.sca(axes[index_overall])
@@ -191,11 +192,37 @@ def _plot_streamlines(data : np.ndarray, index_overall:int, view: View, axes) ->
     plt.xlabel(view.x_label)
     plt.ylabel(view.y_label)
     _aligned_colorbar(label="Y,Z-Velocity [m_per_year]")
-q
+
     index_overall += 1
 
     return index_overall
-     
+  
+def _build_title(prefix:str, property_names:List[str], channel:int) -> str:
+    """
+    Remove units from property names to build a title for the plot
+
+    Parameters
+    ----------
+        prefix : str
+            Prefix to add to the title of the plot like "Input " or "Output "
+        property_names : List[str]
+            List of all properties to plot
+        channel : int
+            Index of current property to plot
+
+    Returns
+    -------
+        title : str
+
+    """
+    
+    index = property_names[channel].find(' [')
+    title = prefix + property_names[channel]
+    if index != -1:
+        title = prefix + property_names[channel][:index]
+
+    return title
+       
 def _make_dict(data, physical_property, index):
     data_dict = {"data" : data, "property" : physical_property}
     data_dict["data"] = data_dict["data"].detach().numpy()[0,index,:,:]
