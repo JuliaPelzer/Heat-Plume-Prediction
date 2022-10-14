@@ -1,5 +1,6 @@
 import data.transforms as trans    # The code to test
 import learn_process as lp
+import data.utils as utils
 
 # additional libraries
 import numpy as np
@@ -32,3 +33,37 @@ def test_data_init():
     assert len(dataloaders) == 3
     _, dataloaders = lp.init_data(reduce_to_2D=True, overfit=True, dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_1", inputs="xysd")
     assert dataloaders["train"].dataset[0]['x'].shape == (3,128,16)
+
+def test_separate_property_unit():
+    # Fixture
+    fixture = "Liquid X-Velocity [m_per_y]"
+    # Expected result
+    name_expected = "Liquid X-Velocity"
+    unit_expected = "m_per_y"
+    # Actual result
+    name, unit = utils.separate_property_unit(fixture)
+    # Test
+    assert name == name_expected
+    assert unit == unit_expected
+
+    # Fixture
+    fixture = "Liquid X-Velocity"
+    # Expected result
+    name_expected = "Liquid X-Velocity"
+    unit_expected = None
+    # Actual result
+    name, unit = utils.separate_property_unit(fixture)
+    # Test
+    assert name == name_expected
+    assert unit == unit_expected
+
+    # Fixture
+    fixture = " [m_per_y]"
+    # Expected result
+    name_expected = ""
+    unit_expected = "m_per_y"
+    # Actual result
+    name, unit = utils.separate_property_unit(fixture)
+    # Test
+    assert name == name_expected
+    assert unit == unit_expected

@@ -1,5 +1,6 @@
 import pickle
 import os
+from typing import List
 # from dataclasses import dataclass
 
 # @dataclass
@@ -27,3 +28,19 @@ def save_pickle(data_dict, file_name):
     if not os.path.exists(directory):
         os.makedirs(directory)
     pickle.dump(data_dict, open(os.path.join(directory, file_name), 'wb', 5))
+
+
+def separate_property_unit(property_in:str) -> List[str]:
+    """Separate property and unit in input string"""
+    index_open = property_in.find(' [')
+    index_close = property_in.find(']')
+    
+    assert index_open == -1 and index_close == -1 or index_open != -1 and index_close != -1, "input string has to contain both '[' and ']' or neither"
+    if index_open != -1 and index_close != -1:
+        name = property_in[:index_open]
+        unit = property_in[index_open+2:index_close]
+    else:
+        name = property_in
+        unit = None
+
+    return name, unit
