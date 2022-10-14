@@ -62,10 +62,10 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
                 "side": View(name="side", x_label="y", y_label="z", cut_slice=np.s_[11, :, :], transpose=True),
                 "side_hp": View(name="side_hp", x_label="y", y_label="z", cut_slice=np.s_[cut_x_hp, :, :], transpose=True)}
     
-    # index_overall = _plot_properties(data['x'], index_overall, view_dict[view], axes, property_names=property_names_in, prefix = "Input ")
-    # index_overall = _plot_properties(data['y'], index_overall, view_dict[view], axes, property_names=property_names_out, prefix = "Output ")
+    index_overall = _plot_properties(data['x'], index_overall, view_dict[view], axes, property_names=property_names_in, prefix = "Input ")
+    index_overall = _plot_properties(data['y'], index_overall, view_dict[view], axes, property_names=property_names_out, prefix = "Output ")
     if plot_streamlines:
-        index_overall = _plot_streamlines(data['y'], index_overall, view_dict[view], axes, property_names=property_names_out, prefix = "Streamlines ")
+        index_overall = _plot_streamlines(data['y'], index_overall, view_dict[view], axes, property_names=property_names_in)
 
     pic_file_name = "visualization/pics/plot_phys_props"
     if plot_streamlines:
@@ -75,69 +75,6 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
     pic_file_name += "_VIEW_" + view + ".jpg"
     print(f"Resulting picture is at {pic_file_name}")
     plt.savefig(pic_file_name)
-
-# def slice_y(y, property):
-#     property = 0 if property == "temperature" else property #1
-#     return y.detach().numpy()[0,property,:,:]
-def _plot_streamlines(data : np.ndarray, index_overall:int, view: View, axes, property_names : List[str], prefix:str = "") -> int:
-    
-    field = data[0, :, :, :]
-    
-    if len(field.shape) != 3:
-        raise ValueError("Data is not 3D")
-
-    # if view.transpose:
-    #     plt.imshow(field[view.cut_slice].T)
-    #     plt.gca().invert_yaxis()
-
-    # else:
-    #     plt.imshow(field[view.cut_slice])
-    
-    #streamlines
-    plt.sca(axes[index_overall])
-    #TODO FIELD? REINPACKEN IN die DEF?
-    if view=="side":
-        Z, Y = np.mgrid[0:len(field[0,0,:]),0:len(field[0,:,0])]
-        U = data[1][11,:,::-1] # "Y Velocity"
-        V = data[2][11,:,::-1] # "Z Velocity"
-        plt.title("Streamlines of Y,Z-Velocity")
-        plt.streamplot(Y, Z, U.T, V.T, density=[2, 0.7])
-        plt.xlabel(view.x_label)
-        plt.ylabel(view.y_label)
-        _aligned_colorbar(label="Y,Z-Velocity [m_per_year](hardcoded)")
-
-    return index_overall
-     
-        #elif view=="side_hp":
-        #    Z, Y = np.mgrid[0:len(field[0,0,:]),0:len(field[0,:,0])]
-        #    U = df.at[run_id,'Liquid Y-Velocity [m_per_y]'][8,:,::-1]
-        #    V = df.at[run_id,'Liquid Z-Velocity [m_per_y]'][8,:,::-1]
-        #    plt.streamplot(Y, Z, U.T, V.T, density=[2, 0.7])
-        #    plt.xlabel("y")
-        #    plt.ylabel("z")
-        #elif view=="top_hp":
-        #    X, Y = np.mgrid[0:len(field[:,0,0]),0:len(field[0,:,0])]
-        #    U = df.at[run_id,'Liquid Y-Velocity [m_per_y]'][:,:,8]
-        #    V = df.at[run_id,'Liquid X-Velocity [m_per_y]'][:,:,8]
-        #    plt.streamplot(Y, X, U, V, density=[2, 0.7])
-        #    plt.xlabel("y")
-        #    plt.ylabel("x")
-        #elif view=="top":
-        #    X, Y = np.mgrid[0:len(field[:,0,0]),0:len(field[0,:,0])]
-        #    U = df.at[run_id,'Liquid Y-Velocity [m_per_y]'][:,:,-1]
-        #    V = df.at[run_id,'Liquid X-Velocity [m_per_y]'][:,:,-1]
-        #    plt.streamplot(Y, X, U, V, density=[2, 0.7])
-        #    plt.xlabel("y")
-        #    plt.ylabel("x")
-        #elif view=="topish":
-        #    X, Y = np.mgrid[0:len(field[:,0,0]),0:len(field[0,:,0])]
-        #    U = df.at[run_id,'Liquid Y-Velocity [m_per_y]'][:,:,-3]
-        #    V = df.at[run_id,'Liquid X-Velocity [m_per_y]'][:,:,-3]
-        #    plt.streamplot(Y, X, U, V, density=[2, 0.7])
-        #    plt.xlabel("y")
-        #    plt.ylabel("x")
-        #    
-        #plt.show()
 
 def plot_exemplary_learned_result(model, dataloaders, name_pic="plot_y_exemplary"):
     """not pretty but functional to get a first glimpse of how y_out looks compared to y_truth"""
@@ -178,25 +115,6 @@ def plot_exemplary_learned_result(model, dataloaders, name_pic="plot_y_exemplary
     return error
 
 ## helper functions for plotting
-def _make_dict(data, physical_property, index):
-    data_dict = {"data" : data, "property" : physical_property}
-    data_dict["data"] = data_dict["data"].detach().numpy()[0,index,:,:]
-    # always uses first batch element
-    # if property == "temperature" or property == "y-velocity":
-    #     #dict["index"] = 0
-    # elif property == "z-velocity":
-    #     dict["data"] = dict["data"].detach().numpy()[0,1,:,:]
-    #     #dict["index"] = 1
-    # elif property == "pressure":
-    #     dict["data"] = dict["data"].detach().numpy()[0,2,:,:]
-    #     #dict["index"] = 2
-    # elif property == "hp location":
-    #     dict["data"] = dict["data"].detach().numpy()[0,3,:,:]
-    #     #dict["index"] = 3
-    # elif property == "init temperature":
-    #     dict["data"] = dict["data"].detach().numpy()[0,4,:,:]
-    #     #dict["index"] = 4
-    return data_dict
 
 def _plot_properties(data : np.ndarray, index_overall:int, view: View, axes, property_names : List[str], prefix:str = "") -> int:
     """
@@ -223,10 +141,7 @@ def _plot_properties(data : np.ndarray, index_overall:int, view: View, axes, pro
         if len(field.shape) != 3:
             raise ValueError("Data is not 3D")
 
-        index = property_names[channel].find(' [')
-        title = prefix + property_names[channel]
-        if index != -1:
-            title = prefix + property_names[channel][:index]
+        title = _build_title(prefix, property_names, channel)
         plt.title(title)
         # plot field, if views transpose is true, transpose the field
         if view.transpose:
@@ -243,6 +158,93 @@ def _plot_properties(data : np.ndarray, index_overall:int, view: View, axes, pro
         index_overall += 1
     
     return index_overall
+
+def _plot_streamlines(data : np.ndarray, index_overall:int, view: View, axes, property_names) -> int:
+    
+    assert "Liquid Y-Velocity [m_per_y]" in property_names and "Liquid Z-Velocity [m_per_y]" in property_names, "Y- and Z-Velocity are not in the properties"
+    index_x_velocity = property_names.index("Liquid X-Velocity [m_per_y]")
+    index_y_velocity = property_names.index("Liquid Y-Velocity [m_per_y]")
+    index_z_velocity = property_names.index("Liquid Z-Velocity [m_per_y]")
+
+    plt.sca(axes[index_overall])
+    if view.name[0:4]=="side":
+        field_U = data[index_y_velocity, :, :, :] # "Liquid Y-Velocity [m_per_y]"
+        field_V = data[index_z_velocity, :, :, :] # "Liquid Z-Velocity [m_per_y]"
+        Z, Y = np.mgrid[0:len(field_U[0,0,:]),0:len(field_U[0,:,0])]
+        plt.title("Streamlines of Y,Z-Velocity")
+
+    elif view.name[0:3]=="top":
+        field_U = data[index_y_velocity, :, :, :] # "Liquid Y-Velocity [m_per_y]"
+        field_V = data[index_x_velocity, :, :, :] # "Liquid Z-Velocity [m_per_y]"
+        Z, Y = np.mgrid[0:len(field_U[:,0,0]),0:len(field_U[0,:,0])]
+        plt.title("Streamlines of X,Y-Velocity")
+
+    assert field_U.shape == field_V.shape, "Velocity-fields have different shapes"
+    assert field_U.shape != 3, "Data is not 3D"
+
+    if view.transpose:
+        U = field_U[view.cut_slice].T
+        V = field_V[view.cut_slice].T
+    else:
+        U = field_U[view.cut_slice]
+        V = field_V[view.cut_slice]
+    
+    plt.streamplot(Y, Z, U, V, density=[1.2, 1.2], arrowstyle="->", broken_streamlines=False)
+    if not view.transpose:
+        plt.gca().invert_yaxis()
+    plt.xlabel(view.x_label)
+    plt.ylabel(view.y_label)
+    _aligned_colorbar(label="Y,Z-Velocity [m_per_year]")
+
+    index_overall += 1
+
+    return index_overall
+  
+def _build_title(prefix:str, property_names:List[str], channel:int) -> str:
+    """
+    Remove units from property names to build a title for the plot
+
+    Parameters
+    ----------
+        prefix : str
+            Prefix to add to the title of the plot like "Input " or "Output "
+        property_names : List[str]
+            List of all properties to plot
+        channel : int
+            Index of current property to plot
+
+    Returns
+    -------
+        title : str
+
+    """
+    
+    index = property_names[channel].find(' [')
+    title = prefix + property_names[channel]
+    if index != -1:
+        title = prefix + property_names[channel][:index]
+
+    return title
+
+def _make_dict(data, physical_property, index):
+    data_dict = {"data" : data, "property" : physical_property}
+    data_dict["data"] = data_dict["data"].detach().numpy()[0,index,:,:]
+    # always uses first batch element
+    # if property == "temperature" or property == "y-velocity":
+    #     #dict["index"] = 0
+    # elif property == "z-velocity":
+    #     dict["data"] = dict["data"].detach().numpy()[0,1,:,:]
+    #     #dict["index"] = 1
+    # elif property == "pressure":
+    #     dict["data"] = dict["data"].detach().numpy()[0,2,:,:]
+    #     #dict["index"] = 2
+    # elif property == "hp location":
+    #     dict["data"] = dict["data"].detach().numpy()[0,3,:,:]
+    #     #dict["index"] = 3
+    # elif property == "init temperature":
+    #     dict["data"] = dict["data"].detach().numpy()[0,4,:,:]
+    #     #dict["index"] = 4
+    return data_dict
 
 def _plot_y(data, name_pic="plot_y_exemplary"):
     n_subplots = len(data)
@@ -268,3 +270,7 @@ def _aligned_colorbar(*args,**kwargs):
     
 ## helper to find inlet, outlet alias max and min Material_ID
 # print(np.where(data["Material_ID"]==np.max(data["Material_ID"])))
+
+# def slice_y(y, property):
+#     property = 0 if property == "temperature" else property #1
+#     return y.detach().numpy()[0,property,:,:]
