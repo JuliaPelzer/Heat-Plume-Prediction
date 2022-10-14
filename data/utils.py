@@ -1,6 +1,8 @@
 import pickle
 import os
-from typing import List
+from typing import List, Dict
+import numpy as np
+
 # from dataclasses import dataclass
 
 # @dataclass
@@ -44,3 +46,34 @@ def separate_property_unit(property_in:str) -> List[str]:
         unit = None
 
     return name, unit
+
+
+class PhysicalVariable:
+    def __init__(self, name:str): #TODO ? default value + type
+        self.id_name = name
+        self.name_without_unit, self.unit = separate_property_unit(name)
+        self.value = None
+
+    def __repr__(self):
+        return f"{self.name_without_unit} (in {self.unit})"
+
+    # def fill(self, value):
+    #     # todo assert input type in certain shape
+    #     self.value = value
+
+    def __sizeof__(self) -> int:
+        return np.size(self.value)
+    
+class PhysicalVariables(dict):
+    def __init__(self, time:str, properties:Dict[str, PhysicalVariable]=[]):
+        super().__init__(properties)
+        self.time = time
+
+    def __setitem__(self, key:str, value:PhysicalVariable):
+        self[key].value = value
+
+    def get_names_without_unit(self):
+        return [var.name_without_unit for _, var in self.items()]
+
+    def get_ids(self):
+        return [var.id_name for _, var in self.items()]

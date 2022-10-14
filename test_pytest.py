@@ -67,3 +67,21 @@ def test_separate_property_unit():
     # Test
     assert name == name_expected
     assert unit == unit_expected
+
+
+def test_physical_property():
+    time = "time [s]"
+    expected_temperature = utils.PhysicalVariable("Temperature [K]")
+    properties = {"temperature": expected_temperature,
+        "pressure": utils.PhysicalVariable("Pressure [Pa]")}
+    physical_properties = utils.PhysicalVariables(time, properties)
+    physical_properties["temperature"]=1
+    physical_properties["pressure"]=2
+
+    assert physical_properties["temperature"]==expected_temperature, "test value added to physical property failed"
+    assert physical_properties["temperature"].__repr__()=="Temperature (in K)", "repr not working"
+    assert physical_properties["pressure"].__repr__()=="Pressure (in Pa)", "repr not working"
+    assert physical_properties.get_names_without_unit()==["Temperature", "Pressure"], "get_names_without_unit not working"
+    assert physical_properties.get_ids()==["Temperature [K]", "Pressure [Pa]"], "get_ids not working"
+    assert physical_properties["temperature"].value == 1, "value not set correctly"
+    assert len(physical_properties)==2, "len not working"
