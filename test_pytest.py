@@ -72,29 +72,28 @@ def test_separate_property_unit():
 def test_physical_property():
     time = "now [s]"
     expected_temperature = utils.PhysicalVariable("Temperature [K]")
-    properties = {"temperature": utils.PhysicalVariable("Temperature [K]"),
-        "pressure": utils.PhysicalVariable("Pressure [Pa]")}
+    properties = ["Temperature [K]", "Pressure [Pa]"]
     physical_properties = utils.PhysicalVariables(time, properties)
-    physical_properties["pressure"]=2
-    physical_properties["temperature"]=3
+    physical_properties["Temperature [K]"]=3
+    physical_properties["Pressure [Pa]"]=2
     physical_properties["ID [-]"]=0
 
-    assert physical_properties["temperature"].__repr__()=="Temperature (in K)", "repr not working"
-    assert physical_properties["pressure"].__repr__()=="Pressure (in Pa)", "repr not working"
+    assert physical_properties["Temperature [K]"].__repr__()=="Temperature (in K)", "repr not working"
+    assert physical_properties["Pressure [Pa]"].__repr__()=="Pressure (in Pa)", "repr not working"
     assert physical_properties.get_names_without_unit()==["Temperature", "Pressure", "ID"], "get_names_without_unit() not working"
-    assert physical_properties["temperature"].value == 3, "value not set correctly"
+    assert physical_properties["Temperature [K]"].value == 3, "value not set correctly"
     assert len(physical_properties)==3, "len not working"
-    assert physical_properties["temperature"].unit == "K", "unit not set correctly"
+    assert physical_properties["Temperature [K]"].unit == "K", "unit not set correctly"
     assert physical_properties["ID [-]"].value == 0, "value not set correctly"
     assert physical_properties["ID [-]"].unit == "-", "unit not set correctly"
     assert physical_properties["ID [-]"].__repr__()=="ID (in -)", "repr not working"
     assert physical_properties["ID [-]"].name_without_unit == "ID", "name_without_unit not set correctly"
     assert physical_properties["ID [-]"].id_name == "ID [-]", "id_name not set correctly"
     assert physical_properties.get_ids()==["Temperature [K]", "Pressure [Pa]", "ID [-]"], "get_ids not working"
-    assert list(physical_properties.keys()) == ['temperature', 'pressure', 'ID [-]'], "keys not working"
+    assert list(physical_properties.keys()) == ["Temperature [K]", "Pressure [Pa]", "ID [-]"], "keys not working"
     # test PhysicalVariable.__eq__()
-    assert physical_properties["temperature"] != expected_temperature, "PhysicalVariable.__eq__() failed"
+    assert physical_properties["Temperature [K]"] != expected_temperature, "PhysicalVariable.__eq__() failed"
     expected_temperature.value = 3
     assert expected_temperature.value == 3, "value not set correctly"
-    assert physical_properties["temperature"] == expected_temperature, "PhysicalVariable.__eq__() failed"
+    assert physical_properties["Temperature [K]"] == expected_temperature, "PhysicalVariable.__eq__() failed"
     
