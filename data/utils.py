@@ -49,10 +49,10 @@ def separate_property_unit(property_in:str) -> List[str]:
 
 
 class PhysicalVariable:
-    def __init__(self, name:str): #TODO ? default value + type
+    def __init__(self, name:str, value:np.ndarray=None): #TODO ? default value + type
         self.id_name = name
         self.name_without_unit, self.unit = separate_property_unit(name)
-        self.value = None
+        self.value = value
 
     def __repr__(self):
         return f"{self.name_without_unit} (in {self.unit})"
@@ -63,13 +63,21 @@ class PhysicalVariable:
 
     def __sizeof__(self) -> int:
         return np.size(self.value)
+
+    def __eq__(self, o) -> bool:
+        if not isinstance(o, PhysicalVariable):
+            return False
+        return self.id_name == o.id_name and np.array_equal(self.value, o.value)
     
 class PhysicalVariables(dict):
     def __init__(self, time:str, properties:Dict[str, PhysicalVariable]=[]):
         super().__init__(properties)
         self.time = time
 
-    def __setitem__(self, key:str, value:PhysicalVariable):
+    def __setitem__(self, key:str, value:np.ndarray):
+        if key not in self.keys():
+            super().__setitem__(key, PhysicalVariable(key, value))
+            # self[key] = PhysicalVariable(key, value)
         self[key].value = value
 
     def get_names_without_unit(self):
@@ -77,3 +85,34 @@ class PhysicalVariables(dict):
 
     def get_ids(self):
         return [var.id_name for _, var in self.items()]
+
+
+if __name__ == "__main__":
+    time = "now"
+    temp = PhysicalVariables(time)
+    temp["temperature"] = 1
+    print("value", temp["temperature"].value)
+    temp["temperature"] = 2
+    print("repr", temp["temperature"])
+    print("name", temp["temperature"].name_without_unit)
+    temp["temperature"] = 4
+    print("value", temp["temperature"].value)
+    print("size", temp["temperature"].__sizeof__())
+    temp["Pressure [Pa]"] = 3
+    print("value pressure", temp["Pressure [Pa]"].value)
+    print("names", temp.get_names_without_unit())
+    print("ids", temp.get_ids())
+    print("repr", temp["Pressure [Pa]"])
+    print(temp.keys(), temp.values())
+
+
+    time = "now [s]"
+    expected_temperature = PhysicalVariable("Temperature [K]")
+    properties = {"temperature": PhysicalVariable("Temperature [K]"),
+        "pressure": PhysicalVariable("Pressure [Pa]")}
+    physical_properties = PhysicalVariables(time, properties)
+    physical_properties["pressure"]=2
+    physical_properties["temperature"]=3
+    physical_properties["ID [-]"]=0
+
+    print(list(physical_properties.keys())==['temperature', 'pressure', 'ID [-]'], physical_properties.values())
