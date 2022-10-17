@@ -6,6 +6,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from typing import List
 import torch
 from data.dataset import DatasetSimulationData
+from data.utils import separate_property_unit
 
 # TODO: look at vispy library for plotting 3D data
 
@@ -202,7 +203,7 @@ def _plot_streamlines(data : np.ndarray, index_overall:int, view: View, axes, pr
   
 def _build_title(prefix:str, property_names:List[str], channel:int) -> str:
     """
-    Remove units from property names to build a title for the plot
+    Build title for plot by removing the unit
 
     Parameters
     ----------
@@ -219,10 +220,8 @@ def _build_title(prefix:str, property_names:List[str], channel:int) -> str:
 
     """
     
-    index = property_names[channel].find(' [')
-    title = prefix + property_names[channel]
-    if index != -1:
-        title = prefix + property_names[channel][:index]
+    title =  prefix + separate_property_unit(property_names[channel])[0]
+    print(title)
 
     return title
 
