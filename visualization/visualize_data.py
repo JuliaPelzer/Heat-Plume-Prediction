@@ -159,8 +159,8 @@ def _plot_properties(data : np.ndarray, index_overall:int, view: View, axes, pro
     
     return index_overall
 
-def _plot_streamlines(data : np.ndarray, index_overall:int, view: View, axes, property_names) -> int:
-    
+def _plot_streamlines(data : np.ndarray, index_overall:int, view: View, axes, property_names: List[str]) -> int:
+    # TODO fix input, output vars format PhysicalVariables
     assert "Liquid Y-Velocity [m_per_y]" in property_names and "Liquid Z-Velocity [m_per_y]" in property_names, "Y- and Z-Velocity are not in the properties"
     index_x_velocity = property_names.index("Liquid X-Velocity [m_per_y]")
     index_y_velocity = property_names.index("Liquid Y-Velocity [m_per_y]")
