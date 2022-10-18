@@ -70,8 +70,10 @@ class PhysicalVariable:
         return self.id_name == o.id_name and np.array_equal(self.value, o.value)
     
 class PhysicalVariables(dict):
-    def __init__(self, time:str, properties:List[str]=[]):
+    def __init__(self, time:str, properties:List[str]=None):
         super().__init__()
+        if properties is None:
+            properties = []
         for prop in properties:
             self[prop] = PhysicalVariable(prop)
         self.time = time
