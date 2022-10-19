@@ -146,6 +146,7 @@ class DatasetSimulationData(Dataset):
         data_dict["x_std"] = [] # TODO interim, delete later
         data_dict["y_mean"] = [] # TODO interim, delete later
         data_dict["y_std"] = [] # TODO interim, delete later
+
         try:
             self._load_data_as_numpy(self.data_paths[index], self.input_vars)
             data_dict["x"] = self.transform(self.input_vars)
@@ -165,7 +166,6 @@ class DatasetSimulationData(Dataset):
             data_dict["x"] = self.input_vars
             self._load_data_as_numpy(self.data_paths[index], self.output_vars)
             data_dict["y"] = self.output_vars
-
 
         return data_dict
 
