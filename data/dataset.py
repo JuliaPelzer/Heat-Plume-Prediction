@@ -216,19 +216,14 @@ class DatasetSimulationData(Dataset):
         else: 
             return data_paths[indices], list(np.array(labels)[indices])
         
-    def _load_data_as_numpy(self, data_path:str, variables:PhysicalVariables) -> np.ndarray:
+    def _load_data_as_numpy(self, data_path:str, variables:PhysicalVariables) -> None:
         """
-        Load data from h5 file on data_path, but only the variables named in vars[1] at time stamp vars[0]
-        variables: list of two elements, first element is the time stamp (str), second element is a list of variables (List[str])
-        Returns
-        -------
-        data: numpy array of shape (C, H, W, D)
+        Load data from h5 file on data_path, but only the variables named in variables.get_ids() at time stamp variables.time
+        Sets the values of each PhysicalVariable in variables to the loaded data.
         """
-        data = []
         with h5py.File(data_path, "r") as file:
             for key, value in file[variables.time].items():
                 if key in variables.get_ids(): # properties
-                    data.append(np.array(value))
                     variables[key] = np.array(value)
 
 '''NICHT ÜBERARBEITET
