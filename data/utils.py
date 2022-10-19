@@ -18,7 +18,7 @@ import torch
 
 def save_pickle(data_dict, file_name):
     """Save given data dict to pickle file file_name in models/
-    
+
     Parameters
     ----------
     data_dict : e.g. {"dataset": dataset,
@@ -33,12 +33,14 @@ def save_pickle(data_dict, file_name):
     pickle.dump(data_dict, open(os.path.join(directory, file_name), 'wb', 5))
 
 
-def separate_property_unit(property_in:str) -> List[str]:
+def separate_property_unit(property_in: str) -> List[str]:
     """Separate property and unit in input string"""
     index_open = property_in.find(' [')
     index_close = property_in.find(']')
-    
-    assert index_open == -1 and index_close == -1 or index_open != -1 and index_close != -1, "input string has to contain both '[' and ']' or neither"
+
+    assert index_open == -1 and index_close == -1 or index_open != - \
+        1 and index_close != - \
+        1, "input string has to contain both '[' and ']' or neither"
     if index_open != -1 and index_close != -1:
         name = property_in[:index_open]
         unit = property_in[index_open+2:index_close]
@@ -50,13 +52,13 @@ def separate_property_unit(property_in:str) -> List[str]:
 
 
 class PhysicalVariable:
-    def __init__(self, name:str, value:torch.DoubleTensor=None): #TODO ? default value + type
+    def __init__(self, name: str, value: torch.DoubleTensor = None):  # TODO ? default value + type
         self.id_name = name
         self.name_without_unit, self.unit = separate_property_unit(name)
         self.value = value
         # TODO required to put mean, std somewhere else? (other level / class)
-        self.mean_orig:float = None
-        self.std_orig:float = None
+        self.mean_orig: float = None
+        self.std_orig: float = None
 
     def __repr__(self):
         return f"{self.name_without_unit} (in {self.unit})"
@@ -77,11 +79,11 @@ class PhysicalVariable:
         if not isinstance(o, PhysicalVariable):
             return False
         return self.id_name == o.id_name and np.array_equal(self.value, o.value)
-    
+
     def calc_mean(self):
         # TODO requires Keepdim=True and dim=(1,2,3) ???
-        
-        # check if type is correct to calc mean (not int!) 
+
+        # check if type is correct to calc mean (not int!)
         if self.value.type != torch.DoubleTensor:
             self.value = self.value.type(torch.DoubleTensor)
         try:
@@ -90,7 +92,7 @@ class PhysicalVariable:
             self.mean_orig = np.mean(self.value)
 
     def calc_std(self):
-        # check if type is correct to calc mean (not int!) 
+        # check if type is correct to calc mean (not int!)
         if self.value.type != torch.DoubleTensor:
             self.value = self.value.type(torch.DoubleTensor)
         try:
@@ -98,8 +100,9 @@ class PhysicalVariable:
         except:
             self.std_orig = np.std(self.value)
 
+
 class PhysicalVariables(dict):
-    def __init__(self, time:str, properties:List[str]=None):
+    def __init__(self, time: str, properties: List[str] = None):
         super().__init__()
         if properties is None:
             properties = []
@@ -107,7 +110,7 @@ class PhysicalVariables(dict):
             self[prop] = PhysicalVariable(prop)
         self.time = time
 
-    def __setitem__(self, key:str, value:np.ndarray):
+    def __setitem__(self, key: str, value: np.ndarray):
         if key not in self.keys():
             super().__setitem__(key, PhysicalVariable(key, value))
             # self[key] = PhysicalVariable(key, value)
@@ -118,6 +121,7 @@ class PhysicalVariables(dict):
 
     def get_ids_list(self):
         return [var.id_name for _, var in self.items()]
+
 
 def test_physical_variable():
     time = "now"
@@ -137,17 +141,18 @@ def test_physical_variable():
     print("repr", temp["Pressure [Pa]"])
     print(temp.keys(), temp.values())
 
-
     time = "now [s]"
     expected_temperature = PhysicalVariable("Temperature [K]")
     properties = {"temperature": PhysicalVariable("Temperature [K]"),
-        "pressure": PhysicalVariable("Pressure [Pa]")}
+                  "pressure": PhysicalVariable("Pressure [Pa]")}
     physical_properties = PhysicalVariables(time, properties)
-    physical_properties["pressure"]=2
-    physical_properties["temperature"]=3
-    physical_properties["ID [-]"]=0
+    physical_properties["pressure"] = 2
+    physical_properties["temperature"] = 3
+    physical_properties["ID [-]"] = 0
 
-    print(list(physical_properties.keys())==['temperature', 'pressure', 'ID [-]'], physical_properties.values())
+    print(list(physical_properties.keys()) == [
+          'temperature', 'pressure', 'ID [-]'], physical_properties.values())
+
 
 if __name__ == "__main__":
     test_physical_variable()

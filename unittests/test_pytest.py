@@ -93,7 +93,7 @@ def test_physical_property():
     assert physical_properties["ID [-]"].__repr__()=="ID (in -)", "repr not working"
     assert physical_properties["ID [-]"].name_without_unit == "ID", "name_without_unit not set correctly"
     assert physical_properties["ID [-]"].id_name == "ID [-]", "id_name not set correctly"
-    assert physical_properties.get_ids()==["Temperature [K]", "Pressure [Pa]", "ID [-]"], "get_ids not working"
+    assert physical_properties.get_ids_list()==["Temperature [K]", "Pressure [Pa]", "ID [-]"], "get_ids not working"
     assert list(physical_properties.keys()) == ["Temperature [K]", "Pressure [Pa]", "ID [-]"], "keys not working"
     # test PhysicalVariable.__eq__()
     assert physical_properties["Temperature [K]"] != expected_temperature, "PhysicalVariable.__eq__() failed"
@@ -116,6 +116,13 @@ def test_data_init():
     
     _, dataloaders = lp.init_data(reduce_to_2D=False, overfit=True, dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_01", inputs="xyzp")
     assert len(dataloaders["train"].dataset[0]["x"]) == 5
+    for prop in dataloaders["train"].dataset[0]['x'].values():
+        assert prop.shape() == (16,128,16)
+        break
+    
+    _, dataloaders = lp.init_data(reduce_to_2D=False, overfit=True, dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_01", inputs="")
+    assert len(dataloaders["train"].dataset[0]["x"]) == 1
+    assert dataloaders["train"].dataset[0]["x"].get_ids_list() == ["Material_ID"]
     for prop in dataloaders["train"].dataset[0]['x'].values():
         assert prop.shape() == (16,128,16)
         break

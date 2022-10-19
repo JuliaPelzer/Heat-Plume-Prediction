@@ -10,14 +10,17 @@ from torch.utils.tensorboard import SummaryWriter
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 def test_dummy():
     # dummy test
-    #TODO ask Ishaan
+    # TODO ask Ishaan
     assert 1 == 1
 
 # create and directly split dataset into train, val, test
-def init_data(reduce_to_2D:bool = True, reduce_to_2D_wrong:bool = False, overfit:bool = False, normalize:bool = True, just_plotting:bool = False, batch_size:int = 100, inputs:str = "xyzpt",
-            dataset_name:str = "approach2_dataset_generation_simplified/dataset_HDF5_testtest", path_to_datasets:str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth"):
+
+
+def init_data(reduce_to_2D: bool = True, reduce_to_2D_wrong: bool = False, overfit: bool = False, normalize: bool = True, just_plotting: bool = False, batch_size: int = 100, inputs: str = "xyzpt",
+              dataset_name: str = "approach2_dataset_generation_simplified/dataset_HDF5_testtest", path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth"):
     """
     Initialize dataset and dataloader for training.
 
@@ -28,7 +31,7 @@ def init_data(reduce_to_2D:bool = True, reduce_to_2D_wrong:bool = False, overfit
     normalize : If true, normalize the dataset, usually the case; not true for testing input data magnitudes etc 
     dataset_name : Name of the dataset to use (has to be the same as in the folder)
     batch_size : Size of the batch to use for training
-    
+
     Returns
     -------
     datasets : dict
@@ -36,21 +39,27 @@ def init_data(reduce_to_2D:bool = True, reduce_to_2D_wrong:bool = False, overfit
     dataloaders : dict
         Dictionary of dataloaders, with keys "train", "val", "test"
     """
-    assert isinstance(reduce_to_2D, bool) and isinstance(reduce_to_2D_wrong, bool) and isinstance(overfit, bool) and isinstance(normalize, bool) and isinstance(just_plotting, bool), "input parameters reduce_to_2D, reduce_to_2D_wrong, overfit, normalize, just_plotting have to be bool"
-    assert isinstance(batch_size, int), "input parameter batch_size has to be int"
-    assert isinstance(dataset_name, str) and isinstance(path_to_datasets, str), "input parameters dataset_name, path_to_datasets have to be str"
+    assert isinstance(reduce_to_2D, bool) and isinstance(reduce_to_2D_wrong, bool) and isinstance(overfit, bool) and isinstance(normalize, bool) and isinstance(
+        just_plotting, bool), "input parameters reduce_to_2D, reduce_to_2D_wrong, overfit, normalize, just_plotting have to be bool"
+    assert isinstance(
+        batch_size, int), "input parameter batch_size has to be int"
+    assert isinstance(dataset_name, str) and isinstance(
+        path_to_datasets, str), "input parameters dataset_name, path_to_datasets have to be str"
 
     datasets = {}
-    transforms_list = [ToTensorTransform(), PowerOfTwoTransform(oriented="left")]
+    transforms_list = [
+        ToTensorTransform(), PowerOfTwoTransform(oriented="left")]
     if reduce_to_2D:
-        transforms_list.append(ReduceTo2DTransform(reduce_to_2D_wrong=reduce_to_2D_wrong))
+        transforms_list.append(ReduceTo2DTransform(
+            reduce_to_2D_wrong=reduce_to_2D_wrong))
     if normalize:
         transforms_list.append(NormalizeTransform(reduced_to_2D=reduce_to_2D))
     logging.info(f"transforms_list: {transforms_list}")
 
     transforms = ComposeTransform(transforms_list)
-    split = {'train': 0.6, 'val': 0.2, 'test': 0.2} if not overfit else {'train': 1, 'val': 0, 'test': 0}
-    
+    split = {'train': 0.6, 'val': 0.2, 'test': 0.2} if not overfit else {
+        'train': 1, 'val': 0, 'test': 0}
+
     # just plotting (for Marius)
     if just_plotting:
         split = {'train': 1, 'val': 0, 'test': 0}
@@ -58,7 +67,8 @@ def init_data(reduce_to_2D:bool = True, reduce_to_2D_wrong:bool = False, overfit
 
     input_list = [inputs[i] for i in range(len(inputs))]
     for i in input_list:
-        assert i in ["x", "y", "z", "p", "t"], "input parameter inputs has to be a string of characters, each of which is either x, y, z, p, t"
+        assert i in ["x", "y", "z", "p",
+                     "t"], "input parameter inputs has to be a string of characters, each of which is either x, y, z, p, t"
     input_vars = []
     if 'x' in input_list:
         input_vars.append("Liquid X-Velocity [m_per_y]")
@@ -70,14 +80,15 @@ def init_data(reduce_to_2D:bool = True, reduce_to_2D_wrong:bool = False, overfit
         input_vars.append("Liquid_Pressure [Pa]")
     if 't' in input_list:
         input_vars.append("Temperature [C]")
-    #if '-' not in input_list:
+    # if '-' not in input_list:
     input_vars.append("Material_ID")
 
     for mode in ['train', 'val', 'test']:
         temp_dataset = DatasetSimulationData(
             dataset_name=dataset_name, dataset_path=path_to_datasets,
             transform=transforms, input_vars_names=input_vars,
-            output_vars_names=["Temperature [C]", "Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]"], #. "Liquid_Pressure [Pa]"
+            output_vars_names=["Temperature [C]", "Liquid X-Velocity [m_per_y]",
+                               "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]"],  # . "Liquid_Pressure [Pa]"
             mode=mode, split=split
         )
         datasets[mode] = temp_dataset
@@ -92,7 +103,7 @@ def init_data(reduce_to_2D:bool = True, reduce_to_2D_wrong:bool = False, overfit
             drop_last=False,
         )
         dataloaders[mode] = temp_dataloader
-    
+
     if reduce_to_2D:
         # Assert if data is not 2D
         def assertion_error_2d(datasets):
@@ -103,14 +114,15 @@ def init_data(reduce_to_2D:bool = True, reduce_to_2D_wrong:bool = False, overfit
             assert dataset_dimensions == 2, "Data is not 2D"
 
         assertion_error_2d(datasets)
-    
+
     print("init done", datasets["train"][0])
     return datasets, dataloaders
 
-def train_model(model, dataloaders, loss_fn, n_epochs:int, lr:float, name_folder:str="default", debugging:bool=False):
+
+def train_model(model, dataloaders, loss_fn, n_epochs: int, lr: float, name_folder: str = "default", debugging: bool = False):
     """
     Train the model for a certain number of epochs.
-        
+
     Parameters
     ----------
     model : torch.nn.Module
@@ -132,7 +144,7 @@ def train_model(model, dataloaders, loss_fn, n_epochs:int, lr:float, name_folder
     """
 
     # initialize Adam optimizer
-    optimizer = Adam(model.parameters(), lr=lr) 
+    optimizer = Adam(model.parameters(), lr=lr)
     # initialize tensorboard
     if not debugging:
         writer = SummaryWriter(f"runs/{name_folder}")
@@ -140,7 +152,7 @@ def train_model(model, dataloaders, loss_fn, n_epochs:int, lr:float, name_folder
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer)
 
     model.apply(weights_init)
-    epochs = tqdm(range(n_epochs), desc = "epochs")
+    epochs = tqdm(range(n_epochs), desc="epochs")
     for epoch in epochs:
         for batch_idx, data_point in enumerate(dataloaders["train"]):
             # datasets["train"] contains 3 data points
@@ -150,24 +162,26 @@ def train_model(model, dataloaders, loss_fn, n_epochs:int, lr:float, name_folder
             model.zero_grad()
             optimizer.zero_grad()
 
-            y_out = model(x) # dimensions: (batch-datapoint_id, channel, x, y)
+            y_out = model(x)  # dimensions: (batch-datapoint_id, channel, x, y)
             mse_loss = loss_fn(y_out, y)
             loss = mse_loss
-            
+
             loss.backward()
             optimizer.step()
             epochs.set_postfix_str(f"loss: {loss.item():.4f}")
 
             loss_hist.append(loss.item())
             scheduler.step(loss)
-            
+
             if not debugging:
-                writer.add_scalar("loss", loss.item(), epoch*len(dataloaders["train"])+batch_idx)
-                writer.add_image("y_out_0", y_out[0,0,:,:], dataformats="WH", global_step=epoch*len(dataloaders["train"])+batch_idx)
+                writer.add_scalar("loss", loss.item(), epoch *
+                                  len(dataloaders["train"])+batch_idx)
+                writer.add_image("y_out_0", y_out[0, 0, :, :], dataformats="WH",
+                                 global_step=epoch*len(dataloaders["train"])+batch_idx)
                 #writer.add_image("y_out_1", y_out[0,1,:,:], dataformats="WH")
 
         if not debugging:
-            writer.add_image("x_0", x[0,0,:,:], dataformats="WH")
+            writer.add_image("x_0", x[0, 0, :, :], dataformats="WH")
             # writer.add_image("x_1", x[0,1,:,:], dataformats="WH")
             # writer.add_image("x_2", x[0,2,:,:], dataformats="WH")
             # writer.add_image("x_3", x[0,3,:,:], dataformats="WH")
@@ -175,12 +189,12 @@ def train_model(model, dataloaders, loss_fn, n_epochs:int, lr:float, name_folder
             # writer.add_image("y_0", y[0,0,:,:], dataformats="WH")
             # #writer.add_image("y_1", y[0,1,:,:], dataformats="WH")
 
-
     # if not debugging:
     #     writer.add_graph(model, x)
     print('Finished Training')
 
     return loss_hist
+
 
 if __name__ == "__main__":
     init_data()
