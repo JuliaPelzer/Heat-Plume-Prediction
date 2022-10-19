@@ -123,7 +123,7 @@ class DatasetSimulationData(Dataset):
         return list(self.input_vars.keys)
 
     def get_output_properties(self) -> List[str]:
-        return list(self.output_vars)
+        return list(self.output_vars.keys)
 
     def __getitem__(self, index:int) -> Dict[str, np.ndarray]:
         """
@@ -159,9 +159,13 @@ class DatasetSimulationData(Dataset):
                 data_dict["y_std"].append(self.output_vars[prop].std_orig)
 
         except Exception as e:
-            logging.info("no transforms applied")
-            data_dict["x"] = self._load_data_as_numpy(self.data_paths[index], self.input_vars)
-            data_dict["y"] = self._load_data_as_numpy(self.data_paths[index], self.output_vars)
+            print("no transforms applied: ", e)
+            self._load_data_as_numpy(self.data_paths[index], self.input_vars)
+            data_dict["x"] = self.input_vars
+            self._load_data_as_numpy(self.data_paths[index], self.output_vars)
+            data_dict["y"] = self.output_vars
+
+            # TODO not working! (case of just_plotting)
 
         data_dict["run_id"] = self.runs[index]
 

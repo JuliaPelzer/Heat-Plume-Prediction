@@ -13,7 +13,7 @@ def test_compute_data_max_and_min():
     max = np.array([[[[6]]]])
     min = np.array([[[[1]]]])
     # Actual result
-    actual_result = trans.compute_data_max_and_min(data)
+    actual_result = trans._compute_data_max_and_min(data)
     # Test
     assert actual_result == (max, min)
     # does not test keepdim part - necessary?
@@ -33,18 +33,11 @@ def test_reduceto2d_transform():
     data["test"] = torch.zeros([4,2,4])
     data_reduced = torch.zeros([1,2,4])
     # Actual result
-    data_actual = trans.ReduceTo2DTransform()(data, x=0)
+    data_actual = trans.ReduceTo2DTransform(x=0)(data)
     # Test
     assert data_actual["test"].value.shape == data_reduced.shape
     tensor_eq = torch.eq(data_actual["test"].value, data_reduced).flatten
     assert tensor_eq
-
-def test_data_init():
-    _, dataloaders = lp.init_data(reduce_to_2D=True, overfit=True, dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_1", inputs="xyz")
-    assert dataloaders["train"].dataset[0]['x'].shape == (4,128,16)
-    assert len(dataloaders) == 3
-    _, dataloaders = lp.init_data(reduce_to_2D=True, overfit=True, dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_1", inputs="xysd")
-    assert dataloaders["train"].dataset[0]['x'].shape == (3,128,16)
 
 def test_separate_property_unit():
     # Fixture
@@ -80,7 +73,6 @@ def test_separate_property_unit():
     assert name == name_expected
     assert unit == unit_expected
 
-
 def test_physical_property():
     time = "now [s]"
     expected_temperature = utils.PhysicalVariable("Temperature [K]")
@@ -108,4 +100,29 @@ def test_physical_property():
     expected_temperature.value = 3
     assert expected_temperature.value == 3, "value not set correctly"
     assert physical_properties["Temperature [K]"] == expected_temperature, "PhysicalVariable.__eq__() failed"
+
+def test_data_init():
+    _, dataloaders = lp.init_data(reduce_to_2D=False, overfit=True, dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_01", inputs="xyz")
+    assert len(dataloaders) == 3
+    assert len(dataloaders["train"].dataset[0]["x"]) == 4
+    for prop in dataloaders["train"].dataset[0]['x'].values():
+        assert prop.shape() == (16,128,16)
+        break
+
+    _, dataloaders = lp.init_data(reduce_to_2D=True, overfit=True, dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_01", inputs="xyz")
+    for prop in dataloaders["train"].dataset[0]['x'].values():
+        assert prop.shape() == (128,16)
+        break
     
+    _, dataloaders = lp.init_data(reduce_to_2D=False, overfit=True, dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_01", inputs="xyzp")
+    assert len(dataloaders["train"].dataset[0]["x"]) == 5
+    for prop in dataloaders["train"].dataset[0]['x'].values():
+        assert prop.shape() == (16,128,16)
+        break
+
+def test_visualize_data():
+    pass
+
+def test_train_model():
+    pass
+    """ Test input format etc. of train_model"""
