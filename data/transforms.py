@@ -18,7 +18,7 @@ class RescaleTransform:
         self.min = out_range[0]
         self.max = out_range[1]
 
-    def __call__(self, data, **kwargs):
+    def __call__(self, data):
         print("rescale")
         assert True, "RescaleTransform not corrected for new datatype of PhysicalVariables yet"
         # calc max, min of data for each channel of one datapoint, broadcast
@@ -73,7 +73,7 @@ class NormalizeTransform:
         """
         self.reduced_to_2D = reduced_to_2D
 
-    def __call__(self, data:PhysicalVariables, **kwargs):
+    def __call__(self, data:PhysicalVariables):
         # manual shift of material IDs  TODO change this in pflotran file!! not here
         name_material = "Material_ID"
         if name_material in data.keys():
@@ -132,7 +132,7 @@ class PowerOfTwoTransform: #CutOffEdgesTransform:
     def __init__(self, oriented="center"):
         self.orientation = oriented
 
-    def __call__(self, data:PhysicalVariables, **kwargs):
+    def __call__(self, data:PhysicalVariables):
         
         def po2(array, axis):
             dim = array.shape[axis]
@@ -155,20 +155,20 @@ class ReduceTo2DTransform:
     Transform class to reduce data to 2D, reduce in x, in height of hp: x=7 (if after Normalize)
     #TODO still np?
     """
-    def __init__(self, reduce_to_2D_wrong=False):
+    def __init__(self, reduce_to_2D_wrong=False, x:int=9):
         # if reduce_to_2D_wrong then the data will still be reduced to 2D but in x,y dimension instead of y,z
         self.reduce_to_2D_wrong = reduce_to_2D_wrong
+        self.x = x
 
-    def __call__(self, data:PhysicalVariables, x:int=9, **kwargs):
+    def __call__(self, data:PhysicalVariables):
         # reduce data to 2D
         if self.reduce_to_2D_wrong:
-            x = 9
             for prop in data.keys():
                 data[prop].value.transpose_(1,3)
 
         for prop in data.keys():
-            assert x <= data[prop].value.shape[0], "x is larger than data dimension 0"
-            data[prop].value = data[prop].value[x,:,:]
+            assert self.x <= data[prop].value.shape[0], "x is larger than data dimension 0"
+            data[prop].value = data[prop].value[self.x,:,:]
             data[prop].value = torch.unsqueeze(data[prop].value,0)
         logging.info("Reduced data to 2D, but still has dummy dimension 0 for Normalization to work")
         return data
@@ -177,7 +177,7 @@ class ToTensorTransform:
     """Transform class to convert np.array-data to torch.Tensor"""
     def __init__(self):
         pass
-    def __call__(self, data:PhysicalVariables, **kwargs):
+    def __call__(self, data:PhysicalVariables):
         for prop in data.keys():
             data[prop].value = torch.from_numpy(data[prop].value)
         return data
@@ -192,9 +192,9 @@ class ComposeTransform:
         # self.mean = None
         # self.std = None
 
-    def __call__(self, data:PhysicalVariables, **kwargs):
+    def __call__(self, data:PhysicalVariables):
         for transform in self.transforms:
-            data = transform(data, **kwargs)
+            data = transform(data)
         #     try:
         #         self.mean = transform.mean
         #         self.std = transform.std
@@ -202,10 +202,10 @@ class ComposeTransform:
         #         print(f"Transform {transform} didn' work")
         return data #, self.mean, self.std
 
-    def reverse_OLD_FORMAT(self, data, **kwargs):
+    def reverse_OLD_FORMAT(self, data):
         for transform in reversed(self.transforms):
             try:
-                data = transform.reverse(data, **kwargs)
+                data = transform.reverse(data)
             except AttributeError:
                 pass
                 #print(f"for transform {transform} no reverse implemented")
