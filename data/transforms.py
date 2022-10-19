@@ -94,8 +94,8 @@ class NormalizeTransform:
 
         # assert if rounded value of mean is not 0 or of std is not 1
         for prop in data.keys():
-            assert torch.round(data[prop].value.mean(), decimals=5) == 0, f"Mean of {prop} is not 0 but {data[prop].mean}"
-            assert torch.round(data[prop].value.std(), decimals=4) == 1, f"Std of {prop} is not 1 but {data[prop].std}"
+            assert torch.round(data[prop].value.mean(), decimals=6) == 0, f"Mean of {prop} is not 0 but {data[prop].value.mean()}"
+            assert torch.round(data[prop].value.std(), decimals=6) == 1, f"Std of {prop} is not 1 but {data[prop].value.std()}"
         return data
 
     def reverse_OLD_FORMAT(self, data, mean=None, std=None, index_material_id=None):
