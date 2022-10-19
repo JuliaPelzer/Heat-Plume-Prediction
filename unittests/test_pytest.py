@@ -21,10 +21,22 @@ def test_compute_data_max_and_min():
 
 
 def test_normalize_transform():
-    data = torch.Tensor(np.array([[[[-2, -1, -1],[-1, 0, -1], [-1, -1, -1]]]]))
+    data = utils.PhysicalVariables(time="now", properties=["test"])
+    data["test"] = torch.Tensor(np.array([[[[-2, -1, -1],[-1, 0, -1], [-1, -1, -1]]]]))
     data_norm = torch.Tensor(np.array([[[[-2, 0, 0],[0, 2, 0], [0, 0, 0]]]]))
     transform = trans.NormalizeTransform()
-    tensor_eq = torch.eq(transform(data), data_norm).flatten
+    tensor_eq = torch.eq(transform(data)["test"].value, data_norm).flatten
+    assert tensor_eq
+
+def test_reduceto2d_transform():
+    data = utils.PhysicalVariables(time="now", properties=["test"])
+    data["test"] = torch.zeros([4,2,4])
+    data_reduced = torch.zeros([1,2,4])
+    # Actual result
+    data_actual = trans.ReduceTo2DTransform()(data, x=0)
+    # Test
+    assert data_actual["test"].value.shape == data_reduced.shape
+    tensor_eq = torch.eq(data_actual["test"].value, data_reduced).flatten
     assert tensor_eq
 
 def test_data_init():
