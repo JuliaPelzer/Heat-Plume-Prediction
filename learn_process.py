@@ -104,18 +104,21 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_wrong: bool = False, overf
         )
         dataloaders[mode] = temp_dataloader
 
+
     if reduce_to_2D:
         # Assert if data is not 2D
         def assertion_error_2d(datasets):
             for dataset in datasets["train"]:
-                for key in dataset["x"].keys():
+                for key in dataset["x"]:
                     dataset_dimensions = len(dataset["x"][key].shape())
+                    assert dataset_dimensions == 2, "Data is not 2D"
                     break
-            assert dataset_dimensions == 2, "Data is not 2D"
 
         assertion_error_2d(datasets)
 
-    print("init done", datasets["train"][0])
+    print("number of runs in datasets:", len(datasets["train"])+len(datasets["val"])+len(datasets["test"]))
+    print("init done:", datasets["train"][0])
+    print("init done:", dataloaders["train"].dataset[0])
     return datasets, dataloaders
 
 
@@ -197,4 +200,4 @@ def train_model(model, dataloaders, loss_fn, n_epochs: int, lr: float, name_fold
 
 
 if __name__ == "__main__":
-    init_data()
+    init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_10")
