@@ -141,6 +141,7 @@ class DatasetSimulationData(Dataset):
         y is a numpy array of shape CxHxWxD (C= output channels, HxWxD=spatial dimensions)
             """
         data_dict = {}
+        data_dict["run_id"] = self.runs[index]
         data_dict["x_mean"] = [] # TODO interim, delete later
         data_dict["x_std"] = [] # TODO interim, delete later
         data_dict["y_mean"] = [] # TODO interim, delete later
@@ -165,9 +166,6 @@ class DatasetSimulationData(Dataset):
             self._load_data_as_numpy(self.data_paths[index], self.output_vars)
             data_dict["y"] = self.output_vars
 
-            # TODO not working! (case of just_plotting)
-
-        data_dict["run_id"] = self.runs[index]
 
         return data_dict
 
@@ -225,9 +223,10 @@ class DatasetSimulationData(Dataset):
         Load data from h5 file on data_path, but only the variables named in variables.get_ids() at time stamp variables.time
         Sets the values of each PhysicalVariable in variables to the loaded data.
         """
+        # TODO when go to GPU: directly import as tensor?
         with h5py.File(data_path, "r") as file:
             for key, value in file[variables.time].items():
-                if key in variables.get_ids(): # properties
+                if key in variables.get_ids_list(): # properties
                     variables[key] = np.array(value)
 
 '''NICHT ÜBERARBEITET
