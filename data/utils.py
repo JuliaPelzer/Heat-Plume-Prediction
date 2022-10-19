@@ -2,6 +2,7 @@ import pickle
 import os
 from typing import List, Dict
 import numpy as np
+import torch
 
 # from dataclasses import dataclass
 
@@ -49,10 +50,13 @@ def separate_property_unit(property_in:str) -> List[str]:
 
 
 class PhysicalVariable:
-    def __init__(self, name:str, value:np.ndarray=None): #TODO ? default value + type
+    def __init__(self, name:str, value:torch.DoubleTensor=None): #TODO ? default value + type
         self.id_name = name
         self.name_without_unit, self.unit = separate_property_unit(name)
         self.value = value
+        # TODO required to put mean, std somewhere else? (other level / class)
+        self.mean:float = None
+        self.std:float = None
 
     def __repr__(self):
         return f"{self.name_without_unit} (in {self.unit})"
@@ -61,7 +65,8 @@ class PhysicalVariable:
     #     # todo assert input type in certain shape
     #     self.value = value
 
-    def __sizeof__(self) -> int:
+    def __len__(self) -> int:
+        # assert np.size(self.value) != 1, "value not set"
         return np.size(self.value)
 
     def __eq__(self, o) -> bool:
@@ -69,6 +74,26 @@ class PhysicalVariable:
             return False
         return self.id_name == o.id_name and np.array_equal(self.value, o.value)
     
+    def calc_mean(self):
+        # TODO requires Keepdim=True and dim=(1,2,3) ???
+        
+        # check if type is correct to calc mean (not int!) 
+        if self.value.type != torch.DoubleTensor:
+            self.value = self.value.type(torch.DoubleTensor)
+        try:
+            self.mean = torch.mean(self.value)
+        except:
+            self.mean = np.mean(self.value)
+
+    def calc_std(self):
+        # check if type is correct to calc mean (not int!) 
+        if self.value.type != torch.DoubleTensor:
+            self.value = self.value.type(torch.DoubleTensor)
+        try:
+            self.std = torch.std(self.value)
+        except:
+            self.std = np.std(self.value)
+
 class PhysicalVariables(dict):
     def __init__(self, time:str, properties:List[str]=None):
         super().__init__()
