@@ -141,37 +141,40 @@ class DatasetSimulationData(Dataset):
         y is a numpy array of shape CxHxWxD (C= output channels, HxWxD=spatial dimensions)
             """
         data_dict = {}
-        index_material_id = 0 #self.get_input_properties().index('Material_ID')
         data_dict["x_mean"] = [] # TODO interim, delete later
         data_dict["x_std"] = [] # TODO interim, delete later
+        data_dict["y_mean"] = [] # TODO interim, delete later
+        data_dict["y_std"] = [] # TODO interim, delete later
         try:
-            temp = self._load_data_as_numpy(self.data_paths[index], self.input_vars)
-            # data_dict["x"], data_dict["x_mean"], data_dict["x_std"] = self.transform(temp, index_material_id=index_material_id)
-            print("start test", self.input_vars["Material_ID"].value.shape) 
+            self._load_data_as_numpy(self.data_paths[index], self.input_vars)
             data_dict["x"] = self.transform(self.input_vars)
             for prop in self.input_vars.keys():
-                data_dict["x_mean"].append(self.input_vars[prop].mean)
-                data_dict["x_std"].append(self.input_vars[prop].std)
-            print("next test") 
-            self.index_material_id = None
-            data_dict["y"], data_dict["y_mean"], data_dict["y_std"] = self.transform(self._load_data_as_numpy(self.data_paths[index], self.output_vars))
+                data_dict["x_mean"].append(self.input_vars[prop].mean_orig)
+                data_dict["x_std"].append(self.input_vars[prop].std_orig)
+
+            self._load_data_as_numpy(self.data_paths[index], self.output_vars)
+            data_dict["y"] = self.transform(self.output_vars)
+            for prop in self.output_vars.keys():
+                data_dict["y_mean"].append(self.output_vars[prop].mean_orig)
+                data_dict["y_std"].append(self.output_vars[prop].std_orig)
+
         except Exception as e:
-            print(e)
             logging.info("no transforms applied")
             data_dict["x"] = self._load_data_as_numpy(self.data_paths[index], self.input_vars)
             data_dict["y"] = self._load_data_as_numpy(self.data_paths[index], self.output_vars)
+
         data_dict["run_id"] = self.runs[index]
 
         return data_dict
 
-    def reverse_transform(self, index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
+    def reverse_transform_OLD_FORMAT(self, index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
         """
         Reverse the transformation of the data.
         """
         data_dict = {}
         index_material_id = self.get_input_properties().index('Material_ID')
         data_dict["x"] = self.transform.reverse_OLD_FORMAT(self[index]["x"], mean=x_mean, std=x_std, index_material_id=index_material_id)
-        self.index_material_id = None
+        index_material_id = None
         data_dict["y"] = self.transform.reverse_OLD_FORMAT(self[index]["y"], mean=y_mean, std=y_std)
         data_dict["run_id"] = self.runs[index]
 
@@ -227,7 +230,6 @@ class DatasetSimulationData(Dataset):
                 if key in variables.get_ids(): # properties
                     data.append(np.array(value))
                     variables[key] = np.array(value)
-        return np.array(data)
 
 '''NICHT ÜBERARBEITET
 class MemoryImageFolderDataset(ImageFolderDataset):

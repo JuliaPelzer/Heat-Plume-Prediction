@@ -55,8 +55,8 @@ class PhysicalVariable:
         self.name_without_unit, self.unit = separate_property_unit(name)
         self.value = value
         # TODO required to put mean, std somewhere else? (other level / class)
-        self.mean:float = None
-        self.std:float = None
+        self.mean_orig:float = None
+        self.std_orig:float = None
 
     def __repr__(self):
         return f"{self.name_without_unit} (in {self.unit})"
@@ -81,18 +81,18 @@ class PhysicalVariable:
         if self.value.type != torch.DoubleTensor:
             self.value = self.value.type(torch.DoubleTensor)
         try:
-            self.mean = torch.mean(self.value)
+            self.mean_orig = torch.mean(self.value)
         except:
-            self.mean = np.mean(self.value)
+            self.mean_orig = np.mean(self.value)
 
     def calc_std(self):
         # check if type is correct to calc mean (not int!) 
         if self.value.type != torch.DoubleTensor:
             self.value = self.value.type(torch.DoubleTensor)
         try:
-            self.std = torch.std(self.value)
+            self.std_orig = torch.std(self.value)
         except:
-            self.std = np.std(self.value)
+            self.std_orig = np.std(self.value)
 
 class PhysicalVariables(dict):
     def __init__(self, time:str, properties:List[str]=None):
