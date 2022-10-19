@@ -4,17 +4,6 @@ from typing import List, Dict, Tuple
 import numpy as np
 import torch
 
-# from dataclasses import dataclass
-
-# @dataclass
-# class Location():
-#     name:str
-#     path:str=None
-
-#     def check_path(self):
-#         assert os.path.exists(self.path), f"Path {self.path} does not exist"
-# TODO later
-
 
 def save_pickle(data_dict, file_name):
     """Save given data dict to pickle file file_name in models/
@@ -63,10 +52,6 @@ class PhysicalVariable:
     def __repr__(self):
         return f"{self.name_without_unit} (in {self.unit})"
 
-    # def fill(self, value):
-    #     # todo assert input type in certain shape
-    #     self.value = value
-
     def __len__(self) -> int:
         # assert np.size(self.value) != 1, "value not set"
         return np.size(self.value)
@@ -113,7 +98,6 @@ class PhysicalVariables(dict):
     def __setitem__(self, key: str, value: np.ndarray):
         if key not in self.keys():
             super().__setitem__(key, PhysicalVariable(key, value))
-            # self[key] = PhysicalVariable(key, value)
         self[key].value = value
 
     def get_names_without_unit(self):
