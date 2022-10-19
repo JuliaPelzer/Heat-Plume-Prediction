@@ -116,7 +116,7 @@ class PhysicalVariables(dict):
     def get_names_without_unit(self):
         return [var.name_without_unit for _, var in self.items()]
 
-    def get_ids(self):
+    def get_ids_list(self):
         return [var.id_name for _, var in self.items()]
 
 
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     temp["Pressure [Pa]"] = 3
     print("value pressure", temp["Pressure [Pa]"].value)
     print("names", temp.get_names_without_unit())
-    print("ids", temp.get_ids())
+    print("ids", temp.get_ids_list())
     print("repr", temp["Pressure [Pa]"])
     print(temp.keys(), temp.values())
 
