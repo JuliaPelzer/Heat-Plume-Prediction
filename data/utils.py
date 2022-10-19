@@ -1,6 +1,6 @@
 import pickle
 import os
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import numpy as np
 import torch
 
@@ -68,6 +68,10 @@ class PhysicalVariable:
     def __len__(self) -> int:
         # assert np.size(self.value) != 1, "value not set"
         return np.size(self.value)
+
+    def shape(self) -> Tuple[int]:
+        # assert np.size(self.value) != 1, "value not set"
+        return self.value.shape
 
     def __eq__(self, o) -> bool:
         if not isinstance(o, PhysicalVariable):
