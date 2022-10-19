@@ -7,7 +7,8 @@ from typing import List, Dict, Tuple
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from data.transforms import ComposeTransform
-import os
+from data.utils import PhysicalVariables
+import os, sys
 import numpy as np
 import h5py
 
@@ -57,9 +58,9 @@ class DatasetSimulationData(Dataset):
                  transform:ComposeTransform=None,
                  mode:str="train",
                  split:Dict[str, float]={'train': 0.6, 'val': 0.2, 'test': 0.2},
-                 input_vars:List[str]=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
+                 input_vars_names:List[str]=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
                  "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"], # "hp_power"
-                 output_vars:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"],
+                 output_vars_names:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"],
                  **kwargs)-> Dataset:
         super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         assert mode in ["train", "val", "test"], "wrong mode for dataset given"
@@ -77,8 +78,11 @@ class DatasetSimulationData(Dataset):
         # self.time_init =     "Time:  0.00000E+00 y"
         self.time_first =    "Time:  1.00000E-01 y"
         self.time_final =    "Time:  5.00000E+00 y"
-        self.input_vars = [self.time_first, input_vars]
-        self.output_vars = [self.time_final, output_vars]
+        # self.input_vars = [self.time_first, input_vars_names]
+        # self.output_vars = [self.time_final, output_vars_names]
+        self.input_vars = PhysicalVariables(self.time_first, input_vars_names)
+        self.output_vars = PhysicalVariables(self.time_final, output_vars_names)
+
         # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
         
     def __len__(self):
@@ -116,10 +120,10 @@ class DatasetSimulationData(Dataset):
         return data_paths, runs
 
     def get_input_properties(self) -> List[str]:
-        return self.input_vars[1]
+        return list(self.input_vars.keys)
 
     def get_output_properties(self) -> List[str]:
-        return self.output_vars[1]
+        return list(self.output_vars)
 
     def __getitem__(self, index:int) -> Dict[str, np.ndarray]:
         """
@@ -137,12 +141,22 @@ class DatasetSimulationData(Dataset):
         y is a numpy array of shape CxHxWxD (C= output channels, HxWxD=spatial dimensions)
             """
         data_dict = {}
-        index_material_id = self.get_input_properties().index('Material_ID')
+        index_material_id = 0 #self.get_input_properties().index('Material_ID')
+        data_dict["x_mean"] = [] # TODO interim, delete later
+        data_dict["x_std"] = [] # TODO interim, delete later
         try:
-            data_dict["x"], data_dict["x_mean"], data_dict["x_std"] = self.transform(self._load_data_as_numpy(self.data_paths[index], self.input_vars), index_material_id=index_material_id)
+            temp = self._load_data_as_numpy(self.data_paths[index], self.input_vars)
+            # data_dict["x"], data_dict["x_mean"], data_dict["x_std"] = self.transform(temp, index_material_id=index_material_id)
+            print("start test", self.input_vars["Material_ID"].value.shape) 
+            data_dict["x"] = self.transform(self.input_vars)
+            for prop in self.input_vars.keys():
+                data_dict["x_mean"].append(self.input_vars[prop].mean)
+                data_dict["x_std"].append(self.input_vars[prop].std)
+            print("next test") 
             self.index_material_id = None
             data_dict["y"], data_dict["y_mean"], data_dict["y_std"] = self.transform(self._load_data_as_numpy(self.data_paths[index], self.output_vars))
         except Exception as e:
+            print(e)
             logging.info("no transforms applied")
             data_dict["x"] = self._load_data_as_numpy(self.data_paths[index], self.input_vars)
             data_dict["y"] = self._load_data_as_numpy(self.data_paths[index], self.output_vars)
@@ -156,9 +170,9 @@ class DatasetSimulationData(Dataset):
         """
         data_dict = {}
         index_material_id = self.get_input_properties().index('Material_ID')
-        data_dict["x"] = self.transform.reverse(self[index]["x"], mean=x_mean, std=x_std, index_material_id=index_material_id)
+        data_dict["x"] = self.transform.reverse_OLD_FORMAT(self[index]["x"], mean=x_mean, std=x_std, index_material_id=index_material_id)
         self.index_material_id = None
-        data_dict["y"] = self.transform.reverse(self[index]["y"], mean=y_mean, std=y_std)
+        data_dict["y"] = self.transform.reverse_OLD_FORMAT(self[index]["y"], mean=y_mean, std=y_std)
         data_dict["run_id"] = self.runs[index]
 
         return data_dict
@@ -199,7 +213,7 @@ class DatasetSimulationData(Dataset):
         else: 
             return data_paths[indices], list(np.array(labels)[indices])
         
-    def _load_data_as_numpy(self, data_path:str, variables:List) -> np.ndarray:
+    def _load_data_as_numpy(self, data_path:str, variables:PhysicalVariables) -> np.ndarray:
         """
         Load data from h5 file on data_path, but only the variables named in vars[1] at time stamp vars[0]
         variables: list of two elements, first element is the time stamp (str), second element is a list of variables (List[str])
@@ -207,16 +221,13 @@ class DatasetSimulationData(Dataset):
         -------
         data: numpy array of shape (C, H, W, D)
         """
-        time = variables[0]
-        properties = variables[1]
-        
         data = []
         with h5py.File(data_path, "r") as file:
-            for key, value in file[time].items():
-                if key in properties:
+            for key, value in file[variables.time].items():
+                if key in variables.get_ids(): # properties
                     data.append(np.array(value))
-        data = np.array(data)
-        return data
+                    variables[key] = np.array(value)
+        return np.array(data)
 
 '''NICHT ÜBERARBEITET
 class MemoryImageFolderDataset(ImageFolderDataset):
