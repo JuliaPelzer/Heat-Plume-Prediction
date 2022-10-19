@@ -76,8 +76,8 @@ def init_data(reduce_to_2D:bool = True, reduce_to_2D_wrong:bool = False, overfit
     for mode in ['train', 'val', 'test']:
         temp_dataset = DatasetSimulationData(
             dataset_name=dataset_name, dataset_path=path_to_datasets, 
-            transform=transforms, input_vars=input_vars,
-            output_vars=["Temperature [C]", "Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]"], #. "Liquid_Pressure [Pa]"
+            transform=transforms, input_vars_names=input_vars,
+            output_vars_names=["Temperature [C]", "Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]"], #. "Liquid_Pressure [Pa]"
             mode=mode, split=split
         )
         datasets[mode] = temp_dataset
