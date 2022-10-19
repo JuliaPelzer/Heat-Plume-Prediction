@@ -75,7 +75,7 @@ def init_data(reduce_to_2D:bool = True, reduce_to_2D_wrong:bool = False, overfit
 
     for mode in ['train', 'val', 'test']:
         temp_dataset = DatasetSimulationData(
-            dataset_name=dataset_name, dataset_path=path_to_datasets, 
+            dataset_name=dataset_name, dataset_path=path_to_datasets,
             transform=transforms, input_vars_names=input_vars,
             output_vars_names=["Temperature [C]", "Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]"], #. "Liquid_Pressure [Pa]"
             mode=mode, split=split
@@ -92,16 +92,19 @@ def init_data(reduce_to_2D:bool = True, reduce_to_2D_wrong:bool = False, overfit
             drop_last=False,
         )
         dataloaders[mode] = temp_dataloader
-
-    # Assert if data is not 2D
-    def assertion_error_2d(datasets):
-        for dataset in datasets["train"]:
-            shape_data = len(dataset['x'].shape)
-            break
-        assert shape_data == 3, "Data is not 2D"
     
-    # assertion_error_2d(datasets)
+    if reduce_to_2D:
+        # Assert if data is not 2D
+        def assertion_error_2d(datasets):
+            for dataset in datasets["train"]:
+                for key in dataset["x"].keys():
+                    dataset_dimensions = len(dataset["x"][key].shape())
+                    break
+            assert dataset_dimensions == 2, "Data is not 2D"
 
+        assertion_error_2d(datasets)
+    
+    print("init done", datasets["train"][0])
     return datasets, dataloaders
 
 def train_model(model, dataloaders, loss_fn, n_epochs:int, lr:float, name_folder:str="default", debugging:bool=False):
