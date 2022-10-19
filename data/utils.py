@@ -119,8 +119,7 @@ class PhysicalVariables(dict):
     def get_ids_list(self):
         return [var.id_name for _, var in self.items()]
 
-
-if __name__ == "__main__":
+def test_physical_variable():
     time = "now"
     temp = PhysicalVariables(time)
     temp["temperature"] = 1
@@ -149,3 +148,6 @@ if __name__ == "__main__":
     physical_properties["ID [-]"]=0
 
     print(list(physical_properties.keys())==['temperature', 'pressure', 'ID [-]'], physical_properties.values())
+
+if __name__ == "__main__":
+    test_physical_variable()
