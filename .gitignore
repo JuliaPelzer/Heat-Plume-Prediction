@@ -2,6 +2,9 @@
 models/
 fully_convolutional_network/
 
+# exclude testing notebook files
+*.ipynb
+
 # test files, old files
 old/
 OLD/
