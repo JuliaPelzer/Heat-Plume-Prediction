@@ -78,19 +78,19 @@ def test_physical_property():
     expected_temperature = utils.PhysicalVariable("Temperature [K]")
     properties = ["Temperature [K]", "Pressure [Pa]"]
     physical_properties = utils.PhysicalVariables(time, properties)
-    physical_properties["Temperature [K]"]=3
+    physical_properties["Temperature [K]"]=torch.Tensor([3])
     physical_properties["Pressure [Pa]"]=2
     physical_properties["ID [-]"]=0
 
-    assert physical_properties["Temperature [K]"].__repr__()=="Temperature (in K)", "repr not working"
-    assert physical_properties["Pressure [Pa]"].__repr__()=="Pressure (in Pa)", "repr not working"
+    assert physical_properties["Temperature [K]"].__repr__()=="Temperature (in K) with (1,) elements", "repr not working"
+    assert physical_properties["Pressure [Pa]"].__repr__()=="Pressure (in Pa) with 1 elements", "repr not working"
     assert physical_properties.get_names_without_unit()==["Temperature", "Pressure", "ID"], "get_names_without_unit() not working"
     assert physical_properties["Temperature [K]"].value == 3, "value not set correctly"
     assert len(physical_properties)==3, "len not working"
     assert physical_properties["Temperature [K]"].unit == "K", "unit not set correctly"
     assert physical_properties["ID [-]"].value == 0, "value not set correctly"
     assert physical_properties["ID [-]"].unit == "-", "unit not set correctly"
-    assert physical_properties["ID [-]"].__repr__()=="ID (in -)", "repr not working"
+    assert physical_properties["ID [-]"].__repr__()=="ID (in -) with 1 elements", "repr not working"
     assert physical_properties["ID [-]"].name_without_unit == "ID", "name_without_unit not set correctly"
     assert physical_properties["ID [-]"].id_name == "ID [-]", "id_name not set correctly"
     assert physical_properties.get_ids_list()==["Temperature [K]", "Pressure [Pa]", "ID [-]"], "get_ids not working"
@@ -104,28 +104,38 @@ def test_physical_property():
 def test_data_init():
     _, dataloaders = lp.init_data(reduce_to_2D=False, overfit=True, dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_01", inputs="xyz")
     assert len(dataloaders) == 3
-    assert len(dataloaders["train"].dataset[0]["x"]) == 4
-    for prop in dataloaders["train"].dataset[0]['x'].values():
+    assert len(dataloaders["train"].dataset[0].inputs) == 4
+    for prop in dataloaders["train"].dataset[0].inputs.values():
         assert prop.shape() == (16,128,16)
         break
 
     _, dataloaders = lp.init_data(reduce_to_2D=True, overfit=True, dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_01", inputs="xyz")
-    for prop in dataloaders["train"].dataset[0]['x'].values():
+    for prop in dataloaders["train"].dataset[0].inputs.values():
         assert prop.shape() == (128,16)
         break
     
     _, dataloaders = lp.init_data(reduce_to_2D=False, overfit=True, dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_01", inputs="xyzp")
-    assert len(dataloaders["train"].dataset[0]["x"]) == 5
-    for prop in dataloaders["train"].dataset[0]['x'].values():
+    assert len(dataloaders["train"].dataset[0].inputs) == 5
+    for prop in dataloaders["train"].dataset[0].inputs.values():
         assert prop.shape() == (16,128,16)
         break
     
     _, dataloaders = lp.init_data(reduce_to_2D=False, overfit=True, dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_01", inputs="")
-    assert len(dataloaders["train"].dataset[0]["x"]) == 1
-    assert dataloaders["train"].dataset[0]["x"].get_ids_list() == ["Material_ID"]
-    for prop in dataloaders["train"].dataset[0]['x'].values():
+    assert len(dataloaders["train"].dataset[0].inputs) == 1
+    assert dataloaders["train"].dataset[0].inputs.get_ids_list() == ["Material_ID"]
+    for prop in dataloaders["train"].dataset[0].inputs.values():
         assert prop.shape() == (16,128,16)
         break
+
+def test_combinations():
+    datasets, dataloaders = lp.init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_10", inputs="xyz")
+    assert len(datasets["train"])+len(datasets["val"])+len(datasets["test"])==10, "number of runs in datasets should be 10"
+    assert dataloaders["train"].dataset[0], "getitem/ load datapoint does not really work in combination with init_data"
+    assert datasets["train"][0].inputs["Liquid X-Velocity [m_per_y]"].__repr__() == "Liquid X-Velocity (in m_per_y) with (128, 16) elements", "combination of data_init and repr of PhysicalVariable does not work"
+    datasets, dataloaders = lp.init_data(reduce_to_2D=False, dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_10", inputs="xyz")
+    assert datasets["train"][0].inputs["Liquid X-Velocity [m_per_y]"].__repr__() == "Liquid X-Velocity (in m_per_y) with (16, 128, 16) elements", "combination of data_init and repr of PhysicalVariable does not work"
+    assert not datasets["train"][0].inputs["Liquid X-Velocity [m_per_y]"] == datasets["train"][1].inputs["Liquid X-Velocity [m_per_y]"], "same values in two datapoints?! that should not happen - problem with copying"
+
 
 def test_visualize_data():
     pass

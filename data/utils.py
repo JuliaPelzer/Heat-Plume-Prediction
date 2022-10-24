@@ -50,20 +50,28 @@ class PhysicalVariable:
         self.std_orig: float = None
 
     def __repr__(self):
-        return f"{self.name_without_unit} (in {self.unit})"
+        return f"{self.name_without_unit} (in {self.unit}) with {self.shape()} elements"
 
-    def __len__(self) -> int:
+    def dim(self) -> int:
         # assert np.size(self.value) != 1, "value not set"
-        return np.size(self.value)
+        return len(self.value.shape)
 
     def shape(self) -> Tuple[int]:
-        # assert np.size(self.value) != 1, "value not set"
-        return self.value.shape
+        try:
+            return tuple(self.value.shape)
+        except Exception as e:
+            # print("Exception: ", e, "in PhysicalVariable.shape")
+            if np.size(self.value) == 1:
+                # print("value not set")
+                return np.size(self.value)
 
     def __eq__(self, o) -> bool:
         if not isinstance(o, PhysicalVariable):
             return False
-        return self.id_name == o.id_name and np.array_equal(self.value, o.value)
+        try:
+            return self.id_name == o.id_name and torch.equal(self.value, o.value)
+        except:
+            return self.id_name == o.id_name and self.value == o.value
 
     def calc_mean(self):
         # TODO requires Keepdim=True and dim=(1,2,3) ???
@@ -106,37 +114,37 @@ class PhysicalVariables(dict):
     def get_ids_list(self):
         return [var.id_name for _, var in self.items()]
 
+    def get_number_of_variables(self):
+        return len(self.keys())
+
 
 def test_physical_variable():
-    time = "now"
-    temp = PhysicalVariables(time)
-    temp["temperature"] = 1
-    print("value", temp["temperature"].value)
-    temp["temperature"] = 2
-    print("repr", temp["temperature"])
-    print("name", temp["temperature"].name_without_unit)
-    temp["temperature"] = 4
-    print("value", temp["temperature"].value)
-    print("size", temp["temperature"].__sizeof__())
-    temp["Pressure [Pa]"] = 3
-    print("value pressure", temp["Pressure [Pa]"].value)
-    print("names", temp.get_names_without_unit())
-    print("ids", temp.get_ids_list())
-    print("repr", temp["Pressure [Pa]"])
-    print(temp.keys(), temp.values())
-
     time = "now [s]"
     expected_temperature = PhysicalVariable("Temperature [K]")
-    properties = {"temperature": PhysicalVariable("Temperature [K]"),
-                  "pressure": PhysicalVariable("Pressure [Pa]")}
+    properties = ["Temperature [K]", "Pressure [Pa]"]
     physical_properties = PhysicalVariables(time, properties)
-    physical_properties["pressure"] = 2
-    physical_properties["temperature"] = 3
-    physical_properties["ID [-]"] = 0
-
-    print(list(physical_properties.keys()) == [
-          'temperature', 'pressure', 'ID [-]'], physical_properties.values())
-
+    physical_properties["Temperature [K]"]=torch.Tensor([3])
+    physical_properties["Pressure [Pa]"]=2
+    physical_properties["ID [-]"]=0
+    print(physical_properties["Temperature [K]"])
+    assert physical_properties["Temperature [K]"].__repr__()=="Temperature (in K) with (1,) elements", "repr not working"
+    assert physical_properties["Pressure [Pa]"].__repr__()=="Pressure (in Pa) with 1 elements", "repr not working"
+    assert physical_properties.get_names_without_unit()==["Temperature", "Pressure", "ID"], "get_names_without_unit() not working"
+    assert physical_properties["Temperature [K]"].value == 3, "value not set correctly"
+    assert len(physical_properties)==3, "len not working"
+    assert physical_properties["Temperature [K]"].unit == "K", "unit not set correctly"
+    assert physical_properties["ID [-]"].value == 0, "value not set correctly"
+    assert physical_properties["ID [-]"].unit == "-", "unit not set correctly"
+    assert physical_properties["ID [-]"].__repr__()=="ID (in -) with 1 elements", "repr not working"
+    assert physical_properties["ID [-]"].name_without_unit == "ID", "name_without_unit not set correctly"
+    assert physical_properties["ID [-]"].id_name == "ID [-]", "id_name not set correctly"
+    assert physical_properties.get_ids_list()==["Temperature [K]", "Pressure [Pa]", "ID [-]"], "get_ids not working"
+    assert list(physical_properties.keys()) == ["Temperature [K]", "Pressure [Pa]", "ID [-]"], "keys not working"
+    # test PhysicalVariable.__eq__()
+    assert physical_properties["Temperature [K]"] != expected_temperature, "PhysicalVariable.__eq__() failed"
+    expected_temperature.value = 3
+    assert expected_temperature.value == 3, "value not set correctly"
+    assert physical_properties["Temperature [K]"] == expected_temperature, "PhysicalVariable.__eq__() failed"
 
 if __name__ == "__main__":
     test_physical_variable()

@@ -13,6 +13,21 @@ import numpy as np
 import h5py
 
 @dataclass
+class DataPoint():
+    run_id: int
+    inputs: PhysicalVariables = None
+    labels: PhysicalVariables = None
+
+    def __repr__(self) -> str:
+        return f"DataPoint at {self.run_id} with {self.len_inputs()} input variables and {self.len_labels()} output variables"
+    
+    def len_inputs(self) -> np.ndarray:
+        return self.inputs.get_number_of_variables()
+
+    def len_labels(self) -> np.ndarray:
+        return self.labels.get_number_of_variables()
+
+@dataclass
 class Dataset(ABC):
     """
     Abstract Dataset Base Class
@@ -78,15 +93,14 @@ class DatasetSimulationData(Dataset):
         # self.time_init =     "Time:  0.00000E+00 y"
         self.time_first =    "Time:  1.00000E-01 y"
         self.time_final =    "Time:  5.00000E+00 y"
-        # self.input_vars = [self.time_first, input_vars_names]
-        # self.output_vars = [self.time_final, output_vars_names]
-        self.input_vars = PhysicalVariables(self.time_first, input_vars_names)
-        self.output_vars = PhysicalVariables(self.time_final, output_vars_names)
-
         # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
+        self.input_vars_empty_value = PhysicalVariables(self.time_first, input_vars_names)
+        self.output_vars_empty_value = PhysicalVariables(self.time_final, output_vars_names)
+        self.datapoints = {}
+
         
     def __len__(self):
-        # Return the length of the dataset (number of runs)
+        # Return the length of the dataset (number of runs), but fill them only on their first call
         return len(self.runs)
 
     @staticmethod
@@ -120,14 +134,15 @@ class DatasetSimulationData(Dataset):
         return data_paths, runs
 
     def get_input_properties(self) -> List[str]:
-        return list(self.input_vars.keys)
+        return list(self.input_vars_empty_value.keys)
 
     def get_output_properties(self) -> List[str]:
-        return list(self.output_vars.keys)
+        return list(self.output_vars_empty_value.keys)
 
-    def __getitem__(self, index:int) -> Dict[str, np.ndarray]:
+    def __getitem__(self, index:int) -> Dict[int, DataPoint]:
         """
-        Get a data point as a dict at a given index in the dataset
+        Get a data point as a dict at a given run id (index) in the dataset
+        If the datapoint was loaded before, it is called only, if not: it is initialized with calling transform etc.
         
         Parameters
         ----------
@@ -136,38 +151,62 @@ class DatasetSimulationData(Dataset):
 
         Returns
         -------
-        dict of data point at index with x being the input data and y being the labels
-        x is a numpy array of shape CxHxWxD (C=channels, HxWxD=spatial dimensions)
-        y is a numpy array of shape CxHxWxD (C= output channels, HxWxD=spatial dimensions)
-            """
-        data_dict = {}
-        data_dict["run_id"] = self.runs[index]
-        data_dict["x_mean"] = [] # TODO interim, delete later
-        data_dict["x_std"] = [] # TODO interim, delete later
-        data_dict["y_mean"] = [] # TODO interim, delete later
-        data_dict["y_std"] = [] # TODO interim, delete later
+        datapoint : dict
+            Dictionary containing the data point with the following keys:
+                - inputs: dict
+                    Dictionary containing the input data with the following keys:
+                        - time: str
+                            Time of the data point
+                        - properties:  
+                            List of the properties of the data point
+                        - values: torch.Tensor 
+                            Tensor of the values of the data point
+                - labels: dict
+                    Dictionary containing the output data with the same keys as the input data
+        """
+        # TODO x is a numpy array of shape CxHxWxD (C=channels, HxWxD=spatial dimensions)
+        # TODO y is a numpy array of shape CxHxWxD (C= output channels, HxWxD=spatial dimensions)
+        
+        if index not in self.datapoints.keys():
+            self.datapoints[index] = self.load_datapoint(index)
+            # print("created datapoint at index", index)
 
+        return self.datapoints[index]
+
+    def load_datapoint(self, index:int) -> DataPoint:
+        """
+        Load a datapoint at a given index (from data_paths) in the dataset with all input- and label-data
+        and applies transforms if possible/ if any where given
+        checks if the data is 2D or 3D - else: error
+        """
+
+        # TODO comment AND CHECK AND IMPLEMENT, 
+        # TODO CHECK IF overwrite always the same data - where does output_vars come from and go to
+        
+        datapoint = DataPoint(index)
+
+        datapoint.inputs = self._load_data_as_numpy(self.data_paths[index], self.input_vars_empty_value)
+        datapoint.labels = self._load_data_as_numpy(self.data_paths[index], self.output_vars_empty_value)
         try:
-            self._load_data_as_numpy(self.data_paths[index], self.input_vars)
-            data_dict["x"] = self.transform(self.input_vars)
-            for prop in self.input_vars.keys():
-                data_dict["x_mean"].append(self.input_vars[prop].mean_orig)
-                data_dict["x_std"].append(self.input_vars[prop].std_orig)
-
-            self._load_data_as_numpy(self.data_paths[index], self.output_vars)
-            data_dict["y"] = self.transform(self.output_vars)
-            for prop in self.output_vars.keys():
-                data_dict["y_mean"].append(self.output_vars[prop].mean_orig)
-                data_dict["y_std"].append(self.output_vars[prop].std_orig)
-
+            datapoint.inputs = self.transform(datapoint.inputs)
+            datapoint.labels = self.transform(datapoint.labels)
         except Exception as e:
             print("no transforms applied: ", e)
-            self._load_data_as_numpy(self.data_paths[index], self.input_vars)
-            data_dict["x"] = self.input_vars
-            self._load_data_as_numpy(self.data_paths[index], self.output_vars)
-            data_dict["y"] = self.output_vars
 
-        return data_dict
+        # print("loaded datapoint at index", index)
+
+        def assertion_error_2d(datapoint:DataPoint):
+            # TODO how/where to test whether reduce_to_2D worked?
+            for input_var in datapoint.inputs.values():
+                assert input_var.dim() == 2 or input_var.dim() == 3, "Input data is neither 2D nor 3D"
+                break
+            for output_var in datapoint.labels.values():
+                assert output_var.dim() == 2 or output_var.dim() == 3, "Input data is neither 2D nor 3D"
+                break
+
+        assertion_error_2d(datapoint)
+
+        return datapoint
 
     def reverse_transform_OLD_FORMAT(self, index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
         """
@@ -218,16 +257,18 @@ class DatasetSimulationData(Dataset):
         else: 
             return data_paths[indices], list(np.array(labels)[indices])
         
-    def _load_data_as_numpy(self, data_path:str, variables:PhysicalVariables) -> None:
+    def _load_data_as_numpy(self, data_path:str, variables:PhysicalVariables) -> PhysicalVariables:
         """
         Load data from h5 file on data_path, but only the variables named in variables.get_ids() at time stamp variables.time
         Sets the values of each PhysicalVariable in variables to the loaded data.
         """
+        loaded_datapoint = PhysicalVariables(variables.time)
         # TODO when go to GPU: directly import as tensor?
         with h5py.File(data_path, "r") as file:
             for key, value in file[variables.time].items():
                 if key in variables.get_ids_list(): # properties
-                    variables[key] = np.array(value)
+                    loaded_datapoint[key] = np.array(value)
+        return loaded_datapoint
 
 '''NICHT ÜBERARBEITET
 class MemoryImageFolderDataset(ImageFolderDataset):

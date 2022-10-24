@@ -103,22 +103,10 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_wrong: bool = False, overf
             drop_last=False,
         )
         dataloaders[mode] = temp_dataloader
+    print(f'init done [total number of datapoints/runs: {len(datasets["train"])+len(datasets["val"])+len(datasets["test"])}]')
 
 
-    if reduce_to_2D:
-        # Assert if data is not 2D
-        def assertion_error_2d(datasets):
-            for dataset in datasets["train"]:
-                for key in dataset["x"]:
-                    dataset_dimensions = len(dataset["x"][key].shape())
-                    assert dataset_dimensions == 2, "Data is not 2D"
-                    break
-
-        assertion_error_2d(datasets)
-
-    print("number of runs in datasets:", len(datasets["train"])+len(datasets["val"])+len(datasets["test"]))
-    print("init done:", datasets["train"][0])
-    print("init done:", dataloaders["train"].dataset[0])
+    # TODO make dataset usable for tran_model: put properties into channel dimension
     return datasets, dataloaders
 
 
@@ -200,4 +188,4 @@ def train_model(model, dataloaders, loss_fn, n_epochs: int, lr: float, name_fold
 
 
 if __name__ == "__main__":
-    init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_10")
+    init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_10", reduce_to_2D=False)
