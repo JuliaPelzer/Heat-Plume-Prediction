@@ -7,25 +7,10 @@ from typing import List, Dict, Tuple
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from data.transforms import ComposeTransform
-from data.utils import PhysicalVariables
+from data.utils import PhysicalVariables, DataPoint, _assertion_error_2d
 import os, sys
 import numpy as np
 import h5py
-
-@dataclass
-class DataPoint():
-    run_id: int
-    inputs: PhysicalVariables = None
-    labels: PhysicalVariables = None
-
-    def __repr__(self) -> str:
-        return f"DataPoint at {self.run_id} with {self.len_inputs()} input variables and {self.len_labels()} output variables"
-    
-    def len_inputs(self) -> np.ndarray:
-        return self.inputs.get_number_of_variables()
-
-    def len_labels(self) -> np.ndarray:
-        return self.labels.get_number_of_variables()
 
 @dataclass
 class Dataset(ABC):
@@ -66,7 +51,7 @@ class DatasetSimulationData(Dataset):
 
     Returns
     -------
-    dataset of size NxCxHxWxD
+    dataset of size dict(Nx dict(Cx value(HxWxD)))
     """
     def __init__(self, dataset_name:str="approach2_dataset_generation_simplified/dataset_HDF5_testtest",
                  dataset_path:str="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth",
@@ -204,18 +189,6 @@ class DatasetSimulationData(Dataset):
         data_dict["run_id"] = self.runs[index]
 
         return data_dict
-    
-    def _assertion_error_2d(datapoint:DataPoint):
-        # TODO how/where to test whether reduce_to_2D worked?
-        """
-        checks if the data is 2D or 3D - else: error
-        """
-        for input_var in datapoint.inputs.values():
-            assert input_var.dim() == 2 or input_var.dim() == 3, "Input data is neither 2D nor 3D"
-            break
-        for output_var in datapoint.labels.values():
-            assert output_var.dim() == 2 or output_var.dim() == 3, "Input data is neither 2D nor 3D"
-            break
 
     def _select_split(self, data_paths:List[str], labels:List[str]) -> Tuple[List[str], List[str]]:
         """

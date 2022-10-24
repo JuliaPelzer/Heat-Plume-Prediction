@@ -3,42 +3,7 @@ import os
 from typing import List, Dict, Tuple
 import numpy as np
 import torch
-
-
-def save_pickle(data_dict, file_name):
-    """Save given data dict to pickle file file_name in models/
-
-    Parameters
-    ----------
-    data_dict : e.g. {"dataset": dataset,
-        "cifar_mean": cifar_mean,
-        "cifar_std": cifar_std}
-    file_name : str
-        Name of the file to be saved, ends with .p
-    """
-    directory = 'models'
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    pickle.dump(data_dict, open(os.path.join(directory, file_name), 'wb', 5))
-
-
-def separate_property_unit(property_in: str) -> List[str]:
-    """Separate property and unit in input string"""
-    index_open = property_in.find(' [')
-    index_close = property_in.find(']')
-
-    assert index_open == -1 and index_close == -1 or index_open != - \
-        1 and index_close != - \
-        1, "input string has to contain both '[' and ']' or neither"
-    if index_open != -1 and index_close != -1:
-        name = property_in[:index_open]
-        unit = property_in[index_open+2:index_close]
-    else:
-        name = property_in
-        unit = None
-
-    return name, unit
-
+from dataclasses import dataclass, field
 
 class PhysicalVariable:
     def __init__(self, name: str, value: torch.DoubleTensor = None):  # TODO ? default value + type
@@ -93,7 +58,6 @@ class PhysicalVariable:
         except:
             self.std_orig = np.std(self.value)
 
-
 class PhysicalVariables(dict):
     def __init__(self, time: str, properties: List[str] = None):
         super().__init__()
@@ -117,8 +81,75 @@ class PhysicalVariables(dict):
     def get_number_of_variables(self):
         return len(self.keys())
 
+@dataclass
+class DataPoint():
+    run_id: int
+    inputs: PhysicalVariables = None
+    labels: PhysicalVariables = None
 
-def test_physical_variable():
+    def __repr__(self) -> str:
+        return f"DataPoint at {self.run_id} with {self.len_inputs()} input variables and {self.len_labels()} output variables"
+    
+    def len_inputs(self) -> np.ndarray:
+        return self.inputs.get_number_of_variables()
+
+    def len_labels(self) -> np.ndarray:
+        return self.labels.get_number_of_variables()
+
+@dataclass
+class Batch():
+    batch_id: int
+    inputs: torch.Tensor = field(default_factory=torch.Tensor)
+    labels: torch.Tensor = field(default_factory=torch.Tensor)
+
+### utils functions
+def save_pickle(data_dict, file_name):
+    """Save given data dict to pickle file file_name in models/
+
+    Parameters
+    ----------
+    data_dict : e.g. {"dataset": dataset,
+        "cifar_mean": cifar_mean,
+        "cifar_std": cifar_std}
+    file_name : str
+        Name of the file to be saved, ends with .p
+    """
+    directory = 'models'
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    pickle.dump(data_dict, open(os.path.join(directory, file_name), 'wb', 5))
+
+
+def separate_property_unit(property_in: str) -> List[str]:
+    """Separate property and unit in input string"""
+    index_open = property_in.find(' [')
+    index_close = property_in.find(']')
+
+    assert index_open == -1 and index_close == -1 or index_open != - \
+        1 and index_close != - \
+        1, "input string has to contain both '[' and ']' or neither"
+    if index_open != -1 and index_close != -1:
+        name = property_in[:index_open]
+        unit = property_in[index_open+2:index_close]
+    else:
+        name = property_in
+        unit = None
+
+    return name, unit
+
+def _assertion_error_2d(datapoint:DataPoint):
+    # TODO how/where to test whether reduce_to_2D worked?
+    """
+    checks if the data is 2D or 3D - else: error
+    """
+    for input_var in datapoint.inputs.values():
+        assert input_var.dim() == 2 or input_var.dim() == 3, "Input data is neither 2D nor 3D"
+        break
+    for output_var in datapoint.labels.values():
+        assert output_var.dim() == 2 or output_var.dim() == 3, "Input data is neither 2D nor 3D"
+        break
+
+def _test_physical_variable():
     time = "now [s]"
     expected_temperature = PhysicalVariable("Temperature [K]")
     properties = ["Temperature [K]", "Pressure [Pa]"]
@@ -147,4 +178,4 @@ def test_physical_variable():
     assert physical_properties["Temperature [K]"] == expected_temperature, "PhysicalVariable.__eq__() failed"
 
 if __name__ == "__main__":
-    test_physical_variable()
+    _test_physical_variable()
