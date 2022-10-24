@@ -179,10 +179,6 @@ class DatasetSimulationData(Dataset):
         and applies transforms if possible/ if any where given
         checks if the data is 2D or 3D - else: error
         """
-
-        # TODO comment AND CHECK AND IMPLEMENT, 
-        # TODO CHECK IF overwrite always the same data - where does output_vars come from and go to
-        
         datapoint = DataPoint(index)
 
         datapoint.inputs = self._load_data_as_numpy(self.data_paths[index], self.input_vars_empty_value)
@@ -193,19 +189,7 @@ class DatasetSimulationData(Dataset):
         except Exception as e:
             print("no transforms applied: ", e)
 
-        # print("loaded datapoint at index", index)
-
-        def assertion_error_2d(datapoint:DataPoint):
-            # TODO how/where to test whether reduce_to_2D worked?
-            for input_var in datapoint.inputs.values():
-                assert input_var.dim() == 2 or input_var.dim() == 3, "Input data is neither 2D nor 3D"
-                break
-            for output_var in datapoint.labels.values():
-                assert output_var.dim() == 2 or output_var.dim() == 3, "Input data is neither 2D nor 3D"
-                break
-
-        assertion_error_2d(datapoint)
-
+        _assertion_error_2d(datapoint)
         return datapoint
 
     def reverse_transform_OLD_FORMAT(self, index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
@@ -221,6 +205,18 @@ class DatasetSimulationData(Dataset):
 
         return data_dict
     
+    def _assertion_error_2d(datapoint:DataPoint):
+        # TODO how/where to test whether reduce_to_2D worked?
+        """
+        checks if the data is 2D or 3D - else: error
+        """
+        for input_var in datapoint.inputs.values():
+            assert input_var.dim() == 2 or input_var.dim() == 3, "Input data is neither 2D nor 3D"
+            break
+        for output_var in datapoint.labels.values():
+            assert output_var.dim() == 2 or output_var.dim() == 3, "Input data is neither 2D nor 3D"
+            break
+
     def _select_split(self, data_paths:List[str], labels:List[str]) -> Tuple[List[str], List[str]]:
         """
         Depending on the mode of the dataset, deterministically split it.
