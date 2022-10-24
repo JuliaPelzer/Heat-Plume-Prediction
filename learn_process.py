@@ -1,6 +1,7 @@
 from data.dataset import DatasetSimulationData
-from data.dataloader import DataLoader
+from data.dataloader import DataLoader, _datapoint_to_tensor_with_channel
 from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, PowerOfTwoTransform, ToTensorTransform
+from data.utils import PhysicalVariables, DataPoint
 from networks.unet_leiterrl import weights_init
 from tqdm.auto import tqdm
 import logging
@@ -9,6 +10,7 @@ from torch.optim import Adam, lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import zeros
 
 
 def test_dummy():
@@ -145,15 +147,15 @@ def train_model(model, dataloaders, loss_fn, n_epochs: int, lr: float, name_fold
     model.apply(weights_init)
     epochs = tqdm(range(n_epochs), desc="epochs")
     for epoch in epochs:
-        for batch_idx, data_point in enumerate(dataloaders["train"]):
-            # datasets["train"] contains 3 data points
-            x = data_point["x"].float()
-            y = data_point["y"].float()
+        for batch_idx, data_values in enumerate(dataloaders["train"]):
+            # dataloaders["train"] contains 3 data points
+            x = data_values.inputs.float()
+            y = data_values.labels.float()
 
             model.zero_grad()
             optimizer.zero_grad()
 
-            y_out = model(x)  # dimensions: (batch-datapoint_id, channel, x, y)
+            y_out = model(x)  # dimensions: (batch-datapoint_id, channel, x, y, (z))
             mse_loss = loss_fn(y_out, y)
             loss = mse_loss
 
@@ -188,4 +190,10 @@ def train_model(model, dataloaders, loss_fn, n_epochs: int, lr: float, name_fold
 
 
 if __name__ == "__main__":
-    init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_10", reduce_to_2D=False)
+    datasets, dataloaders = init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_10", reduce_to_2D=False)
+    # train_model()
+
+    for batch_idx, datapoint in enumerate(dataloaders["train"]):
+                # datasets["train"] contains 3 data points
+                x = datapoint.inputs.float()
+                y = datapoint.labels.float()

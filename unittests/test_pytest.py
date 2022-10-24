@@ -1,4 +1,5 @@
 import data.transforms as trans    # The code to test
+import data.dataloader as dataloader
 import learn_process as lp
 import data.utils as utils
 
@@ -136,6 +137,17 @@ def test_combinations():
     assert datasets["train"][0].inputs["Liquid X-Velocity [m_per_y]"].__repr__() == "Liquid X-Velocity (in m_per_y) with (16, 128, 16) elements", "combination of data_init and repr of PhysicalVariable does not work"
     assert not datasets["train"][0].inputs["Liquid X-Velocity [m_per_y]"] == datasets["train"][1].inputs["Liquid X-Velocity [m_per_y]"], "same values in two datapoints?! that should not happen - problem with copying"
 
+def test_datapoint_to_tensor_with_channel():
+    inputs = utils.PhysicalVariables("now", properties=["temperature", "id"])
+    labels = utils.PhysicalVariables("later", properties=["velocity"])
+    inputs["temperature"] = torch.zeros(2,3,4)
+    inputs["id"] = torch.zeros(2,3,4)
+    labels["velocity"] = torch.zeros(2,3,4)
+    assert inputs["id"].shape() == (2,3,4), "shape not set correctly"
+    datapoint = utils.DataPoint(0, inputs=inputs, labels=labels)
+    # datapoint2 = utils.DataPoint(1, inputs=inputs, labels=labels)
+    batch = dataloader._datapoint_to_tensor_with_channel(datapoint)
+    assert batch.inputs.shape == (2,2,3,4), "_datapoint_to_tensor_with_channel does not concat the channels correctly"
 
 def test_visualize_data():
     pass
