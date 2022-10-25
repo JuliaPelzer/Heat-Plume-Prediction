@@ -153,9 +153,9 @@ def train_model(model, dataloaders, loss_fn, n_epochs: int, lr: float, name_fold
 
         if not debugging:
             writer.add_image("x_0", x[0, 0, :, :], dataformats="WH")
-            writer.add_image("x_1", x[0, 1, :, :], dataformats="WH")
+            writer.add_image("x_pressure?", x[0, 1, :, :], dataformats="WH")
             writer.add_image("x_2", x[0, 2, :, :], dataformats="WH")
-            writer.add_image("x_3", x[0, 3, :, :], dataformats="WH")
+            writer.add_image("x_hp_location?", x[0, 3, :, :], dataformats="WH")
             writer.add_image("x_4", x[0, 4, :, :], dataformats="WH")
             # writer.add_image("y_0", y[0,0,:,:], dataformats="WH")
             # #writer.add_image("y_1", y[0,1,:,:], dataformats="WH")
@@ -205,3 +205,13 @@ def overfit_10():
 
 if __name__ == "__main__":
     overfit_10()
+    # TODO vary batch size
+    # TODO safe status (git)
+    # vary lr, vary input_Vars
+
+    # datasets, dataloaders = init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_10", reduce_to_2D=False, batch_size=4)
+
+    # for dataloader in dataloaders.values():
+    #     for _, datapoint in enumerate(dataloader):
+    #         x = datapoint.inputs.float()
+    #         y = datapoint.labels.float()
