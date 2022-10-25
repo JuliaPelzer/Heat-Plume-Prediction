@@ -153,10 +153,10 @@ def train_model(model, dataloaders, loss_fn, n_epochs: int, lr: float, name_fold
 
         if not debugging:
             writer.add_image("x_0", x[0, 0, :, :], dataformats="WH")
-            # writer.add_image("x_1", x[0,1,:,:], dataformats="WH")
-            # writer.add_image("x_2", x[0,2,:,:], dataformats="WH")
-            # writer.add_image("x_3", x[0,3,:,:], dataformats="WH")
-            # writer.add_image("x_4", x[0,4,:,:], dataformats="WH")
+            writer.add_image("x_1", x[0, 1, :, :], dataformats="WH")
+            writer.add_image("x_2", x[0, 2, :, :], dataformats="WH")
+            writer.add_image("x_3", x[0, 3, :, :], dataformats="WH")
+            writer.add_image("x_4", x[0, 4, :, :], dataformats="WH")
             # writer.add_image("y_0", y[0,0,:,:], dataformats="WH")
             # #writer.add_image("y_1", y[0,1,:,:], dataformats="WH")
 
