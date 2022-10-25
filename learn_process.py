@@ -1,5 +1,5 @@
 from data.dataset import DatasetSimulationData
-from data.dataloader import DataLoader, _datapoint_to_tensor_with_channel
+from data.dataloader import DataLoader, _datapoint_to_tensor_including_channel
 from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, PowerOfTwoTransform, ToTensorTransform
 from data.utils import PhysicalVariables, DataPoint
 from networks.unet_leiterrl import weights_init
