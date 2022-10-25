@@ -2,8 +2,9 @@
 models/
 fully_convolutional_network/
 
-# exclude testing notebook files
+# exclude testing notebook files and other random files
 *.ipynb
+3D_FCN.code-workspace
 
 # test files, old files
 old/
