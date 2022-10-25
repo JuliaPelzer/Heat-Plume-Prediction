@@ -147,7 +147,7 @@ def train_model(model, dataloaders, loss_fn, n_epochs: int, lr: float, name_fold
             if not debugging:
                 writer.add_scalar("loss", loss.item(), epoch *
                                   len(dataloaders["train"])+batch_idx)
-                writer.add_image("y_out_0", y_out[0, 0, :, :], dataformats="WH",
+                writer.add_image("y_out", y_out[0, 0, :, :], dataformats="WH",
                                  global_step=epoch*len(dataloaders["train"])+batch_idx)
                 #writer.add_image("y_out_1", y_out[0,1,:,:], dataformats="WH")
 
@@ -164,7 +164,7 @@ def train_model(model, dataloaders, loss_fn, n_epochs: int, lr: float, name_fold
     #     writer.add_graph(model, x)
     print('Finished Training')
 
-    return loss_hist
+    return loss_hist, writer
 
 def _build_property_list(properties:str) -> List:
     vars_list = [properties[i] for i in range(len(properties))]
@@ -186,11 +186,10 @@ def _build_property_list(properties:str) -> List:
 
     return vars
 
-if __name__ == "__main__":
-    
+def overfit_10():
     # parameters of model and training
     loss_fn = MSELoss()
-    n_epochs = 1 #60000
+    n_epochs = 1000 #60000
     lr=0.0004 #0.0004
 
     #model = TurbNetG(channelExponent=4, in_channels=4, out_channels=2)
@@ -200,13 +199,9 @@ if __name__ == "__main__":
     # model.to(device)
 
     # init data
-    datasets_2D, dataloaders_2D = init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_01", reduce_to_2D=True, overfit=True)
+    datasets_2D, dataloaders_2D = init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_10", reduce_to_2D=True, overfit=True, inputs="xyzt", labels="t", batch_size=5)
     # train model
     train_model(unet_model, dataloaders_2D, loss_fn, n_epochs, lr)
 
-    # datasets, dataloaders = init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_10", reduce_to_2D=False, batch_size=4)
-
-    # for dataloader in dataloaders.values():
-    #     for _, datapoint in enumerate(dataloader):
-    #         x = datapoint.inputs.float()
-    #         y = datapoint.labels.float()
+if __name__ == "__main__":
+    overfit_10()
