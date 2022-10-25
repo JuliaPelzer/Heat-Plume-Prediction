@@ -42,7 +42,7 @@ class DataLoader:
         index_iterator = np.random.permutation(len(self.dataset)) if self.shuffle else range(len(self.dataset))
         index_iterator = iter(index_iterator)
 
-        print("len", len(self.dataset), self.batch_size)
+        # print("len", len(self.dataset), self.batch_size)
         # get next batch
         batch_id = 0
         batch = Batch(batch_id=batch_id)
@@ -59,17 +59,18 @@ class DataLoader:
 
 def _append_batch_by_datapoint(datapoint:Batch, batch:Batch) -> None:
     # after this: batch contains combined inputs, labels of all runs and channels of this batch
+    # TODO do this earlier for more efficiency?
     assert batch.dim() == 1 or datapoint.dim() == batch.dim()-1, "dimensions of batch and datapoint do not fit"
     
     if datapoint.dim() == batch.dim()-1:
         batch.inputs = cat((batch.inputs, datapoint.inputs.unsqueeze(0)), dim=0)
         batch.labels = cat((batch.labels, datapoint.labels.unsqueeze(0)), dim=0)
-        print("2st", datapoint.dim(), batch.dim(), Tensor.size(batch.inputs))
+        # print("2st", datapoint.dim(), batch.dim(), Tensor.size(batch.inputs))
     elif batch.dim() == 1:
         dim_to_extend = 0
         batch.inputs = unsqueeze(datapoint.inputs, dim_to_extend)
         batch.labels = unsqueeze(datapoint.labels, dim_to_extend)
-        print("1nd", datapoint.dim(), batch.dim(), Tensor.size(batch.inputs))
+        # print("1nd", datapoint.dim(), batch.dim(), Tensor.size(batch.inputs))
 
     assert datapoint.dim()==batch.dim()-1, "dimensions of batch do not fit to the datapoints"
 
