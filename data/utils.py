@@ -2,11 +2,11 @@ import pickle
 import os
 from typing import List, Dict, Tuple
 import numpy as np
-import torch
+from torch import Tensor, DoubleTensor, equal, mean, std
 from dataclasses import dataclass, field
 
 class PhysicalVariable:
-    def __init__(self, name: str, value: torch.DoubleTensor = None):  # TODO ? default value + type
+    def __init__(self, name: str, value: DoubleTensor = None):  # TODO ? default value + type
         self.id_name = name
         self.name_without_unit, self.unit = separate_property_unit(name)
         self.value = value
@@ -34,7 +34,7 @@ class PhysicalVariable:
         if not isinstance(o, PhysicalVariable):
             return False
         try:
-            return self.id_name == o.id_name and torch.equal(self.value, o.value)
+            return self.id_name == o.id_name and equal(self.value, o.value)
         except:
             return self.id_name == o.id_name and self.value == o.value
 
@@ -42,19 +42,19 @@ class PhysicalVariable:
         # TODO requires Keepdim=True and dim=(1,2,3) ???
 
         # check if type is correct to calc mean (not int!)
-        if self.value.type != torch.DoubleTensor:
-            self.value = self.value.type(torch.DoubleTensor)
+        if self.value.type != DoubleTensor:
+            self.value = self.value.type(DoubleTensor)
         try:
-            self.mean_orig = torch.mean(self.value)
+            self.mean_orig = mean(self.value)
         except:
             self.mean_orig = np.mean(self.value)
 
     def calc_std(self):
         # check if type is correct to calc mean (not int!)
-        if self.value.type != torch.DoubleTensor:
-            self.value = self.value.type(torch.DoubleTensor)
+        if self.value.type != DoubleTensor:
+            self.value = self.value.type(DoubleTensor)
         try:
-            self.std_orig = torch.std(self.value)
+            self.std_orig = std(self.value)
         except:
             self.std_orig = np.std(self.value)
 
@@ -99,9 +99,15 @@ class DataPoint():
 @dataclass
 class Batch():
     batch_id: int
-    inputs: torch.Tensor = field(default_factory=torch.Tensor) # init as empty tensor
-    labels: torch.Tensor = field(default_factory=torch.Tensor)
+    inputs: Tensor = field(default_factory=Tensor) # init as empty tensor
+    labels: Tensor = field(default_factory=Tensor)
     # inputs, labels: in the beginning C,H,W,(D), later: Run/Datapoint,C,H,W,(D)
+
+    def dim(self):
+        return len(Tensor.size(self.inputs))
+    
+    def __len__(self):
+        return Tensor.size(self.inputs)[0]
 
 ### utils functions
 def save_pickle(data_dict, file_name):
@@ -155,7 +161,7 @@ def _test_physical_variable():
     expected_temperature = PhysicalVariable("Temperature [K]")
     properties = ["Temperature [K]", "Pressure [Pa]"]
     physical_properties = PhysicalVariables(time, properties)
-    physical_properties["Temperature [K]"]=torch.Tensor([3])
+    physical_properties["Temperature [K]"]=Tensor([3])
     physical_properties["Pressure [Pa]"]=2
     physical_properties["ID [-]"]=0
     print(physical_properties["Temperature [K]"])
