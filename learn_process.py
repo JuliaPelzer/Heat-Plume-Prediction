@@ -1,7 +1,6 @@
 from data.dataset import DatasetSimulationData
-from data.dataloader import DataLoader, _datapoint_to_tensor_including_channel
+from data.dataloader import DataLoader
 from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, PowerOfTwoTransform, ToTensorTransform
-from data.utils import PhysicalVariables, DataPoint
 from networks.unet_leiterrl import weights_init
 from tqdm.auto import tqdm
 import logging
@@ -10,7 +9,6 @@ from torch.optim import Adam, lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 from torch.nn import MSELoss
 import torch.nn.functional as F
-from torch import zeros, Tensor
 
 from networks.unet_leiterrl import TurbNetG, UNet
 from networks.dummy_network import DummyNet
