@@ -99,8 +99,9 @@ class DataPoint():
 @dataclass
 class Batch():
     batch_id: int
-    inputs: torch.Tensor = field(default_factory=torch.Tensor)
+    inputs: torch.Tensor = field(default_factory=torch.Tensor) # init as empty tensor
     labels: torch.Tensor = field(default_factory=torch.Tensor)
+    # inputs, labels: in the beginning C,H,W,(D), later: Run/Datapoint,C,H,W,(D)
 
 ### utils functions
 def save_pickle(data_dict, file_name):
