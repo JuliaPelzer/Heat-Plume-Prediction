@@ -3,10 +3,10 @@
 import logging
 import numpy as np
 from torch import Tensor, stack, cat, unsqueeze
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Iterator
 from data.dataset import DatasetSimulationData
-from data.utils import Batch, DataPoint
+from data.utils import Batch, DataPoint, PhysicalVariables
 
 @dataclass
 class DataLoader:
@@ -41,6 +41,12 @@ class DataLoader:
         # shuffle and make iterator
         index_iterator = np.random.permutation(len(self.dataset)) if self.shuffle else range(len(self.dataset))
         index_iterator = iter(index_iterator)
+
+        # get next batch
+        batch = Batch(batch_id=0)
+        for index in index_iterator:
+            next_datapoint = _datapoint_to_tensor_including_channel(self.dataset[index])
+
 
         # get next batch
         batch:List[DataPoint] = []
@@ -98,26 +104,26 @@ def _combine_batch_dicts(batch:List[Dict[str, DatasetSimulationData]]) -> Dict[s
             batch_dict[key].append(value)
     return batch_dict
 
-def _datapoint_to_tensor_with_channel(datapoint:DataPoint) -> None:
-    combined_values = Batch(datapoint.run_id)
-    first_in_var = list(datapoint.inputs.keys())[0]
-    combined_values.inputs = datapoint.inputs[first_in_var].value
-    combined_values.inputs = unsqueeze(combined_values.inputs, 0)
-    print(combined_values.inputs.shape)
-    for in_var in datapoint.inputs.keys():
-        print(datapoint.inputs[in_var].value.shape)
+def _combine_datapoints_to_batch(datapoints: Batch) -> Batch:
+    pass
+
+def _append_tensor_in_0_dim(inputs:PhysicalVariables) -> Tensor:
+    dim_to_extend = 0
+    first_in_var = list(inputs.keys())[0]
+    result = inputs[first_in_var].value
+    result = unsqueeze(result, dim_to_extend)
+    print("result init", result.shape)
+    for in_var in inputs.keys():
+        print("inputs", inputs[in_var].value.shape)
         if in_var != first_in_var:
-            combined_values.inputs = cat((combined_values.inputs, datapoint.inputs[in_var].value.unsqueeze(0)), dim=0)
-    
-    first_in_var = list(datapoint.labels.keys())[0]
-    combined_values.labels = datapoint.labels[first_in_var].value
-    combined_values.labels = unsqueeze(combined_values.labels, 0)
-    print(combined_values.labels.shape)
-    for in_var in datapoint.labels.keys():
-        print(datapoint.labels[in_var].value.shape)
-        if in_var != first_in_var:
-            combined_values.labels = cat((combined_values.labels, datapoint.labels[in_var].value.unsqueeze(0)), dim=0)
-    
+            result = cat((result, inputs[in_var].value.unsqueeze(0)), dim=0)
+    print("result", result.shape)
+    return result
+
+def _datapoint_to_tensor_including_channel(datapoint:DataPoint) -> Batch:
+    combined_values = Batch(datapoint.run_id) # initialize batch
+    combined_values.inputs = _append_tensor_in_0_dim(datapoint.inputs)
+    combined_values.labels = _append_tensor_in_0_dim(datapoint.labels)
     return combined_values
     
 

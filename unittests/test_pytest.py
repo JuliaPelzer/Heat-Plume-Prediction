@@ -146,7 +146,7 @@ def test_datapoint_to_tensor_with_channel():
     assert inputs["id"].shape() == (2,3,4), "shape not set correctly"
     datapoint = utils.DataPoint(0, inputs=inputs, labels=labels)
     # datapoint2 = utils.DataPoint(1, inputs=inputs, labels=labels)
-    batch = dataloader._datapoint_to_tensor_with_channel(datapoint)
+    batch = dataloader._datapoint_to_tensor_including_channel(datapoint)
     assert batch.inputs.shape == (2,2,3,4), "_datapoint_to_tensor_with_channel does not concat the channels correctly"
 
 def test_visualize_data():
