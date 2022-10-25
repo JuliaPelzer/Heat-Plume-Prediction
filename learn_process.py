@@ -8,9 +8,13 @@ import logging
 
 from torch.optim import Adam, lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
-import torch.nn as nn
+from torch.nn import MSELoss
 import torch.nn.functional as F
 from torch import zeros, Tensor
+
+from networks.unet_leiterrl import TurbNetG, UNet
+from networks.dummy_network import DummyNet
+
 
 
 def test_dummy():
@@ -190,8 +194,24 @@ def train_model(model, dataloaders, loss_fn, n_epochs: int, lr: float, name_fold
 
 
 if __name__ == "__main__":
-    datasets, dataloaders = init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_10", reduce_to_2D=False, batch_size=4)
-    train_model()
+    
+    # parameters of model and training
+    loss_fn = MSELoss()
+    n_epochs = 1 #60000
+    lr=0.0004 #0.0004
+
+    #model = TurbNetG(channelExponent=4, in_channels=4, out_channels=2)
+    unet_model = UNet(in_channels=5, out_channels=1).float()
+    # TODO too many in channels for unet?
+    fc_model = DummyNet().float()
+    # model.to(device)
+
+    # init data
+    datasets_2D, dataloaders_2D = init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_01", reduce_to_2D=True, overfit=True)
+    # train model
+    train_model(unet_model, dataloaders_2D, loss_fn, n_epochs, lr)
+
+    # datasets, dataloaders = init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_10", reduce_to_2D=False, batch_size=4)
 
     # for dataloader in dataloaders.values():
     #     for _, datapoint in enumerate(dataloader):
