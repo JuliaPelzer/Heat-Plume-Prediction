@@ -5,7 +5,7 @@ import data.utils as utils
 
 # additional libraries
 import numpy as np
-import torch
+from torch import Tensor, zeros, eq, Size
 
 def test_compute_data_max_and_min():
     # Fixture
@@ -23,21 +23,21 @@ def test_compute_data_max_and_min():
 
 def test_normalize_transform():
     data = utils.PhysicalVariables(time="now", properties=["test"])
-    data["test"] = torch.Tensor(np.array([[[[-2, -1, -1],[-1, 0, -1], [-1, -1, -1]]]]))
-    data_norm = torch.Tensor(np.array([[[[-2, 0, 0],[0, 2, 0], [0, 0, 0]]]]))
+    data["test"] = Tensor(np.array([[[[-2, -1, -1],[-1, 0, -1], [-1, -1, -1]]]]))
+    data_norm = Tensor(np.array([[[[-2, 0, 0],[0, 2, 0], [0, 0, 0]]]]))
     transform = trans.NormalizeTransform()
-    tensor_eq = torch.eq(transform(data)["test"].value, data_norm).flatten
+    tensor_eq = eq(transform(data)["test"].value, data_norm).flatten
     assert tensor_eq
 
 def test_reduceto2d_transform():
     data = utils.PhysicalVariables(time="now", properties=["test"])
-    data["test"] = torch.zeros([4,2,4])
-    data_reduced = torch.zeros([1,2,4])
+    data["test"] = zeros([4,2,4])
+    data_reduced = zeros([1,2,4])
     # Actual result
     data_actual = trans.ReduceTo2DTransform(x=0)(data)
     # Test
     assert data_actual["test"].value.shape == data_reduced.shape
-    tensor_eq = torch.eq(data_actual["test"].value, data_reduced).flatten
+    tensor_eq = eq(data_actual["test"].value, data_reduced).flatten
     assert tensor_eq
 
 def test_separate_property_unit():
@@ -79,7 +79,7 @@ def test_physical_property():
     expected_temperature = utils.PhysicalVariable("Temperature [K]")
     properties = ["Temperature [K]", "Pressure [Pa]"]
     physical_properties = utils.PhysicalVariables(time, properties)
-    physical_properties["Temperature [K]"]=torch.Tensor([3])
+    physical_properties["Temperature [K]"]=Tensor([3])
     physical_properties["Pressure [Pa]"]=2
     physical_properties["ID [-]"]=0
 
@@ -140,14 +140,27 @@ def test_combinations():
 def test_datapoint_to_tensor_with_channel():
     inputs = utils.PhysicalVariables("now", properties=["temperature", "id"])
     labels = utils.PhysicalVariables("later", properties=["velocity"])
-    inputs["temperature"] = torch.zeros(2,3,4)
-    inputs["id"] = torch.zeros(2,3,4)
-    labels["velocity"] = torch.zeros(2,3,4)
+    inputs["temperature"] = zeros(2,3,4)
+    inputs["id"] = zeros(2,3,4)
+    labels["velocity"] = zeros(2,3,4)
     assert inputs["id"].shape() == (2,3,4), "shape not set correctly"
     datapoint = utils.DataPoint(0, inputs=inputs, labels=labels)
     # datapoint2 = utils.DataPoint(1, inputs=inputs, labels=labels)
     batch = dataloader._datapoint_to_tensor_including_channel(datapoint)
     assert batch.inputs.shape == (2,2,3,4), "_datapoint_to_tensor_with_channel does not concat the channels correctly"
+
+def test_dataloader_iter():
+    _, dataloaders = lp.init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_10", reduce_to_2D=False, batch_size=4)
+    sizes_x = []
+    sizes_y = []
+    for dataloader in dataloaders.values():
+        for _, datapoint in enumerate(dataloader):
+            x = datapoint.inputs.float()
+            y = datapoint.labels.float()
+            sizes_x.append(Tensor.size(x))
+            sizes_y.append(Tensor.size(y))
+    assert(sizes_x == [Size([4, 6, 16, 128, 16]), Size([2, 6, 16, 128, 16]), Size([2, 6, 16, 128, 16]), Size([2, 6, 16, 128, 16])]), "enumerate(dataloader) does not work properly"
+    assert(sizes_y == [Size([4, 4, 16, 128, 16]), Size([2, 4, 16, 128, 16]), Size([2, 4, 16, 128, 16]), Size([2, 4, 16, 128, 16])]), "enumerate(dataloader) does not work properly"
 
 def test_visualize_data():
     pass
