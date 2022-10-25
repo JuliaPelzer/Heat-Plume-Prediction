@@ -42,82 +42,50 @@ class DataLoader:
         index_iterator = np.random.permutation(len(self.dataset)) if self.shuffle else range(len(self.dataset))
         index_iterator = iter(index_iterator)
 
+        print("len", len(self.dataset), self.batch_size)
         # get next batch
-        batch = Batch(batch_id=0)
+        batch_id = 0
+        batch = Batch(batch_id=batch_id)
         for index in index_iterator:
             next_datapoint = _datapoint_to_tensor_including_channel(self.dataset[index])
-
-
-        # get next batch
-        batch:List[DataPoint] = []
-        for index in index_iterator:
-            print(self.dataset[index])
-            batch.append(self.dataset[index])
+            _append_batch_by_datapoint(next_datapoint, batch)
             if len(batch) == self.batch_size:
-                yield _batch_to_tensor(_combine_batch_dicts(batch))
-                batch = []
-
+                yield batch
+                batch_id += 1
+                batch = Batch(batch_id=batch_id)
+            
         if len(batch) > 0 and not self.drop_last:
-            yield _batch_to_tensor(_combine_batch_dicts(batch))
+            yield batch
 
-def _batch_to_tensor(batch:Dict[str, List[DatasetSimulationData]]) -> Dict[str, Tensor]:
-    """
-    Returns a dict of tensors with keywords like run_id, x, x_mean, y, ...
-    Tensor has the shape of (batch_size, C, H, W, (D))
-    Transform all values of the given batch dict to tensors
-    """
-    tensor_batch = {}
-    for key, values in batch.items():
-        if key=="run_id": # expects the value not to be a Tensor and therefore needs to be converted to one
-            tensor_batch[key] = Tensor([_run_id_to_int(id) for id in values]).float()
-        else: # expects the value to be a Tensor  -> no convertion needed
-            try:
-                values = stack(value for value in values)
-            except:
-                # values contains only one element
-                logging.info("Values contains only one element?")
-                values = values[0]
+def _append_batch_by_datapoint(datapoint:Batch, batch:Batch) -> None:
+    # after this: batch contains combined inputs, labels of all runs and channels of this batch
+    assert batch.dim() == 1 or datapoint.dim() == batch.dim()-1, "dimensions of batch and datapoint do not fit"
+    
+    if datapoint.dim() == batch.dim()-1:
+        batch.inputs = cat((batch.inputs, datapoint.inputs.unsqueeze(0)), dim=0)
+        batch.labels = cat((batch.labels, datapoint.labels.unsqueeze(0)), dim=0)
+        print("2st", datapoint.dim(), batch.dim(), Tensor.size(batch.inputs))
+    elif batch.dim() == 1:
+        dim_to_extend = 0
+        batch.inputs = unsqueeze(datapoint.inputs, dim_to_extend)
+        batch.labels = unsqueeze(datapoint.labels, dim_to_extend)
+        print("1nd", datapoint.dim(), batch.dim(), Tensor.size(batch.inputs))
 
-            if not isinstance(values, Tensor):
-                logging.info("careful: not a tensor so far - but don't worry, I'll take care of it")
-                tensor_batch[key] = Tensor(values)
-            else:
-                tensor_batch[key] = values
-    return tensor_batch
-
-def _combine_batch_dicts(batch:List[Dict[str, DatasetSimulationData]]) -> Dict[str, List[DatasetSimulationData]]:
-    """
-    Combines a given batch (list of dicts) to a dict of lists
-    :param batch: batch, list of dicts
-        e.g. [{k1: v1, k2: v2, ...}, {k1:, v3, k2: v4, ...}, ...]
-    :returns: dict
-        e.g. {k1: [v1, v3, ...], k2: [v2, v4, ...], ...}
-    """
-    # input: List[DataPoint]
-    # output: Dict[str, List[DataPoint]]
-    # batch_dict = {"inputs": List[values], "labels": List[values]}"}
-    batch_dict = {}
-    for data_dict in batch:
-        for key, value in data_dict.items():
-            if key not in batch_dict:
-                batch_dict[key] = []
-            batch_dict[key].append(value)
-    return batch_dict
-
-def _combine_datapoints_to_batch(datapoints: Batch) -> Batch:
-    pass
+    assert datapoint.dim()==batch.dim()-1, "dimensions of batch do not fit to the datapoints"
 
 def _append_tensor_in_0_dim(inputs:PhysicalVariables) -> Tensor:
     dim_to_extend = 0
     first_in_var = list(inputs.keys())[0]
+    assert isinstance(inputs[first_in_var].value, Tensor), "inputs are not in tensor-format"
+
     result = inputs[first_in_var].value
     result = unsqueeze(result, dim_to_extend)
-    print("result init", result.shape)
+    # print("result init", result.shape)
     for in_var in inputs.keys():
-        print("inputs", inputs[in_var].value.shape)
+        # print("inputs", inputs[in_var].value.shape)
         if in_var != first_in_var:
             result = cat((result, inputs[in_var].value.unsqueeze(0)), dim=0)
-    print("result", result.shape)
+    # print("result", result.shape)
     return result
 
 def _datapoint_to_tensor_including_channel(datapoint:DataPoint) -> Batch:

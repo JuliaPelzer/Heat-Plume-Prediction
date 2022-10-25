@@ -10,7 +10,7 @@ from torch.optim import Adam, lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import zeros
+from torch import zeros, Tensor
 
 
 def test_dummy():
@@ -190,10 +190,10 @@ def train_model(model, dataloaders, loss_fn, n_epochs: int, lr: float, name_fold
 
 
 if __name__ == "__main__":
-    datasets, dataloaders = init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_10", reduce_to_2D=False)
-    # train_model()
+    datasets, dataloaders = init_data(dataset_name="groundtruth_hps_no_hps/groundtruth_hps_overfit_10", reduce_to_2D=False, batch_size=4)
+    train_model()
 
-    for batch_idx, datapoint in enumerate(dataloaders["train"]):
-                # datasets["train"] contains 3 data points
-                x = datapoint.inputs.float()
-                y = datapoint.labels.float()
+    # for dataloader in dataloaders.values():
+    #     for _, datapoint in enumerate(dataloader):
+    #         x = datapoint.inputs.float()
+    #         y = datapoint.labels.float()
