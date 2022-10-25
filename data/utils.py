@@ -126,7 +126,6 @@ def save_pickle(data_dict, file_name):
         os.makedirs(directory)
     pickle.dump(data_dict, open(os.path.join(directory, file_name), 'wb', 5))
 
-
 def separate_property_unit(property_in: str) -> List[str]:
     """Separate property and unit in input string"""
     index_open = property_in.find(' [')
