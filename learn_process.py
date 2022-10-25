@@ -1,7 +1,8 @@
 from data.dataset import DatasetSimulationData
 from data.dataloader import DataLoader
 from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, PowerOfTwoTransform, ToTensorTransform
-from networks.unet_leiterrl import weights_init
+from networks.unet_leiterrl import weights_init, TurbNetG, UNet
+from networks.dummy_network import DummyNet
 from tqdm.auto import tqdm
 import logging
 
@@ -9,12 +10,10 @@ from torch.optim import Adam, lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 from torch.nn import MSELoss
 import torch.nn.functional as F
-
-from networks.unet_leiterrl import TurbNetG, UNet
-from networks.dummy_network import DummyNet
+from typing import List
 
 
-def init_data(reduce_to_2D: bool = True, reduce_to_2D_wrong: bool = False, overfit: bool = False, normalize: bool = True, just_plotting: bool = False, batch_size: int = 100, inputs: str = "xyzpt",
+def init_data(reduce_to_2D: bool = True, reduce_to_2D_wrong: bool = False, overfit: bool = False, normalize: bool = True, just_plotting: bool = False, batch_size: int = 100, inputs: str = "xyzpt", labels: str = "txyz",
               dataset_name: str = "approach2_dataset_generation_simplified/dataset_HDF5_testtest", path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth"):
     """
     Initialize dataset and dataloader for training.
@@ -60,30 +59,16 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_wrong: bool = False, overf
         split = {'train': 1, 'val': 0, 'test': 0}
         transforms = None
 
-    input_list = [inputs[i] for i in range(len(inputs))]
-    for i in input_list:
-        assert i in ["x", "y", "z", "p",
-                     "t"], "input parameter inputs has to be a string of characters, each of which is either x, y, z, p, t"
-    input_vars = []
-    if 'x' in input_list:
-        input_vars.append("Liquid X-Velocity [m_per_y]")
-    if 'y' in input_list:
-        input_vars.append("Liquid Y-Velocity [m_per_y]")
-    if 'z' in input_list:
-        input_vars.append("Liquid Z-Velocity [m_per_y]")
-    if 'p' in input_list:
-        input_vars.append("Liquid_Pressure [Pa]")
-    if 't' in input_list:
-        input_vars.append("Temperature [C]")
-    # if '-' not in input_list:
+    input_vars = _build_property_list(inputs)
     input_vars.append("Material_ID")
+    output_vars = _build_property_list(labels)
+    
 
     for mode in ['train', 'val', 'test']:
         temp_dataset = DatasetSimulationData(
             dataset_name=dataset_name, dataset_path=path_to_datasets,
             transform=transforms, input_vars_names=input_vars,
-            output_vars_names=["Temperature [C]", "Liquid X-Velocity [m_per_y]",
-                               "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]"],  # . "Liquid_Pressure [Pa]"
+            output_vars_names=output_vars,  # . "Liquid_Pressure [Pa]"
             mode=mode, split=split
         )
         datasets[mode] = temp_dataset
@@ -181,6 +166,25 @@ def train_model(model, dataloaders, loss_fn, n_epochs: int, lr: float, name_fold
 
     return loss_hist
 
+def _build_property_list(properties:str) -> List:
+    vars_list = [properties[i] for i in range(len(properties))]
+    for i in vars_list:
+        assert i in ["x", "y", "z", "p",
+                     "t"], "input parameter inputs has to be a string of characters, each of which is either x, y, z, p, t"
+    vars = []
+    if 'x' in vars_list:
+        vars.append("Liquid X-Velocity [m_per_y]")
+    if 'y' in vars_list:
+        vars.append("Liquid Y-Velocity [m_per_y]")
+    if 'z' in vars_list:
+        vars.append("Liquid Z-Velocity [m_per_y]")
+    if 'p' in vars_list:
+        vars.append("Liquid_Pressure [Pa]")
+    if 't' in vars_list:
+        vars.append("Temperature [C]")
+    # if '-' not in input_list:
+
+    return vars
 
 if __name__ == "__main__":
     
