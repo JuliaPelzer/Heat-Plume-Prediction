@@ -16,15 +16,6 @@ from networks.unet_leiterrl import TurbNetG, UNet
 from networks.dummy_network import DummyNet
 
 
-
-def test_dummy():
-    # dummy test
-    # TODO ask Ishaan
-    assert 1 == 1
-
-# create and directly split dataset into train, val, test
-
-
 def init_data(reduce_to_2D: bool = True, reduce_to_2D_wrong: bool = False, overfit: bool = False, normalize: bool = True, just_plotting: bool = False, batch_size: int = 100, inputs: str = "xyzpt",
               dataset_name: str = "approach2_dataset_generation_simplified/dataset_HDF5_testtest", path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth"):
     """
