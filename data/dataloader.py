@@ -4,7 +4,7 @@ import logging
 import numpy as np
 from torch import Tensor, stack, cat, unsqueeze
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Iterator
 from data.dataset import DatasetSimulationData
 from data.utils import Batch, DataPoint
 
@@ -32,7 +32,7 @@ class DataLoader:
         assert isinstance(length, int), "length is not an integer"
         return length
 
-    def __iter__(self) -> List[Dict[str, Tensor]]:
+    def __iter__(self) -> Iterator[List[Dict[str, Tensor]]]:
         """
         Returns the next batch of data with keywords like run_id, x, x_mean, y, ...; each referring to a
         Tensor with the shape of (batch_size, channels, H, W, (D))
