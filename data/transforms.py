@@ -166,17 +166,16 @@ class PowerOfTwoTransform:  # CutOffEdgesTransform:
 class ReduceTo2DTransform:
     """
     Transform class to reduce data to 2D, reduce in x, in height of hp: x=7 (if after Normalize)
-    #TODO still np?
     """
 
-    def __init__(self, reduce_to_2D_wrong=False, x: int = 9):
+    def __init__(self, reduce_to_2D_xy=False, x: int = 9):
         # if reduce_to_2D_wrong then the data will still be reduced to 2D but in x,y dimension instead of y,z
-        self.reduce_to_2D_wrong = reduce_to_2D_wrong
+        self.reduce_to_2D_xy = reduce_to_2D_xy
         self.x = x
 
     def __call__(self, data: PhysicalVariables):
         # reduce data to 2D
-        if self.reduce_to_2D_wrong:
+        if self.reduce_to_2D_xy:
             for prop in data.keys():
                 data[prop].value.transpose_(0, 2) # (1,3)
 

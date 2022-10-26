@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from typing import List
 
 
-def init_data(reduce_to_2D: bool = True, reduce_to_2D_wrong: bool = False, overfit: bool = False, normalize: bool = True, 
+def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit: bool = False, normalize: bool = True, 
               just_plotting: bool = False, batch_size: int = 100, inputs: str = "xyzpt", labels: str = "txyz",
               dataset_name: str = "approach2_dataset_generation_simplified/dataset_HDF5_testtest", 
               path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth"):
@@ -35,7 +35,7 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_wrong: bool = False, overf
     dataloaders : dict
         Dictionary of dataloaders, with keys "train", "val", "test"
     """
-    assert isinstance(reduce_to_2D, bool) and isinstance(reduce_to_2D_wrong, bool) and isinstance(overfit, bool) and isinstance(normalize, bool) and isinstance(
+    assert isinstance(reduce_to_2D, bool) and isinstance(reduce_to_2D_xy, bool) and isinstance(overfit, bool) and isinstance(normalize, bool) and isinstance(
         just_plotting, bool), "input parameters reduce_to_2D, reduce_to_2D_wrong, overfit, normalize, just_plotting have to be bool"
     assert isinstance(
         batch_size, int), "input parameter batch_size has to be int"
@@ -46,7 +46,7 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_wrong: bool = False, overf
     transforms_list = [
         ToTensorTransform(), PowerOfTwoTransform(oriented="left")]
     if reduce_to_2D:
-        transforms_list.append(ReduceTo2DTransform(reduce_to_2D_wrong=reduce_to_2D_wrong))
+        transforms_list.append(ReduceTo2DTransform(reduce_to_2D_xy=reduce_to_2D_xy))
     if normalize:
         transforms_list.append(NormalizeTransform(reduced_to_2D=reduce_to_2D))
     logging.info(f"transforms_list: {transforms_list}")
