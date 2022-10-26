@@ -209,24 +209,17 @@ class ComposeTransform:
         :param transforms: transforms to be combined
         """
         self.transforms = transforms
-        # self.mean = None
-        # self.std = None
 
     def __call__(self, data: PhysicalVariables):
         for transform in self.transforms:
             data = transform(data)
-        #     try:
-        #         self.mean = transform.mean
-        #         self.std = transform.std
-        #     except:
-        #         print(f"Transform {transform} didn' work")
-        return data  # , self.mean, self.std
+        return data
 
     def reverse_OLD_FORMAT(self, data):
         for transform in reversed(self.transforms):
             try:
                 data = transform.reverse(data)
-            except AttributeError:
-                pass
+            except AttributeError as e:
+                print(e)
                 #print(f"for transform {transform} no reverse implemented")
         return data
