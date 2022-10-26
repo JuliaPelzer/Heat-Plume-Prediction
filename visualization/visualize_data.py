@@ -20,7 +20,7 @@ class View:
 
 def plot_datapoint(dataset : DatasetSimulationData, run_id : int, view="top", plot_streamlines=False, oriented="center") -> None:
     """
-    Plot all physical properties of one data point, depending on the `view` also with streamlines.. if they work at some time...
+    Plot all physical properties of one data point, depending on the `view` with streamlines
     
     Parameters
     ----------
@@ -29,7 +29,7 @@ def plot_datapoint(dataset : DatasetSimulationData, run_id : int, view="top", pl
         run_id : int
             Index of the data point to plot
         view : str
-            From which view to plot from (top vs. side, outside vs. height of heat pipe)
+            From which view to plot (top vs. side, outside vs. height of heat pipe)
 
     Returns
     -------
