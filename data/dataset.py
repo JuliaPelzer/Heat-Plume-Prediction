@@ -7,7 +7,8 @@ from typing import List, Dict, Tuple
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from data.transforms import ComposeTransform
-import os
+from data.utils import PhysicalVariables, DataPoint, _assertion_error_2d
+import os, sys
 import numpy as np
 import h5py
 
@@ -50,16 +51,16 @@ class DatasetSimulationData(Dataset):
 
     Returns
     -------
-    dataset of size NxCxHxWxD
+    dataset of size dict(Nx dict(Cx value(HxWxD)))
     """
     def __init__(self, dataset_name:str="approach2_dataset_generation_simplified/dataset_HDF5_testtest",
                  dataset_path:str="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth",
                  transform:ComposeTransform=None,
                  mode:str="train",
                  split:Dict[str, float]={'train': 0.6, 'val': 0.2, 'test': 0.2},
-                 input_vars:List[str]=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
+                 input_vars_names:List[str]=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
                  "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"], # "hp_power"
-                 output_vars:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"],
+                 output_vars_names:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"],
                  **kwargs)-> Dataset:
         super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         assert mode in ["train", "val", "test"], "wrong mode for dataset given"
@@ -77,12 +78,14 @@ class DatasetSimulationData(Dataset):
         # self.time_init =     "Time:  0.00000E+00 y"
         self.time_first =    "Time:  1.00000E-01 y"
         self.time_final =    "Time:  5.00000E+00 y"
-        self.input_vars = [self.time_first, input_vars]
-        self.output_vars = [self.time_final, output_vars]
         # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
+        self.input_vars_empty_value = PhysicalVariables(self.time_first, input_vars_names)
+        self.output_vars_empty_value = PhysicalVariables(self.time_final, output_vars_names)
+        self.datapoints = {}
+
         
     def __len__(self):
-        # Return the length of the dataset (number of runs)
+        # Return the length of the dataset (number of runs), but fill them only on their first call
         return len(self.runs)
 
     @staticmethod
@@ -116,14 +119,15 @@ class DatasetSimulationData(Dataset):
         return data_paths, runs
 
     def get_input_properties(self) -> List[str]:
-        return self.input_vars[1]
+        return list(self.input_vars_empty_value.keys)
 
     def get_output_properties(self) -> List[str]:
-        return self.output_vars[1]
+        return list(self.output_vars_empty_value.keys)
 
-    def __getitem__(self, index:int) -> Dict[str, np.ndarray]:
+    def __getitem__(self, index:int) -> Dict[int, DataPoint]:
         """
-        Get a data point as a dict at a given index in the dataset
+        Get a data point as a dict at a given run id (index) in the dataset
+        If the datapoint was loaded before, it is called only, if not: it is initialized with calling transform etc.
         
         Parameters
         ----------
@@ -132,37 +136,60 @@ class DatasetSimulationData(Dataset):
 
         Returns
         -------
-        dict of data point at index with x being the input data and y being the labels
-        x is a numpy array of shape CxHxWxD (C=channels, HxWxD=spatial dimensions)
-        y is a numpy array of shape CxHxWxD (C= output channels, HxWxD=spatial dimensions)
-            """
-        data_dict = {}
-        index_material_id = self.get_input_properties().index('Material_ID')
+        datapoint : dict
+            Dictionary containing the data point with the following keys:
+                - inputs: dict
+                    Dictionary containing the input data with the following keys:
+                        - time: str
+                            Time of the data point
+                        - properties:  
+                            List of the properties of the data point
+                        - values: torch.Tensor 
+                            Tensor of the values of the data point
+                - labels: dict
+                    Dictionary containing the output data with the same keys as the input data
+        """
+        # TODO x is a numpy array of shape CxHxWxD (C=channels, HxWxD=spatial dimensions)
+        # TODO y is a numpy array of shape CxHxWxD (C= output channels, HxWxD=spatial dimensions)
+        
+        if index not in self.datapoints.keys():
+            self.datapoints[index] = self.load_datapoint(index)
+            # print("created datapoint at index", index)
+
+        return self.datapoints[index]
+
+    def load_datapoint(self, index:int) -> DataPoint:
+        """
+        Load a datapoint at a given index (from data_paths) in the dataset with all input- and label-data
+        and applies transforms if possible/ if any where given
+        checks if the data is 2D or 3D - else: error
+        """
+        datapoint = DataPoint(index)
+
+        datapoint.inputs = self._load_data_as_numpy(self.data_paths[index], self.input_vars_empty_value)
+        datapoint.labels = self._load_data_as_numpy(self.data_paths[index], self.output_vars_empty_value)
         try:
-            data_dict["x"], data_dict["x_mean"], data_dict["x_std"] = self.transform(self._load_data_as_numpy(self.data_paths[index], self.input_vars), index_material_id=index_material_id)
-            self.index_material_id = None
-            data_dict["y"], data_dict["y_mean"], data_dict["y_std"] = self.transform(self._load_data_as_numpy(self.data_paths[index], self.output_vars))
+            datapoint.inputs = self.transform(datapoint.inputs)
+            datapoint.labels = self.transform(datapoint.labels)
         except Exception as e:
-            logging.info("no transforms applied")
-            data_dict["x"] = self._load_data_as_numpy(self.data_paths[index], self.input_vars)
-            data_dict["y"] = self._load_data_as_numpy(self.data_paths[index], self.output_vars)
-        data_dict["run_id"] = self.runs[index]
+            print("no transforms applied: ", e)
 
-        return data_dict
+        _assertion_error_2d(datapoint)
+        return datapoint
 
-    def reverse_transform(self, index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
+    def reverse_transform_OLD_FORMAT(self, index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
         """
         Reverse the transformation of the data.
         """
         data_dict = {}
         index_material_id = self.get_input_properties().index('Material_ID')
-        data_dict["x"] = self.transform.reverse(self[index]["x"], mean=x_mean, std=x_std, index_material_id=index_material_id)
-        self.index_material_id = None
-        data_dict["y"] = self.transform.reverse(self[index]["y"], mean=y_mean, std=y_std)
+        data_dict["x"] = self.transform.reverse_OLD_FORMAT(self[index]["x"], mean=x_mean, std=x_std, index_material_id=index_material_id)
+        index_material_id = None
+        data_dict["y"] = self.transform.reverse_OLD_FORMAT(self[index]["y"], mean=y_mean, std=y_std)
         data_dict["run_id"] = self.runs[index]
 
         return data_dict
-    
+
     def _select_split(self, data_paths:List[str], labels:List[str]) -> Tuple[List[str], List[str]]:
         """
         Depending on the mode of the dataset, deterministically split it.
@@ -199,24 +226,18 @@ class DatasetSimulationData(Dataset):
         else: 
             return data_paths[indices], list(np.array(labels)[indices])
         
-    def _load_data_as_numpy(self, data_path:str, variables:List) -> np.ndarray:
+    def _load_data_as_numpy(self, data_path:str, variables:PhysicalVariables) -> PhysicalVariables:
         """
-        Load data from h5 file on data_path, but only the variables named in vars[1] at time stamp vars[0]
-        variables: list of two elements, first element is the time stamp (str), second element is a list of variables (List[str])
-        Returns
-        -------
-        data: numpy array of shape (C, H, W, D)
+        Load data from h5 file on data_path, but only the variables named in variables.get_ids() at time stamp variables.time
+        Sets the values of each PhysicalVariable in variables to the loaded data.
         """
-        time = variables[0]
-        properties = variables[1]
-        
-        data = []
+        loaded_datapoint = PhysicalVariables(variables.time)
+        # TODO when go to GPU: directly import as tensor?
         with h5py.File(data_path, "r") as file:
-            for key, value in file[time].items():
-                if key in properties:
-                    data.append(np.array(value))
-        data = np.array(data)
-        return data
+            for key, value in file[variables.time].items():
+                if key in variables.get_ids_list(): # properties
+                    loaded_datapoint[key] = np.array(value)
+        return loaded_datapoint
 
 '''NICHT ÜBERARBEITET
 class MemoryImageFolderDataset(ImageFolderDataset):

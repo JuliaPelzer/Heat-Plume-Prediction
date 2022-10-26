@@ -18,7 +18,7 @@ class View:
     cut_slice:np.array=None
     transpose:bool=False
 
-def plot_datapoint(dataset : DatasetSimulationData, run_id : int, view="top", prefix="", plot_streamlines=False, oriented="center") -> None:
+def plot_datapoint(dataset : DatasetSimulationData, run_id : int, view="top", plot_streamlines=False, oriented="center") -> None:
     """
     Plot all physical properties of one data point, depending on the `view` also with streamlines.. if they work at some time...
     
@@ -35,11 +35,8 @@ def plot_datapoint(dataset : DatasetSimulationData, run_id : int, view="top", pr
     -------
         None
     """
-    property_names_in = dataset.get_input_properties()
-    property_names_out = dataset.get_output_properties()
-    data = dataset[run_id]
 
-    plot_data_inner(data=data, property_names_in=property_names_in, property_names_out=property_names_out, run_id=run_id, view=view, plot_streamlines=plot_streamlines, oriented=oriented)
+    plot_data_inner(data=dataset[run_id], property_names_in=dataset.get_input_properties(), property_names_out=dataset.get_output_properties(), run_id=run_id, view=view, plot_streamlines=plot_streamlines, oriented=oriented)
 
 def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str], property_names_out : List[str], run_id:int=42, view:str="top", plot_streamlines=False, oriented="center") -> None:
     # function excluded to also be able to plot the reversed dataset, #TODO make reversing cleaner so this step is unnecessary
