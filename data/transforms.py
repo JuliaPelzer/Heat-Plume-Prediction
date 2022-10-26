@@ -178,7 +178,7 @@ class ReduceTo2DTransform:
         # reduce data to 2D
         if self.reduce_to_2D_wrong:
             for prop in data.keys():
-                data[prop].value.transpose_(1, 3)
+                data[prop].value.transpose_(0, 2) # (1,3)
 
         for prop in data.keys():
             assert self.x <= data[prop].value.shape[0], "x is larger than data dimension 0"
