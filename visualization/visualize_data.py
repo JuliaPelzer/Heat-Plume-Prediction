@@ -7,6 +7,8 @@ from typing import List
 import torch
 from data.dataset import DatasetSimulationData
 from data.utils import separate_property_unit
+from torch.utils.tensorboard import SummaryWriter
+from data.dataloader import DataLoader
 
 # TODO: look at vispy library for plotting 3D data
 
@@ -38,7 +40,9 @@ def plot_datapoint(dataset : DatasetSimulationData, run_id : int, view="top", pl
 
     plot_data_inner(data=dataset[run_id], property_names_in=dataset.get_input_properties(), property_names_out=dataset.get_output_properties(), run_id=run_id, view=view, plot_streamlines=plot_streamlines, oriented=oriented)
 
-def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str], property_names_out : List[str], run_id:int=42, view:str="top", plot_streamlines=False, oriented="center") -> None:
+
+def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str], property_names_out : List[str], run_id:int=42, view:str="top", 
+    plot_streamlines=False, oriented="center"):
     # function excluded to also be able to plot the reversed dataset, #TODO make reversing cleaner so this step is unnecessary
     assert view in ["top", "topish", "top_hp", "side", "side_hp"], "view must be one of 'top', 'topish', 'top_hp', 'side', 'side_hp'"
     assert isinstance(run_id, int), "run_id must be an integer"
@@ -74,7 +78,40 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
     print(f"Resulting picture is at {pic_file_name}")
     plt.savefig(pic_file_name)
 
-def plot_exemplary_learned_result(model, dataloaders, name_pic="plot_y_exemplary"):
+def plot_test_sample(model, dataloaders: Dict[str, DataLoader], name_folder, plot_name:str="plot_learned_test_sample"):
+    writer = SummaryWriter(f"runs/{name_folder}")
+    for batch_idx, data_test in enumerate(dataloaders["test"]):
+        x = data_test.inputs.float()
+        y = data_test.labels.float()
+        y_out = model(x)
+        writer.add_image("x_unseen", x[0, 0, :, :], dataformats="WH")
+        writer.add_image("y_unseen_out", y_out[0, 0, :, :], dataformats="WH")
+        writer.add_image("y_unseen_true", y[0, 0, :, :], dataformats="WH")
+    writer.close()
+
+    error = y-y_out
+
+    list_to_plot = [
+        _make_dict(y, "temperature true", 0),
+        _make_dict(y_out, "temperature out", 0),
+        _make_dict(error, "error", 0),
+        #_make_dict(error_abs, "error abs", 0),
+        _make_dict(x, "x_0", 0),
+        _make_dict(x, "x_1", 1),
+        _make_dict(x, "x_2", 2),
+        _make_dict(x, "x_3", 3),
+        _make_dict(x, "x_4", 4),
+    ]
+
+    _plot_y(list_to_plot, name_pic=plot_name)
+
+    error = abs(error)
+    error_mean = torch.mean(error).item()
+    # error_abs = torch.abs(error)
+
+    return writer, error, error_mean
+
+def plot_exemplary_learned_result_OLD(model, dataloaders, name_pic="plot_y_exemplary"):
     """not pretty but functional to get a first glimpse of how y_out looks compared to y_truth"""
 
     for data in dataloaders["train"]:
@@ -113,7 +150,6 @@ def plot_exemplary_learned_result(model, dataloaders, name_pic="plot_y_exemplary
     return error
 
 ## helper functions for plotting
-
 def _plot_properties(data : np.ndarray, index_overall:int, view: View, axes, property_names : List[str], prefix:str = "") -> int:
     """
     Plot all properties of one data point
