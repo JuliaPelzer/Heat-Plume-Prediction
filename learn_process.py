@@ -52,7 +52,7 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
     logging.info(f"transforms_list: {transforms_list}")
 
     transforms = ComposeTransform(transforms_list)
-    split = {'train': 0.9, 'val': 0.0, 'test': 0.1} if not overfit else {
+    split = {'train': 0.9, 'val': 0.0, 'test': 0.1} if not overfit else { # TODO REDO reasonable split
         'train': 1, 'val': 0, 'test': 0}
 
     # just plotting (for Marius)
