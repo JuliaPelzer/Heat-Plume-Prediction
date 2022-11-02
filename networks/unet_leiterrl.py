@@ -18,7 +18,7 @@ class UNet(nn.Module):
         self.pool4 = nn.MaxPool2d(kernel_size=2, stride=2) #TODO test with stride 1?
 
         self.bottleneck = UNet._block(features * 8, features * 16, name="bottleneck")
-        #self.bottleneck = UNet._block(features, features * 2, name="bottleneck")
+        #self.bottleneck = UNet._block(features, features * 2, name="bottleneck") # if forward_small
 
         self.upconv4 = nn.ConvTranspose2d(features * 16, features * 8, kernel_size=2, stride=2)
         self.decoder4 = UNet._block((features * 8) * 2, features * 8, name="dec4")
@@ -61,7 +61,7 @@ class UNet(nn.Module):
         # enc4 = self.encoder4(self.pool3(enc3))
 
         #bottleneck = self.bottleneck(self.pool4(enc4))
-        bottleneck = self.bottleneck(self.pool2(enc1))
+        bottleneck = self.bottleneck(self.pool1(enc1))
         # dec4 = self.upconv4(bottleneck)
         # dec4 = torch.cat((dec4, enc4), dim=1)
         # dec4 = self.decoder4(dec4)
