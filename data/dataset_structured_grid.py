@@ -76,8 +76,8 @@ class DatasetSimulationData(Dataset):
         
         self.data_paths, self.runs = self.make_dataset(self)
         # self.time_init =     "Time:  0.00000E+00 y"
-        self.time_first =    "   1 Time  1.00000E-01 y"
-        self.time_final =    "   2 Time  5.00000E+00 y"
+        self.time_first =    "Time:  1.00000E-01 y" #"   1 Time  1.00000E-01 y" # TODO DIFFERS FOR UNSTRUCTURED MESH
+        self.time_final =    "Time:  5.00000E+00 y" #"   2 Time  5.00000E+00 y" # TODO DIFFERS FOR UNSTRUCTURED MESH
         # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
         self.input_vars_empty_value = PhysicalVariables(self.time_first, input_vars_names)
         self.output_vars_empty_value = PhysicalVariables(self.time_final, output_vars_names)
