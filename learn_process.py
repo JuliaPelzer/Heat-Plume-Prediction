@@ -11,12 +11,13 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.nn import MSELoss
 import torch.nn.functional as F
 from typing import List
+import yaml
 
 
 def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit: bool = False, normalize: bool = True, 
               just_plotting: bool = False, batch_size: int = 100, inputs: str = "xyzpt", labels: str = "txyz",
               dataset_name: str = "approach2_dataset_generation_simplified/dataset_HDF5_testtest", 
-              path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth"):
+              path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets"):
     """
     Initialize dataset and dataloader for training.
 
@@ -64,13 +65,17 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
     input_vars.append("Material_ID")
     output_vars = _build_property_list(labels)
     
+    # read json file for dimensions
+    with open(f"{path_to_datasets}/{dataset_name}/inputs/settings_perm_field.yaml", "r") as f:
+        perm_settings = yaml.safe_load(f)
+    dimensions_of_datapoint = perm_settings["ncells"]
 
     for mode in ['train', 'val', 'test']:
         temp_dataset = DatasetSimulationData(
             dataset_name=dataset_name, dataset_path=path_to_datasets,
             transform=transforms, input_vars_names=input_vars,
             output_vars_names=output_vars,  # . "Liquid_Pressure [Pa]"
-            mode=mode, split=split
+            mode=mode, split=split, dimensions_of_datapoint=dimensions_of_datapoint,
         )
         datasets[mode] = temp_dataset
 

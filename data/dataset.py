@@ -61,6 +61,7 @@ class DatasetSimulationData(Dataset):
                  input_vars_names:List[str]=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
                  "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"], # "hp_power"
                  output_vars_names:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"],
+                 dimensions_of_datapoint:Tuple[int, int, int]=[20,150,16],
                  **kwargs)-> Dataset:
         super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         assert mode in ["train", "val", "test"], "wrong mode for dataset given"
@@ -82,6 +83,7 @@ class DatasetSimulationData(Dataset):
         self.input_vars_empty_value = PhysicalVariables(self.time_first, input_vars_names)
         self.output_vars_empty_value = PhysicalVariables(self.time_final, output_vars_names)
         self.datapoints = {}
+        self.dimensions_of_datapoint = dimensions_of_datapoint
 
         
     def __len__(self):
@@ -105,7 +107,7 @@ class DatasetSimulationData(Dataset):
         for _, folders, _ in os.walk(directory):
             for folder in folders:
                 for file in os.listdir(os.path.join(directory, folder)):
-                    if file.endswith(".h5"):
+                    if file == "pflotran.h5":
                         data_paths.append(os.path.join(directory, folder, file))
                         runs.append(folder)
                         found_dataset = True
@@ -236,7 +238,8 @@ class DatasetSimulationData(Dataset):
         with h5py.File(data_path, "r") as file:
             for key, value in file[variables.time].items():
                 if key in variables.get_ids_list(): # properties
-                    loaded_datapoint[key] = np.array(value)
+                    print(key, value.shape)
+                    loaded_datapoint[key] = np.array(value).reshape(self.dimensions_of_datapoint, order='F')
         return loaded_datapoint
 
 '''NICHT ÜBERARBEITET
