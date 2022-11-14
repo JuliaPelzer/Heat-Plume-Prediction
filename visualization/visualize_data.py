@@ -78,15 +78,17 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
     print(f"Resulting picture is at {pic_file_name}")
     plt.savefig(pic_file_name)
 
-def plot_test_sample(model, dataloaders: Dict[str, DataLoader], name_folder, plot_name:str="plot_learned_test_sample"):
+def plot_sample(model, dataloader: DataLoader, name_folder, plot_one_bool = True, plot_name:str="plot_learned_test_sample"):
     writer = SummaryWriter(f"runs/{name_folder}")
-    for batch_idx, data_test in enumerate(dataloaders["test"]):
-        x = data_test.inputs.float()
-        y = data_test.labels.float()
+    for _, data in enumerate(dataloader):
+        x = data.inputs.float()
+        y = data.labels.float()
         y_out = model(x)
         writer.add_image("x_unseen", x[0, 0, :, :], dataformats="WH")
         writer.add_image("y_unseen_out", y_out[0, 0, :, :], dataformats="WH")
         writer.add_image("y_unseen_true", y[0, 0, :, :], dataformats="WH")
+        if plot_one_bool:
+            break
     writer.close()
 
     error = y-y_out
