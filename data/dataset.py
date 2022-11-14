@@ -71,7 +71,7 @@ class DatasetSimulationData(Dataset):
         self.transform = transform
 
         split_values = [v for k,v in split.items()]
-        assert sum(split_values) == 1.0
+        assert np.round(sum(split_values)) == 1.0
 
         self.dataset_path = super().check_for_dataset()
         
@@ -156,7 +156,7 @@ class DatasetSimulationData(Dataset):
         
         if index not in self.datapoints.keys():
             self.datapoints[index] = self.load_datapoint(index)
-            print("created datapoint at index", index)
+            # print("created datapoint at index", index)
 
         return self.datapoints[index]
 
@@ -238,7 +238,7 @@ class DatasetSimulationData(Dataset):
         with h5py.File(data_path, "r") as file:
             for key, value in file[variables.time].items():
                 if key in variables.get_ids_list(): # properties
-                    print(key, value.shape)
+                    # print(key, value.shape)
                     loaded_datapoint[key] = np.array(value).reshape(self.dimensions_of_datapoint, order='F')
         return loaded_datapoint
 
