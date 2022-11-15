@@ -81,11 +81,12 @@ class NormalizeTransform:
 
     def __call__(self, data: PhysicalVariables):
         # manual shift of material IDs  TODO change this in pflotran file!! not here
-        name_material = "Material_ID"
-        if name_material in data.keys():
-            data[name_material].value -= 1
-            mask = data[name_material].value == 2
-            data[name_material].value[mask] = -1
+        names_material = ["Material_ID", "Material ID"]
+        for name_material in names_material:
+            if name_material in data.keys():
+                data[name_material].value -= 1
+                mask = data[name_material].value == 2
+                data[name_material].value[mask] = -1
 
         for prop in data.keys():
             # calc mean, std per channel
@@ -107,29 +108,18 @@ class NormalizeTransform:
             ), decimals=4) == 1, f"Std of {prop} is not 1 but {data[prop].value.std()}"
         return data
 
-    def reverse_OLD_FORMAT(self, data, mean=None, std=None, index_material_id=None):
+    def reverse(self, data:PhysicalVariables):
         # reverse normalization
-        # data = torch.from_numpy(data) * self.std + self.mean # version if std, mean in class
-        data = torch.add(torch.mul(data, std), mean)
-        # TODO why is data numpy format??
+        for prop in data.keys():
+            data[prop].value = data[prop].value * \
+                data[prop].std_orig + data[prop].mean_orig
 
-        # manual shift of material IDs  TODO change this in pflotran file!! not here
-        if self.reduced_to_2D:
-            if index_material_id:
-                mask = data[index_material_id, :, :] == -1
-
-                # only required, if extraction well (with ID=3) exists
-                data[index_material_id, :, :][mask] = 2
-                data[index_material_id, :, :] += 1
-        else:
-            if index_material_id:
-                mask = data[index_material_id, :, :, :] == -1
-
-                # only required, if extraction well (with ID=3) exists
-                data[index_material_id, :, :, :][mask] = 2
-                data[index_material_id, :, :, :] += 1
-
-        # , data.mean(dim=(1, 2, 3), keepdim=True), data.std(dim=(1, 2, 3), keepdim=True)
+        names_material = ["Material_ID", "Material ID"]
+        for name_material in names_material:
+            if name_material in data.keys():
+                mask = data[name_material].value == -1
+                data[name_material].value[mask] = 2  # only required, if extraction well (with ID=3) exists
+                data[name_material].value += 1
         return data
 
 
@@ -199,6 +189,11 @@ class ToTensorTransform:
             data[prop].value = torch.from_numpy(data[prop].value)
         return data
 
+    def reverse(self, data: PhysicalVariables):
+        for prop in data.keys():
+            data[prop].value = data[prop].value.numpy()
+        return data
+
 
 class ComposeTransform:
     """Transform class that combines multiple other transforms into one"""
@@ -214,11 +209,11 @@ class ComposeTransform:
             data = transform(data)
         return data
 
-    def reverse_OLD_FORMAT(self, data):
+    def reverse(self, data: PhysicalVariables):
         for transform in reversed(self.transforms):
             try:
                 data = transform.reverse(data)
             except AttributeError as e:
-                print(e)
-                #print(f"for transform {transform} no reverse implemented")
+                pass
+                # print(e)
         return data

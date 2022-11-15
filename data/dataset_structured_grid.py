@@ -61,6 +61,7 @@ class DatasetSimulationData(Dataset):
                  input_vars_names:List[str]=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
                  "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"], # "hp_power"
                  output_vars_names:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"],
+                 dimensions_of_datapoint:Tuple[int, int, int]=[20,150,16],
                  **kwargs)-> Dataset:
         super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         assert mode in ["train", "val", "test"], "wrong mode for dataset given"
@@ -70,18 +71,19 @@ class DatasetSimulationData(Dataset):
         self.transform = transform
 
         split_values = [v for k,v in split.items()]
-        assert sum(split_values) == 1.0
+        assert np.round(sum(split_values)) == 1.0
 
         self.dataset_path = super().check_for_dataset()
         
         self.data_paths, self.runs = self.make_dataset(self)
         # self.time_init =     "Time:  0.00000E+00 y"
-        self.time_first =    "Time:  1.00000E-01 y" #"   1 Time  1.00000E-01 y" # TODO DIFFERS FOR UNSTRUCTURED MESH
-        self.time_final =    "Time:  5.00000E+00 y" #"   2 Time  5.00000E+00 y" # TODO DIFFERS FOR UNSTRUCTURED MESH
+        self.time_first =    "Time:  1.00000E-01 y" # differs for unstructured grid: "   1 Time  1.00000E-01 y" 
+        self.time_final =    "Time:  5.00000E+00 y" # differs for unstructured grid: "   2 Time  5.00000E+00 y" 
         # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
         self.input_vars_empty_value = PhysicalVariables(self.time_first, input_vars_names)
         self.output_vars_empty_value = PhysicalVariables(self.time_final, output_vars_names)
         self.datapoints = {}
+        self.dimensions_of_datapoint = dimensions_of_datapoint
 
         
     def __len__(self):
@@ -105,7 +107,7 @@ class DatasetSimulationData(Dataset):
         for _, folders, _ in os.walk(directory):
             for folder in folders:
                 for file in os.listdir(os.path.join(directory, folder)):
-                    if file.endswith(".h5"):
+                    if file == "pflotran.h5":
                         data_paths.append(os.path.join(directory, folder, file))
                         runs.append(folder)
                         found_dataset = True
@@ -154,7 +156,7 @@ class DatasetSimulationData(Dataset):
         
         if index not in self.datapoints.keys():
             self.datapoints[index] = self.load_datapoint(index)
-            print("created datapoint at index", index)
+            # print("created datapoint at index", index)
 
         return self.datapoints[index]
 
@@ -177,18 +179,23 @@ class DatasetSimulationData(Dataset):
         _assertion_error_2d(datapoint)
         return datapoint
 
-    def reverse_transform_OLD_FORMAT(self, index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
+    def reverse_transform(self, datapoint:DataPoint): #index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
         """
         Reverse the transformation of the data.
         """
-        data_dict = {}
-        index_material_id = self.get_input_properties().index('Material_ID')
-        data_dict["x"] = self.transform.reverse_OLD_FORMAT(self[index]["x"], mean=x_mean, std=x_std, index_material_id=index_material_id)
-        index_material_id = None
-        data_dict["y"] = self.transform.reverse_OLD_FORMAT(self[index]["y"], mean=y_mean, std=y_std)
-        data_dict["run_id"] = self.runs[index]
+        # data_dict = {}
+        # index_material_id = self.get_input_properties().index('Material_ID')
+        # data_dict["x"] = self.transform.reverse(self[index]["x"], mean=x_mean, std=x_std, index_material_id=index_material_id)
+        # index_material_id = None
+        # data_dict["y"] = self.transform.reverse(self[index]["y"], mean=y_mean, std=y_std)
+        # data_dict["run_id"] = self.runs[index]
 
-        return data_dict
+        datapoint.inputs = self.transform.reverse(datapoint.inputs)
+        datapoint.labels = self.transform.reverse(datapoint.labels)
+
+        _assertion_error_2d(datapoint)
+
+        return datapoint
 
     def _select_split(self, data_paths:List[str], labels:List[str]) -> Tuple[List[str], List[str]]:
         """

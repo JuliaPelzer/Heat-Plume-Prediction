@@ -179,18 +179,23 @@ class DatasetSimulationData(Dataset):
         _assertion_error_2d(datapoint)
         return datapoint
 
-    def reverse_transform_OLD_FORMAT(self, index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
+    def reverse_transform(self, datapoint:DataPoint): #index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
         """
         Reverse the transformation of the data.
         """
-        data_dict = {}
-        index_material_id = self.get_input_properties().index('Material_ID')
-        data_dict["x"] = self.transform.reverse_OLD_FORMAT(self[index]["x"], mean=x_mean, std=x_std, index_material_id=index_material_id)
-        index_material_id = None
-        data_dict["y"] = self.transform.reverse_OLD_FORMAT(self[index]["y"], mean=y_mean, std=y_std)
-        data_dict["run_id"] = self.runs[index]
+        # data_dict = {}
+        # index_material_id = self.get_input_properties().index('Material_ID')
+        # data_dict["x"] = self.transform.reverse(self[index]["x"], mean=x_mean, std=x_std, index_material_id=index_material_id)
+        # index_material_id = None
+        # data_dict["y"] = self.transform.reverse(self[index]["y"], mean=y_mean, std=y_std)
+        # data_dict["run_id"] = self.runs[index]
 
-        return data_dict
+        datapoint.inputs = self.transform.reverse(datapoint.inputs)
+        datapoint.labels = self.transform.reverse(datapoint.labels)
+
+        _assertion_error_2d(datapoint)
+
+        return datapoint
 
     def _select_split(self, data_paths:List[str], labels:List[str]) -> Tuple[List[str], List[str]]:
         """
