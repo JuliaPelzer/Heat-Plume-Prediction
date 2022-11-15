@@ -93,17 +93,23 @@ def plot_sample(model, dataloader: DataLoader, name_folder, plot_one_bool = True
 
     error = y-y_out
 
+    temp_max = max(y.max(), y_out.max())
+    temp_min = min(y.min(), y_out.min())
+
     list_to_plot = [
-        _make_dict(y, "temperature true", 0),
-        _make_dict(y_out, "temperature out", 0),
+        _make_dict(y, "temperature true", 0, vmax=temp_max, vmin=temp_min),
+        _make_dict(y_out, "temperature out", 0, vmax=temp_max, vmin=temp_min),
         _make_dict(error, "error", 0),
         #_make_dict(error_abs, "error abs", 0),
-        _make_dict(x, "x_0", 0),
-        _make_dict(x, "x_1", 1),
-        _make_dict(x, "x_2", 2),
-        _make_dict(x, "x_3", 3),
-        _make_dict(x, "x_4", 4),
+        # _make_dict(x, "x_0", 0),
+        # _make_dict(x, "x_1", 1),
+        # _make_dict(x, "x_2", 2),
+        # _make_dict(x, "x_3", 3),
+        # _make_dict(x, "x_4", 4),
     ]
+
+    for i in range(0, data.inputs.shape[1]):
+        list_to_plot.append(_make_dict(x, f"x_{i}", i))
 
     _plot_y(list_to_plot, name_pic=plot_name)
 
@@ -260,24 +266,9 @@ def _build_title(prefix:str, property_names:List[str], channel:int) -> str:
 
     return title
 
-def _make_dict(data, physical_property, index):
-    data_dict = {"data" : data, "property" : physical_property}
+def _make_dict(data, physical_property, index, **imshowargs):
+    data_dict = {"data" : data, "property" : physical_property, "imshowargs" : imshowargs}
     data_dict["data"] = data_dict["data"].detach().numpy()[0,index,:,:]
-    # always uses first batch element
-    # if property == "temperature" or property == "y-velocity":
-    #     #dict["index"] = 0
-    # elif property == "z-velocity":
-    #     dict["data"] = dict["data"].detach().numpy()[0,1,:,:]
-    #     #dict["index"] = 1
-    # elif property == "pressure":
-    #     dict["data"] = dict["data"].detach().numpy()[0,2,:,:]
-    #     #dict["index"] = 2
-    # elif property == "hp location":
-    #     dict["data"] = dict["data"].detach().numpy()[0,3,:,:]
-    #     #dict["index"] = 3
-    # elif property == "init temperature":
-    #     dict["data"] = dict["data"].detach().numpy()[0,4,:,:]
-    #     #dict["index"] = 4
     return data_dict
 
 def _plot_y(data, name_pic="plot_y_exemplary"):
@@ -287,7 +278,7 @@ def _plot_y(data, name_pic="plot_y_exemplary"):
     
     for index, data_point in enumerate(data):
         plt.sca(axes[index])
-        plt.imshow(data_point["data"].T)
+        plt.imshow(data_point["data"].T, **data_point["imshowargs"])
         plt.gca().invert_yaxis()
 
         plt.xlabel("y")
