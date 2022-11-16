@@ -80,7 +80,7 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
     print(f"Resulting picture is at {pic_file_name}")
     plt.savefig(pic_file_name)
 
-def plot_sample(model:UNet, dataloader: DataLoader, name_folder, plot_one_bool = False, plot_name:str="plot_learned_test_sample"):
+def plot_sample(model:UNet, dataloader: DataLoader, name_folder, plot_one_bool = True, plot_name:str="plot_learned_test_sample"):
     
     writer = SummaryWriter(f"runs/{name_folder}")
     error = []
@@ -126,6 +126,7 @@ def plot_sample(model:UNet, dataloader: DataLoader, name_folder, plot_one_bool =
             # writer.add_image("y_unseen_true", y[0, 0, :, :], dataformats="WH")
 
             if plot_one_bool:
+                # if only one sample should be plotted and compared
                 break
 
         writer.close()
