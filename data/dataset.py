@@ -11,6 +11,7 @@ from data.utils import PhysicalVariables, DataPoint, _assertion_error_2d
 import os, sys
 import numpy as np
 import h5py
+from torch import Tensor
 
 @dataclass
 class Dataset(ABC):
@@ -197,6 +198,13 @@ class DatasetSimulationData(Dataset):
 
         return datapoint
 
+    def reverse_transform_temperature(self, temperature:Tensor, index_in_dataset:int) -> Tensor:
+        mean_orig=self.datapoints[index_in_dataset].labels["Temperature [C]"].mean_orig
+        std_orig=self.datapoints[index_in_dataset].labels["Temperature [C]"].std_orig
+        temperature = self.transform.reverse_tensor_input(temperature, mean_orig=mean_orig, std_orig=std_orig)
+        return temperature
+
+
     def _select_split(self, data_paths:List[str], labels:List[str]) -> Tuple[List[str], List[str]]:
         """
         Depending on the mode of the dataset, deterministically split it.
@@ -243,7 +251,6 @@ class DatasetSimulationData(Dataset):
         with h5py.File(data_path, "r") as file:
             for key, value in file[variables.time].items():
                 if key in variables.get_ids_list(): # properties
-                    # print(key, value.shape)
                     loaded_datapoint[key] = np.array(value).reshape(self.dimensions_of_datapoint, order='F')
         return loaded_datapoint
 

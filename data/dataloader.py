@@ -42,7 +42,6 @@ class DataLoader:
         index_iterator = np.random.permutation(len(self.dataset)) if self.shuffle else range(len(self.dataset))
         index_iterator = iter(index_iterator)
 
-        # print("len", len(self.dataset), self.batch_size)
         # get next batch
         batch_id = 0
         batch = Batch(batch_id=batch_id)
@@ -56,6 +55,21 @@ class DataLoader:
             
         if len(batch) > 0 and not self.drop_last:
             yield batch
+    
+    def reverse_transform(self):
+        """
+        Reverses the transformation of the datapoints, i.e. each datapoint is scaled back to the original
+        physical values
+        """
+        for data in self.dataset:
+            data = self.dataset.reverse_transform(data)
+
+    def reverse_transform_temperature(self, temperature:Tensor, index_in_dataset:int) -> Tensor:
+        """
+        Reverses the transformation of the output of a model - ! expects the output to be temperature
+        """
+        temperature = self.dataset.reverse_transform_temperature(temperature, index_in_dataset)
+        return temperature
 
 def _append_batch_by_datapoint(datapoint:Batch, batch:Batch) -> None:
     # after this: batch contains combined inputs, labels of all runs and channels of this batch
@@ -81,12 +95,9 @@ def _append_tensor_in_0_dim(inputs:PhysicalVariables) -> Tensor:
 
     result = inputs[first_in_var].value
     result = unsqueeze(result, dim_to_extend)
-    # print("result init", result.shape)
     for in_var in inputs.keys():
-        # print("inputs", inputs[in_var].value.shape)
         if in_var != first_in_var:
             result = cat((result, inputs[in_var].value.unsqueeze(0)), dim=0)
-    # print("result", result.shape)
     return result
 
 def _datapoint_to_tensor_including_channel(datapoint:DataPoint) -> Batch:

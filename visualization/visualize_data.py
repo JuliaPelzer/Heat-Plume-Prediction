@@ -9,6 +9,8 @@ from data.dataset import DatasetSimulationData
 from data.utils import separate_property_unit
 from torch.utils.tensorboard import SummaryWriter
 from data.dataloader import DataLoader
+from networks.unet_leiterrl import UNet
+from data.utils import PhysicalVariables
 
 # TODO: look at vispy library for plotting 3D data
 
@@ -78,46 +80,56 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
     print(f"Resulting picture is at {pic_file_name}")
     plt.savefig(pic_file_name)
 
-def plot_sample(model, dataloader: DataLoader, name_folder, plot_one_bool = True, plot_name:str="plot_learned_test_sample"):
+def plot_sample(model:UNet, dataloader: DataLoader, name_folder, plot_one_bool = False, plot_name:str="plot_learned_test_sample"):
+    
     writer = SummaryWriter(f"runs/{name_folder}")
-    for _, data in enumerate(dataloader):
-        x = data.inputs.float()
-        y = data.labels.float()
-        y_out = model(x)
-        writer.add_image("x_unseen", x[0, 0, :, :], dataformats="WH")
-        writer.add_image("y_unseen_out", y_out[0, 0, :, :], dataformats="WH")
-        writer.add_image("y_unseen_true", y[0, 0, :, :], dataformats="WH")
-        if plot_one_bool:
-            break
-    writer.close()
+    error = []
+    error_mean = []
+    reverse_done = False
 
-    error = y-y_out
+    for _, batch in enumerate(dataloader):
+        for datapoint in range(batch.inputs.shape[0]):
+            x = batch.inputs.float()[datapoint]
+            x = torch.unsqueeze(x,0)
+            y = batch.labels.float()[datapoint]
+            y = torch.unsqueeze(y,0)
+            y_out = model(x)
+            
+            # reverse transform for plotting real values
+            if not reverse_done:
+                dataloader.reverse_transform()
+                reverse_done = True
+            y = dataloader.reverse_transform_temperature(y, index_in_dataset=datapoint)
+            y_out = dataloader.reverse_transform_temperature(y_out, index_in_dataset=datapoint)
+            x = dataloader.dataset.datapoints[datapoint].inputs
 
-    temp_max = max(y.max(), y_out.max())
-    temp_min = min(y.min(), y_out.min())
+            error_current = y-y_out
+            temp_max = max(y.max(), y_out.max())
+            temp_min = min(y.min(), y_out.min())
+            list_to_plot = [
+                _make_dict_batchbased(y, "temperature true", 0, vmax=temp_max, vmin=temp_min),
+                _make_dict_batchbased(y_out, "temperature out", 0, vmax=temp_max, vmin=temp_min),
+                _make_dict_batchbased(error_current, "error", 0),
+            ]
 
-    list_to_plot = [
-        _make_dict(y, "temperature true", 0, vmax=temp_max, vmin=temp_min),
-        _make_dict(y_out, "temperature out", 0, vmax=temp_max, vmin=temp_min),
-        _make_dict(error, "error", 0),
-        #_make_dict(error_abs, "error abs", 0),
-        # _make_dict(x, "x_0", 0),
-        # _make_dict(x, "x_1", 1),
-        # _make_dict(x, "x_2", 2),
-        # _make_dict(x, "x_3", 3),
-        # _make_dict(x, "x_4", 4),
-    ]
+            for physical_var in x.keys():
+                list_to_plot.append(_make_dict_datapointbased(x, physical_var))
 
-    for i in range(0, data.inputs.shape[1]):
-        list_to_plot.append(_make_dict(x, f"x_{i}", i))
+            _plot_y(list_to_plot, name_pic=plot_name+"_"+str(datapoint))
 
-    _plot_y(list_to_plot, name_pic=plot_name)
+            error.append(abs(error_current))
+            error_mean.append(np.mean(error_current).item())
+            # error_abs = torch.abs(error_temp)
 
-    error = abs(error)
-    error_mean = torch.mean(error).item()
-    # error_abs = torch.abs(error)
+            # writer.add_image("x_unseen", x[0, 0, :, :], dataformats="WH")
+            # writer.add_image("y_unseen_out", y_out[0, 0, :, :], dataformats="WH")
+            # writer.add_image("y_unseen_true", y[0, 0, :, :], dataformats="WH")
 
-    return writer, error, error_mean
+            if plot_one_bool:
+                break
+
+        writer.close()
+    return error, error_mean
 
 def plot_exemplary_learned_result_OLD(model, dataloaders, name_pic="plot_y_exemplary"):
     """not pretty but functional to get a first glimpse of how y_out looks compared to y_truth"""
@@ -145,12 +157,12 @@ def plot_exemplary_learned_result_OLD(model, dataloaders, name_pic="plot_y_exemp
     error = y_true_exemplary-y_out_exemplary
     # error_abs = torch.abs(error)
     list_to_plot = [
-        _make_dict(y_true_exemplary, "temperature true", 0),
-        _make_dict(y_out_exemplary, "temperature out", 0),
-        _make_dict(error, "error", 0),
+        _make_dict_batchbased(y_true_exemplary, "temperature true", 0),
+        _make_dict_batchbased(y_out_exemplary, "temperature out", 0),
+        _make_dict_batchbased(error, "error", 0),
         #_make_dict(error_abs, "error abs", 0),
-        _make_dict(x_exemplary, "pressure", 0),
-        _make_dict(x_exemplary, "hp location", 1),
+        _make_dict_batchbased(x_exemplary, "pressure", 0),
+        _make_dict_batchbased(x_exemplary, "hp location", 1),
     ]
 
     _plot_y(list_to_plot, name_pic=name_pic)
@@ -266,9 +278,13 @@ def _build_title(prefix:str, property_names:List[str], channel:int) -> str:
 
     return title
 
-def _make_dict(data, physical_property, index, **imshowargs):
+def _make_dict_batchbased(data:np.ndarray, physical_property:str, index:int, **imshowargs):
     data_dict = {"data" : data, "property" : physical_property, "imshowargs" : imshowargs}
-    data_dict["data"] = data_dict["data"].detach().numpy()[0,index,:,:]
+    data_dict["data"] = data_dict["data"][0,index,:,:]
+    return data_dict
+
+def _make_dict_datapointbased(data:PhysicalVariables, physical_property:str, **imshowargs):
+    data_dict = {"data" : data[physical_property].value, "property" : physical_property, "imshowargs" : imshowargs}
     return data_dict
 
 def _plot_y(data, name_pic="plot_y_exemplary"):

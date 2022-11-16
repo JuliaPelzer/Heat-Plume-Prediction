@@ -169,3 +169,12 @@ def test_visualize_data():
 def test_train_model():
     pass
     """ Test input format etc. of train_model"""
+
+def test_reverse_transform():
+    datasets_2D, dataloaders_2D = lp.init_data(dataset_name="perm_pressure1D_10dp", #"OLD_bash_file_and_script_structure/groundtruth_hps_no_hps/groundtruth_hps_overfit_10", 
+        reduce_to_2D=True, reduce_to_2D_xy=True,
+        inputs="pk", labels="t") #, batch_size=3)
+
+    for _, data in enumerate(dataloaders_2D["train"]):
+        for data in dataloaders_2D["train"].dataset:
+            dataloaders_2D["train"].dataset.reverse_transform(data)

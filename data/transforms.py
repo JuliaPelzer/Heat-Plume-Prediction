@@ -5,7 +5,7 @@ Definition of problem-specific transform classes
 import logging
 import numpy as np
 from torchvision.transforms import Normalize
-import torch
+from torch import Tensor, squeeze, unsqueeze, round, from_numpy
 from data.utils import PhysicalVariables
 
 
@@ -98,13 +98,13 @@ class NormalizeTransform:
             Normalize(data[prop].mean_orig, data[prop].std_orig,
                       inplace=True)(data[prop].value)
             # squeeze in case of reduced_to_2D_wrong necessary because unsqueezed before for Normalize to work
-            data[prop].value = torch.squeeze(data[prop].value)
+            data[prop].value = squeeze(data[prop].value)
 
         # assert if rounded value of mean is not 0 or of std is not 1
         for prop in data.keys():
-            assert torch.round(data[prop].value.mean(
+            assert round(data[prop].value.mean(
             ), decimals=4) == 0, f"Mean of {prop} is not 0 but {data[prop].value.mean()}"
-            assert torch.round(data[prop].value.std(
+            assert round(data[prop].value.std(
             ), decimals=4) == 1, f"Std of {prop} is not 1 but {data[prop].value.std()}"
         return data
 
@@ -120,6 +120,12 @@ class NormalizeTransform:
                 mask = data[name_material].value == -1
                 data[name_material].value[mask] = 2  # only required, if extraction well (with ID=3) exists
                 data[name_material].value += 1
+        return data
+
+    def reverse_tensor(self, data:Tensor, **normalize_kwargs) -> Tensor:
+        mean_orig, std_orig = normalize_kwargs["mean_orig"], normalize_kwargs["std_orig"]
+        # reverse normalization
+        data = data * std_orig + mean_orig
         return data
 
 
@@ -172,7 +178,7 @@ class ReduceTo2DTransform:
         for prop in data.keys():
             assert self.x <= data[prop].value.shape[0], "x is larger than data dimension 0"
             data[prop].value = data[prop].value[self.x, :, :]
-            data[prop].value = torch.unsqueeze(data[prop].value, 0)
+            data[prop].value = unsqueeze(data[prop].value, 0)
         logging.info(
             "Reduced data to 2D, but still has dummy dimension 0 for Normalization to work")
         return data
@@ -186,13 +192,16 @@ class ToTensorTransform:
 
     def __call__(self, data: PhysicalVariables):
         for prop in data.keys():
-            data[prop].value = torch.from_numpy(data[prop].value)
+            data[prop].value = from_numpy(data[prop].value)
         return data
 
     def reverse(self, data: PhysicalVariables):
         for prop in data.keys():
             data[prop].value = data[prop].value.numpy()
         return data
+
+    def reverse_tensor(self, data: Tensor, **normalize_kwargs) -> np.ndarray:
+        return data.detach().numpy()
 
 
 class ComposeTransform:
@@ -213,6 +222,15 @@ class ComposeTransform:
         for transform in reversed(self.transforms):
             try:
                 data = transform.reverse(data)
+            except AttributeError as e:
+                pass
+                # print(e)
+        return data
+    
+    def reverse_tensor_input(self, data: Tensor, **normalize_kwargs):
+        for transform in reversed(self.transforms):
+            try:
+                data = transform.reverse_tensor(data, **normalize_kwargs)
             except AttributeError as e:
                 pass
                 # print(e)
