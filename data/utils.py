@@ -101,7 +101,7 @@ class Batch():
     batch_id: int
     inputs: Tensor = field(default_factory=Tensor) # init as empty tensor
     labels: Tensor = field(default_factory=Tensor)
-    # inputs, labels: in the beginning C,H,W,(D), later: Run/Datapoint,C,H,W,(D)
+    # inputs, labels: in the beginning C,H,W,(D), later: Run_ID/Datapoint,C,H,W,(D)
 
     def dim(self):
         return len(Tensor.size(self.inputs))
