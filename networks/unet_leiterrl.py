@@ -31,7 +31,7 @@ class UNet(nn.Module):
 
         self.conv = nn.Conv2d(in_channels=features, out_channels=out_channels, kernel_size=1)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         enc1 = self.encoder1(x)
         enc2 = self.encoder2(self.pool1(enc1))
         enc3 = self.encoder3(self.pool2(enc2))

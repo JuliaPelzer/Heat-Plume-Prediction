@@ -58,11 +58,9 @@ class Solver(object):
         # TODO include writer for tensorboard
         self.model:Module = model
         self.learning_rate = learning_rate
-        self.lr_decay = lr_decay
         self.loss_func = loss_func
 
         self.opt = optimizer(self.model.parameters(), learning_rate)
-        self.scheduler = lr_scheduler.ReduceLROnPlateau(self.opt)
 
         self.debug_output = debug_output
         self.print_every = print_every
@@ -127,7 +125,7 @@ class Solver(object):
 
         return loss, y_pred
 
-    def train(self, n_epochs=100, patience=None, name_folder: str = "default"):
+    def train(self, n_epochs:int=100, patience:int=None, name_folder: str = "default"):
         """
         Run optimization to train the model.
         """
@@ -153,8 +151,6 @@ class Solver(object):
 
                 self.train_batch_loss.append(train_loss)
                 train_epoch_loss += train_loss
-
-                self.scheduler.step(train_loss) # here or one further out
 
             train_epoch_loss /= len(self.train_dataloader)
 
@@ -189,7 +185,7 @@ class Solver(object):
             self.val_loss_history.append(val_epoch_loss)
 
             if self.debug_output and epoch % self.print_every == 0:
-                epochs.set_postfix_str(f"train loss: {train_epoch_loss:.4f}, val loss: {val_epoch_loss:.4f}")
+                epochs.set_postfix_str(f"train loss: {train_epoch_loss:.4f}, val loss: {val_epoch_loss:.4f}, lr: {self.opt.param_groups[0]['lr']:.1e}")
                 # print('(Epoch %d / %d) train loss: %f; val loss: %f' % (
                 #     epoch + 1, epochs, train_epoch_loss, val_epoch_loss))
 
