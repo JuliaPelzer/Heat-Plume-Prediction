@@ -9,6 +9,7 @@ from torch.nn import MSELoss
 import datetime as dt
 import sys
 import logging
+import numpy as np
 
 def overfit_10_DEPRECATED():
     # parameters of model and training
@@ -27,18 +28,32 @@ def overfit_10_DEPRECATED():
     # train model
     # train_model(unet_model, dataloaders_2D, loss_fn, n_epochs, lr)
 
-def run_experiment(n_epochs:int=1000, lr:float=5e-4, inputs:str="pk", model_choice="unet", name_folder:str="try_unstructured_grid", dataset_name:str="perm_pressure1D_10dp"):
+def run_experiment(n_epochs:int=1000, lr:float=5e-4, inputs:str="pk", model_choice="unet", name_folder_destination:str="try_unstructured_grid", dataset_name:str="perm_pressure1D_10dp"):
     # parameters of model and training
     loss_fn = MSELoss()
     n_epochs = n_epochs
     lr=lr
+    reduce_to_2D=True
+    reduce_to_2D_xy=True
+
+    # init data
+    datasets_2D, dataloaders_2D = init_data(dataset_name=dataset_name, #"OLD_bash_file_and_script_structure/groundtruth_hps_no_hps/groundtruth_hps_overfit_10",   
+        reduce_to_2D=reduce_to_2D, reduce_to_2D_xy=reduce_to_2D_xy,
+        inputs=inputs, labels="t")
 
     # model choice
     in_channels = len(inputs)+1
     if model_choice == "unet":
         model = UNet(in_channels=in_channels, out_channels=1).float()
     elif model_choice == "fc":
-        model = DummyNet(in_channels=in_channels, out_channels=1).float()
+        size_domain_2D = datasets_2D["train"].dimensions_of_datapoint
+        if reduce_to_2D:
+            # TODO order here or in dummy_network(size) messed up
+            size_domain_2D = size_domain_2D[1:]
+        # transform to PowerOfTwo
+        size_domain_2D = [2 ** int(np.log2(dimension)) for dimension in size_domain_2D]
+
+        model = DummyNet(in_channels=in_channels, out_channels=1, size=size_domain_2D).float()
     elif model_choice == "turbnet":
         model = TurbNetG(channelExponent=4, in_channels=in_channels, out_channels=1).float()
     else:
@@ -46,18 +61,13 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-4, inputs:str="pk", model_choi
         sys.exit()
     # model.to(device)
 
-    # init data
-    datasets_2D, dataloaders_2D = init_data(dataset_name=dataset_name, #"OLD_bash_file_and_script_structure/groundtruth_hps_no_hps/groundtruth_hps_overfit_10",   
-        reduce_to_2D=True, reduce_to_2D_xy=True,
-        inputs=inputs, labels="t")
-
     # train model
     solver = Solver(model, dataloaders_2D["train"], dataloaders_2D["val"], 
                     learning_rate=lr, loss_func=loss_fn)
-    solver.train(n_epochs=n_epochs, name_folder=name_folder)
+    solver.train(n_epochs=n_epochs, name_folder=name_folder_destination)
 
     # visualization
-    error, error_mean = plot_sample(model, dataloaders_2D["train"], name_folder, plot_name="plot_learned_test_sample")
+    error, error_mean = plot_sample(model, dataloaders_2D["train"], name_folder_destination, plot_name="plot_learned_test_sample")
     
     # save model - TODO : both options currently not working
     # save(model, str(name_folder)+str(dataset_name)+str(inputs)+".pt")
@@ -79,7 +89,7 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-4, inputs:str="pk", model_choi
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)        # level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+    logging.basicConfig(level=logging.WARNING)        # level: DEBUG, INFO, WARNING, ERROR, CRITICAL
 
     cla = sys.argv
     kwargs = {}
