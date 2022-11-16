@@ -37,6 +37,7 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
     datasets = {}
     transforms_list = [
         ToTensorTransform(), PowerOfTwoTransform(oriented="left")]
+        # @Manuel: Du kannst PowerOfTwoTransform rauskicken, wenn du willst. Ich habs jetzt mal dringelassen, damit dein Input so nah dran an meinem ist wie möglich. Allerdings kannst es wirklich gerne entfernen.
     if reduce_to_2D:
         transforms_list.append(ReduceTo2DTransform(reduce_to_2D_xy=reduce_to_2D_xy))
     if normalize:
