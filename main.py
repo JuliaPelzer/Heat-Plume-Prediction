@@ -37,7 +37,7 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-4, inputs:str="pk", model_choi
     reduce_to_2D_xy=True
 
     # init data
-    datasets_2D, dataloaders_2D = init_data(dataset_name=dataset_name, #"OLD_bash_file_and_script_structure/groundtruth_hps_no_hps/groundtruth_hps_overfit_10",   
+    datasets_2D, dataloaders_2D = init_data(dataset_name=dataset_name,  
         reduce_to_2D=reduce_to_2D, reduce_to_2D_xy=reduce_to_2D_xy,
         inputs=inputs, labels="t")
 

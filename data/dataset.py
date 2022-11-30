@@ -7,7 +7,7 @@ from typing import List, Dict, Tuple
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from data.transforms import ComposeTransform
-from data.utils import PhysicalVariables, DataPoint, _assertion_error_2d
+from data.utils import PhysicalVariables, DataPoint, _assertion_error_2d, get_dimensions
 import os, sys
 import numpy as np
 import h5py
@@ -62,7 +62,6 @@ class DatasetSimulationData(Dataset):
                  input_vars_names:List[str]=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
                  "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"], # "hp_power"
                  output_vars_names:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"],
-                 dimensions_of_datapoint:Tuple[int, int, int]=[20,150,16],
                  **kwargs)-> Dataset:
         super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         assert mode in ["train", "val", "test"], "wrong mode for dataset given"
@@ -84,7 +83,7 @@ class DatasetSimulationData(Dataset):
         self.input_vars_empty_value = PhysicalVariables(self.time_first, input_vars_names)
         self.output_vars_empty_value = PhysicalVariables(self.time_final, output_vars_names)
         self.datapoints = {}
-        self.dimensions_of_datapoint = dimensions_of_datapoint
+        self.dimensions_of_datapoint:Tuple[int, int, int] = get_dimensions(f"{dataset_path}/{dataset_name}")
 
         
     def __len__(self):

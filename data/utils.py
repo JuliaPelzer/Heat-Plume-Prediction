@@ -4,6 +4,7 @@ from typing import List, Dict, Tuple
 import numpy as np
 from torch import Tensor, DoubleTensor, equal, mean, std
 from dataclasses import dataclass, field
+import yaml
 
 class PhysicalVariable:
     def __init__(self, name: str, value: DoubleTensor = None):  # TODO ? default value + type
@@ -142,6 +143,13 @@ def separate_property_unit(property_in: str) -> List[str]:
         unit = None
 
     return name, unit
+
+def get_dimensions(path:str) -> Tuple[int, int, int]:
+    # read json file for dimensions
+    with open(f"{path}/settings.yaml", "r") as f:
+        perm_settings = yaml.safe_load(f)
+    dimensions_of_datapoint = perm_settings["grid"]["ncells"]
+    return dimensions_of_datapoint
 
 def _assertion_error_2d(datapoint:DataPoint):
     # TODO how/where to test whether reduce_to_2D worked?
