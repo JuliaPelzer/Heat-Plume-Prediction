@@ -76,7 +76,7 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
         pic_file_name += "_with_streamlines"
     if run_id:
         pic_file_name += "_RUN_" + str(run_id)
-    pic_file_name += "_VIEW_" + view + ".jpg"
+    pic_file_name += "_VIEW_" + view + ".png"
     print(f"Resulting picture is at {pic_file_name}")
     plt.savefig(pic_file_name)
 
@@ -302,7 +302,7 @@ def _plot_y(data, name_pic="plot_y_exemplary"):
         plt.ylabel("z")
         _aligned_colorbar(label=data_point["property"])
     
-    pic_file_name = f"runs/{name_pic}.jpg"
+    pic_file_name = f"runs/{name_pic}.png"
     print(f"Resulting picture is at {pic_file_name}")  
     plt.savefig(pic_file_name)
 
