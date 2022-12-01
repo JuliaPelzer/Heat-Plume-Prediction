@@ -146,7 +146,7 @@ def separate_property_unit(property_in: str) -> List[str]:
 
 def get_dimensions(path:str) -> Tuple[int, int, int]:
     # read json file for dimensions
-    with open(f"{path}/settings.yaml", "r") as f:
+    with open(f"{path}/inputs/settings.yaml", "r") as f:
         perm_settings = yaml.safe_load(f)
     dimensions_of_datapoint = perm_settings["grid"]["ncells"]
     return dimensions_of_datapoint
