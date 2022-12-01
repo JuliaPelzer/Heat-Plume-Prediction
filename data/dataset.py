@@ -171,8 +171,9 @@ class DatasetSimulationData(Dataset):
         datapoint.inputs = self._load_data_as_numpy(self.data_paths[index], self.input_vars_empty_value)
         datapoint.labels = self._load_data_as_numpy(self.data_paths[index], self.output_vars_empty_value)
         try:
-            datapoint.inputs = self.transform(datapoint.inputs)
-            datapoint.labels = self.transform(datapoint.labels)
+            loc_hp_x = int(datapoint.get_loc_hp()[0])
+            datapoint.inputs = self.transform(datapoint.inputs, loc_hp_x)
+            datapoint.labels = self.transform(datapoint.labels, loc_hp_x)
         except Exception as e:
             print("no transforms applied: ", e)
 

@@ -97,6 +97,16 @@ class DataPoint():
     def len_labels(self) -> np.ndarray:
         return self.labels.get_number_of_variables()
 
+    def get_loc_hp(self):
+        try:
+            ids = self.inputs["Material ID"].value
+        except:
+            ids = self.inputs["Material_ID"].value
+            
+        max_id = ids.max()
+        loc_hp = np.where(ids == max_id)
+        return loc_hp
+        
 @dataclass
 class Batch():
     batch_id: int

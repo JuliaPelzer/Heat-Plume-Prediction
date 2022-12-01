@@ -102,10 +102,8 @@ class NormalizeTransform:
 
         # assert if rounded value of mean is not 0 or of std is not 1
         for prop in data.keys():
-            assert round(data[prop].value.mean(
-            ), decimals=4) == 0, f"Mean of {prop} is not 0 but {data[prop].value.mean()}"
-            assert round(data[prop].value.std(
-            ), decimals=4) == 1, f"Std of {prop} is not 1 but {data[prop].value.std()}"
+            assert round(data[prop].value.mean() * 1e4) == 0, f"Mean of {prop} is not 0 but {data[prop].value.mean()}"
+            assert round(data[prop].value.std() * 1e4) == 1e4, f"Std of {prop} is not 1 but {data[prop].value.std()}"
         return data
 
     def reverse(self, data:PhysicalVariables):
@@ -164,25 +162,27 @@ class ReduceTo2DTransform:
     Transform class to reduce data to 2D, reduce in x, in height of hp: x=7 (if after Normalize)
     """
 
-    def __init__(self, reduce_to_2D_xy=False, x: int = 9):
+    def __init__(self, reduce_to_2D_xy=False, loc_hp_x: int = 9):
         # if reduce_to_2D_wrong then the data will still be reduced to 2D but in x,y dimension instead of y,z
         self.reduce_to_2D_xy = reduce_to_2D_xy
-        self.x = x
+        self.loc_hp_x = loc_hp_x
 
-    def __call__(self, data: PhysicalVariables):
+    def __call__(self, data: PhysicalVariables, loc_hp_x:int = None):
+        if loc_hp_x is not None:
+            self.loc_hp_x = loc_hp_x
+            
         # reduce data to 2D
         if self.reduce_to_2D_xy:
             for prop in data.keys():
                 data[prop].value.transpose_(0, 2) # (1,3)
 
         for prop in data.keys():
-            assert self.x <= data[prop].value.shape[0], "x is larger than data dimension 0"
-            data[prop].value = data[prop].value[self.x, :, :]
+            assert self.loc_hp_x <= data[prop].value.shape[0], "ReduceTo2DTransform: x is larger than data dimension 0"
+            data[prop].value = data[prop].value[self.loc_hp_x, :, :]
             data[prop].value = unsqueeze(data[prop].value, 0)
         logging.info(
             "Reduced data to 2D, but still has dummy dimension 0 for Normalization to work")
         return data
-
 
 class ToTensorTransform:
     """Transform class to convert np.array-data to torch.Tensor"""
@@ -213,9 +213,12 @@ class ComposeTransform:
         """
         self.transforms = transforms
 
-    def __call__(self, data: PhysicalVariables):
+    def __call__(self, data: PhysicalVariables, loc_hp_x: int = None):
         for transform in self.transforms:
-            data = transform(data)
+            if isinstance(transform, ReduceTo2DTransform):
+                data = transform(data, loc_hp_x)
+            else:
+                data = transform(data)
         return data
 
     def reverse(self, data: PhysicalVariables):

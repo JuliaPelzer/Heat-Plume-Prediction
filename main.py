@@ -90,9 +90,12 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-4, inputs:str="pk", model_choi
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)        # level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-
+    
     cla = sys.argv
     kwargs = {}
+    kwargs["dataset_name"] = "small_dataset_test"
+    kwargs["n_epochs"] = 100
+
     if len(cla) >= 2:
         kwargs["n_epochs"] = int(cla[1])
         if len(cla) >= 3:
