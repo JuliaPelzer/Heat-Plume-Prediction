@@ -34,7 +34,7 @@ def test_reduceto2d_transform():
     data["test"] = zeros([4,2,4])
     data_reduced = zeros([1,2,4])
     # Actual result
-    data_actual = trans.ReduceTo2DTransform(x=0)(data)
+    data_actual = trans.ReduceTo2DTransform(loc_hp_x=0)(data)
     # Test
     assert data_actual["test"].value.shape == data_reduced.shape
     tensor_eq = eq(data_actual["test"].value, data_reduced).flatten
