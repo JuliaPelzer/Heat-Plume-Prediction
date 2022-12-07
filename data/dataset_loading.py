@@ -3,7 +3,6 @@ from data.dataloader import DataLoader
 from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, PowerOfTwoTransform, ToTensorTransform
 import logging
 from typing import List
-import yaml
 
 def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit: bool = False, normalize: bool = True, 
               just_plotting: bool = False, batch_size: int = 100, inputs: str = "xyzpt", labels: str = "txyz",
