@@ -1,5 +1,4 @@
 ## mainly copied from I2DL course at TUM, Munich
-import torch
 from torch.optim import Adam, lr_scheduler
 from torch.nn import MSELoss, Module
 from tqdm.auto import tqdm
@@ -139,6 +138,11 @@ class Solver(object):
 
             # Iterate over all training samples
             train_epoch_loss = 0.0
+
+            # manual lr decay
+            if epoch == 40:
+                for param_group in self.opt.param_groups:
+                    param_group['lr'] *= 0.1
 
             for batch_idx, data_values in enumerate(self.train_dataloader):
                 # Unpack data
