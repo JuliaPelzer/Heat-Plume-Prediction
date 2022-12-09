@@ -99,22 +99,24 @@ class DatasetSimulationData(Dataset):
             - data_paths is a list containing paths to all simulation runs in the dataset, NOT the actual simulated data
             - runs is a list containing one label per run
         """
-        directory = self.dataset_path
-        data_paths, runs = [], []
+        dataset_path = self.dataset_path
+        set_data_paths_runs, runs = [], []
         found_dataset = False
     
-        logging.info(f"Directory of currently used dataset is: {directory}")
-        for _, folders, _ in os.walk(directory):
+        logging.info(f"Directory of currently used dataset is: {dataset_path}")
+        for _, folders, _ in os.walk(dataset_path):
             for folder in folders:
-                for file in os.listdir(os.path.join(directory, folder)):
+                for file in os.listdir(os.path.join(dataset_path, folder)):
                     if file == "pflotran.h5":
-                        data_paths.append(os.path.join(directory, folder, file))
-                        runs.append(folder)
+                        set_data_paths_runs.append((folder, os.path.join(dataset_path, folder, file)))
                         found_dataset = True
         # Sort the data and runs in ascending order
-        data_paths, runs = (list(t) for t in zip(*sorted(zip(data_paths, runs))))
+        set_data_paths_runs = sorted(set_data_paths_runs, key=lambda val: int(val[0].strip('RUN_')))
+        runs = [data_path[0] for data_path in set_data_paths_runs]
+        data_paths = [data_path[1] for data_path in set_data_paths_runs]
+        # Split the data and runs into train, val and test
         data_paths, runs = self._select_split(data_paths, runs)
-        
+
         if not found_dataset:
             raise ValueError("No dataset found")
         assert len(data_paths) == len(runs)

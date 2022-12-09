@@ -1,6 +1,6 @@
 import data.transforms as trans    # The code to test
 import data.dataloader as dataloader
-import dataset_loading as lp
+import data.dataset_loading as lp
 import data.utils as utils
 
 # additional libraries
@@ -107,34 +107,34 @@ def test_data_init():
     assert len(dataloaders) == 3
     assert len(dataloaders["train"].dataset[0].inputs) == 4
     for prop in dataloaders["train"].dataset[0].inputs.values():
-        assert prop.shape() == (16,128,16)
+        assert prop.shape() == (8,128,8)
         break
 
     _, dataloaders = lp.init_data(reduce_to_2D=True, overfit=True, dataset_name="test_dataset_01", inputs="xyz")
     for prop in dataloaders["train"].dataset[0].inputs.values():
-        assert prop.shape() == (128,16)
+        assert prop.shape() == (128,8)
         break
     
     _, dataloaders = lp.init_data(reduce_to_2D=False, overfit=True, dataset_name="test_dataset_01", inputs="xyzp")
     assert len(dataloaders["train"].dataset[0].inputs) == 5
     for prop in dataloaders["train"].dataset[0].inputs.values():
-        assert prop.shape() == (16,128,16)
+        assert prop.shape() == (8,128,8)
         break
     
     _, dataloaders = lp.init_data(reduce_to_2D=False, overfit=True, dataset_name="test_dataset_01", inputs="")
     assert len(dataloaders["train"].dataset[0].inputs) == 1
     assert dataloaders["train"].dataset[0].inputs.get_ids_list() == ["Material_ID"] or dataloaders["train"].dataset[0].inputs.get_ids_list() == ["Material ID"]
     for prop in dataloaders["train"].dataset[0].inputs.values():
-        assert prop.shape() == (16,128,16)
+        assert prop.shape() == (8,128,8)
         break
 
 def test_combinations():
     datasets, dataloaders = lp.init_data(dataset_name="test_dataset_10", inputs="xyz")
     assert len(datasets["train"])+len(datasets["val"])+len(datasets["test"])==10, "number of runs in datasets should be 10"
     assert dataloaders["train"].dataset[0], "getitem/ load datapoint does not really work in combination with init_data"
-    assert datasets["train"][0].inputs["Liquid X-Velocity [m_per_y]"].__repr__() == "Liquid X-Velocity (in m_per_y) with (128, 16) elements", "combination of data_init and repr of PhysicalVariable does not work"
+    assert datasets["train"][0].inputs["Liquid X-Velocity [m_per_y]"].__repr__() == "Liquid X-Velocity (in m_per_y) with (128, 8) elements", "combination of data_init and repr of PhysicalVariable does not work"
     datasets, dataloaders = lp.init_data(reduce_to_2D=False, dataset_name="test_dataset_10", inputs="xyz")
-    assert datasets["train"][0].inputs["Liquid X-Velocity [m_per_y]"].__repr__() == "Liquid X-Velocity (in m_per_y) with (16, 128, 16) elements", "combination of data_init and repr of PhysicalVariable does not work"
+    assert datasets["train"][0].inputs["Liquid X-Velocity [m_per_y]"].__repr__() == "Liquid X-Velocity (in m_per_y) with (8, 128, 8) elements", "combination of data_init and repr of PhysicalVariable does not work"
     assert not datasets["train"][0].inputs["Liquid X-Velocity [m_per_y]"] == datasets["train"][1].inputs["Liquid X-Velocity [m_per_y]"], "same values in two datapoints?! that should not happen - problem with copying"
 
 def test_datapoint_to_tensor_with_channel():
@@ -159,8 +159,8 @@ def test_dataloader_iter():
             y = datapoint.labels.float()
             sizes_x.append(Tensor.size(x))
             sizes_y.append(Tensor.size(y))
-    assert(sizes_x == [Size([4, 6, 16, 128, 16]), Size([3, 6, 16, 128, 16]), Size([2, 6, 16, 128, 16]), Size([1, 6, 16, 128, 16])]), "enumerate(dataloader) does not work properly"
-    assert(sizes_y == [Size([4, 4, 16, 128, 16]), Size([3, 4, 16, 128, 16]), Size([2, 4, 16, 128, 16]), Size([1, 4, 16, 128, 16])]), "enumerate(dataloader) does not work properly"
+    assert(sizes_x == [Size([4, 6, 8, 128, 8]), Size([3, 6, 8, 128, 8]), Size([2, 6, 8, 128, 8]), Size([1, 6, 8, 128, 8])]), "enumerate(dataloader) does not work properly"
+    assert(sizes_y == [Size([4, 4, 8, 128, 8]), Size([3, 4, 8, 128, 8]), Size([2, 4, 8, 128, 8]), Size([1, 4, 8, 128, 8])]), "enumerate(dataloader) does not work properly"
     # first number depends on split + batch size ´-> check whether split changed
 
 def test_visualize_data():
@@ -171,10 +171,15 @@ def test_train_model():
     """ Test input format etc. of train_model"""
 
 def test_reverse_transform():
-    datasets_2D, dataloaders_2D = lp.init_data(dataset_name="perm_pressure1D_10dp", #"OLD_bash_file_and_script_structure/groundtruth_hps_no_hps/groundtruth_hps_overfit_10", 
+    _, dataloaders_2D = lp.init_data(dataset_name="test_dataset_10", #"OLD_bash_file_and_script_structure/groundtruth_hps_no_hps/groundtruth_hps_overfit_10", 
         reduce_to_2D=True, reduce_to_2D_xy=True,
         inputs="pk", labels="t") #, batch_size=3)
 
     for _, data in enumerate(dataloaders_2D["train"]):
         for data in dataloaders_2D["train"].dataset:
             dataloaders_2D["train"].dataset.reverse_transform(data)
+
+if __name__ == "__main__":
+    test_data_init()
+    test_combinations()
+    test_dataloader_iter()
