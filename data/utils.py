@@ -4,6 +4,7 @@ from typing import List, Dict, Tuple
 import numpy as np
 from torch import Tensor, DoubleTensor, equal, mean, std
 from dataclasses import dataclass, field
+import yaml
 
 class PhysicalVariable:
     def __init__(self, name: str, value: DoubleTensor = None):  # TODO ? default value + type
@@ -96,12 +97,22 @@ class DataPoint():
     def len_labels(self) -> np.ndarray:
         return self.labels.get_number_of_variables()
 
+    def get_loc_hp(self):
+        try:
+            ids = self.inputs["Material ID"].value
+        except:
+            ids = self.inputs["Material_ID"].value
+            
+        max_id = ids.max()
+        loc_hp = np.where(ids == max_id)
+        return loc_hp
+        
 @dataclass
 class Batch():
     batch_id: int
     inputs: Tensor = field(default_factory=Tensor) # init as empty tensor
     labels: Tensor = field(default_factory=Tensor)
-    # inputs, labels: in the beginning C,H,W,(D), later: Run/Datapoint,C,H,W,(D)
+    # inputs, labels: in the beginning C,H,W,(D), later: Run_ID/Datapoint,C,H,W,(D)
 
     def dim(self):
         return len(Tensor.size(self.inputs))
@@ -142,6 +153,13 @@ def separate_property_unit(property_in: str) -> List[str]:
         unit = None
 
     return name, unit
+
+def get_dimensions(path:str) -> Tuple[int, int, int]:
+    # read json file for dimensions
+    with open(f"{path}/inputs/settings.yaml", "r") as f:
+        perm_settings = yaml.safe_load(f)
+    dimensions_of_datapoint = perm_settings["grid"]["ncells"]
+    return dimensions_of_datapoint
 
 def _assertion_error_2d(datapoint:DataPoint):
     # TODO how/where to test whether reduce_to_2D worked?

@@ -5,7 +5,7 @@ Definition of problem-specific transform classes
 import logging
 import numpy as np
 from torchvision.transforms import Normalize
-import torch
+from torch import Tensor, squeeze, unsqueeze, round, from_numpy
 from data.utils import PhysicalVariables
 
 
@@ -81,11 +81,12 @@ class NormalizeTransform:
 
     def __call__(self, data: PhysicalVariables):
         # manual shift of material IDs  TODO change this in pflotran file!! not here
-        name_material = "Material_ID"
-        if name_material in data.keys():
-            data[name_material].value -= 1
-            mask = data[name_material].value == 2
-            data[name_material].value[mask] = -1
+        names_material = ["Material_ID", "Material ID"]
+        for name_material in names_material:
+            if name_material in data.keys():
+                data[name_material].value -= 1
+                mask = data[name_material].value == 2
+                data[name_material].value[mask] = -1
 
         for prop in data.keys():
             # calc mean, std per channel
@@ -97,39 +98,32 @@ class NormalizeTransform:
             Normalize(data[prop].mean_orig, data[prop].std_orig,
                       inplace=True)(data[prop].value)
             # squeeze in case of reduced_to_2D_wrong necessary because unsqueezed before for Normalize to work
-            data[prop].value = torch.squeeze(data[prop].value)
+            data[prop].value = squeeze(data[prop].value)
 
         # assert if rounded value of mean is not 0 or of std is not 1
         for prop in data.keys():
-            assert torch.round(data[prop].value.mean(
-            ), decimals=6) == 0, f"Mean of {prop} is not 0 but {data[prop].value.mean()}"
-            assert torch.round(data[prop].value.std(
-            ), decimals=6) == 1, f"Std of {prop} is not 1 but {data[prop].value.std()}"
+            assert round(data[prop].value.mean() * 1e4) == 0, f"Mean of {prop} is not 0 but {data[prop].value.mean()}"
+            assert round(data[prop].value.std() * 1e4) == 1e4, f"Std of {prop} is not 1 but {data[prop].value.std()}"
         return data
 
-    def reverse_OLD_FORMAT(self, data, mean=None, std=None, index_material_id=None):
+    def reverse(self, data:PhysicalVariables):
         # reverse normalization
-        # data = torch.from_numpy(data) * self.std + self.mean # version if std, mean in class
-        data = torch.add(torch.mul(data, std), mean)
-        # TODO why is data numpy format??
+        for prop in data.keys():
+            data[prop].value = data[prop].value * \
+                data[prop].std_orig + data[prop].mean_orig
 
-        # manual shift of material IDs  TODO change this in pflotran file!! not here
-        if self.reduced_to_2D:
-            if index_material_id:
-                mask = data[index_material_id, :, :] == -1
+        names_material = ["Material_ID", "Material ID"]
+        for name_material in names_material:
+            if name_material in data.keys():
+                mask = data[name_material].value == -1
+                data[name_material].value[mask] = 2  # only required, if extraction well (with ID=3) exists
+                data[name_material].value += 1
+        return data
 
-                # only required, if extraction well (with ID=3) exists
-                data[index_material_id, :, :][mask] = 2
-                data[index_material_id, :, :] += 1
-        else:
-            if index_material_id:
-                mask = data[index_material_id, :, :, :] == -1
-
-                # only required, if extraction well (with ID=3) exists
-                data[index_material_id, :, :, :][mask] = 2
-                data[index_material_id, :, :, :] += 1
-
-        # , data.mean(dim=(1, 2, 3), keepdim=True), data.std(dim=(1, 2, 3), keepdim=True)
+    def reverse_tensor(self, data:Tensor, **normalize_kwargs) -> Tensor:
+        mean_orig, std_orig = normalize_kwargs["mean_orig"], normalize_kwargs["std_orig"]
+        # reverse normalization
+        data = data * std_orig + mean_orig
         return data
 
 
@@ -166,28 +160,29 @@ class PowerOfTwoTransform:  # CutOffEdgesTransform:
 class ReduceTo2DTransform:
     """
     Transform class to reduce data to 2D, reduce in x, in height of hp: x=7 (if after Normalize)
-    #TODO still np?
     """
 
-    def __init__(self, reduce_to_2D_wrong=False, x: int = 9):
+    def __init__(self, reduce_to_2D_xy=False, loc_hp_x: int = 9):
         # if reduce_to_2D_wrong then the data will still be reduced to 2D but in x,y dimension instead of y,z
-        self.reduce_to_2D_wrong = reduce_to_2D_wrong
-        self.x = x
+        self.reduce_to_2D_xy = reduce_to_2D_xy
+        self.loc_hp_x = loc_hp_x
 
-    def __call__(self, data: PhysicalVariables):
+    def __call__(self, data: PhysicalVariables, loc_hp_x:int = None):
+        if loc_hp_x is not None:
+            self.loc_hp_x = loc_hp_x
+            
         # reduce data to 2D
-        if self.reduce_to_2D_wrong:
+        if self.reduce_to_2D_xy:
             for prop in data.keys():
-                data[prop].value.transpose_(1, 3)
+                data[prop].value.transpose_(0, 2) # (1,3)
 
         for prop in data.keys():
-            assert self.x <= data[prop].value.shape[0], "x is larger than data dimension 0"
-            data[prop].value = data[prop].value[self.x, :, :]
-            data[prop].value = torch.unsqueeze(data[prop].value, 0)
+            assert self.loc_hp_x <= data[prop].value.shape[0], "ReduceTo2DTransform: x is larger than data dimension 0"
+            data[prop].value = data[prop].value[self.loc_hp_x, :, :]
+            data[prop].value = unsqueeze(data[prop].value, 0)
         logging.info(
             "Reduced data to 2D, but still has dummy dimension 0 for Normalization to work")
         return data
-
 
 class ToTensorTransform:
     """Transform class to convert np.array-data to torch.Tensor"""
@@ -197,8 +192,16 @@ class ToTensorTransform:
 
     def __call__(self, data: PhysicalVariables):
         for prop in data.keys():
-            data[prop].value = torch.from_numpy(data[prop].value)
+            data[prop].value = from_numpy(data[prop].value)
         return data
+
+    def reverse(self, data: PhysicalVariables):
+        for prop in data.keys():
+            data[prop].value = data[prop].value.numpy()
+        return data
+
+    def reverse_tensor(self, data: Tensor, **normalize_kwargs) -> np.ndarray:
+        return data.detach().numpy()
 
 
 class ComposeTransform:
@@ -209,24 +212,29 @@ class ComposeTransform:
         :param transforms: transforms to be combined
         """
         self.transforms = transforms
-        # self.mean = None
-        # self.std = None
 
-    def __call__(self, data: PhysicalVariables):
+    def __call__(self, data: PhysicalVariables, loc_hp_x: int = None):
         for transform in self.transforms:
-            data = transform(data)
-        #     try:
-        #         self.mean = transform.mean
-        #         self.std = transform.std
-        #     except:
-        #         print(f"Transform {transform} didn' work")
-        return data  # , self.mean, self.std
+            if isinstance(transform, ReduceTo2DTransform):
+                data = transform(data, loc_hp_x)
+            else:
+                data = transform(data)
+        return data
 
-    def reverse_OLD_FORMAT(self, data):
+    def reverse(self, data: PhysicalVariables):
         for transform in reversed(self.transforms):
             try:
                 data = transform.reverse(data)
-            except AttributeError:
+            except AttributeError as e:
                 pass
-                #print(f"for transform {transform} no reverse implemented")
+                # print(e)
+        return data
+    
+    def reverse_tensor_input(self, data: Tensor, **normalize_kwargs):
+        for transform in reversed(self.transforms):
+            try:
+                data = transform.reverse_tensor(data, **normalize_kwargs)
+            except AttributeError as e:
+                pass
+                # print(e)
         return data

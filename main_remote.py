@@ -10,7 +10,7 @@ import logging
 import numpy as np
 
 def run_experiment(n_epochs:int=1000, lr:float=5e-4, inputs:str="pk", model_choice="unet", name_folder_destination:str="dummy", dataset_name:str="small_dataset_test", 
-    path_to_datasets = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets", overfit=True):
+    path_to_datasets = "/home/pelzerja/pelzerja/test_nn/datasets", overfit=True):
     
     time_begin = dt.datetime.now()
     
@@ -69,13 +69,7 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-4, inputs:str="pk", model_choi
     # TODO overfit until not possible anymore (dummynet, then unet)
     # therefor: try to exclude connections from unet until it overfits properly (loss=0)
     # TODO go over input properties (delete some, some from other simulation with no hps?)
-    # TODO: add 3D data
     # TODO : data augmentation, 
-    # train model
-    #lp.train_model(model, dataloaders_2D, loss_fn, n_epochs, lr)
-    # visualize results, pic in folder visualization/pics under plot_y_exemplary
-    # current date and time
-    #vis.plot_exemplary_learned_result(model, dataloaders_2D, name_pic=f"plot_y_exemplary_{now}")
 
     time_end = dt.datetime.now()
     print(f"Time needed for experiment: {(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds")
@@ -86,6 +80,7 @@ if __name__ == "__main__":
     kwargs = {}
 
     kwargs["dataset_name"] = "small_dataset_test"
+    kwargs["path_to_datasets"] = "/home/pelzerja/pelzerja/test_nn/dataset_generation/datasets"
     kwargs["n_epochs"] = 1
 
     if len(cla) >= 2:

@@ -7,11 +7,10 @@ from typing import List, Dict, Tuple
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from data.transforms import ComposeTransform
-from data.utils import PhysicalVariables, DataPoint, _assertion_error_2d, get_dimensions
+from data.utils import PhysicalVariables, DataPoint, _assertion_error_2d
 import os, sys
 import numpy as np
 import h5py
-from torch import Tensor
 
 @dataclass
 class Dataset(ABC):
@@ -62,6 +61,7 @@ class DatasetSimulationData(Dataset):
                  input_vars_names:List[str]=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
                  "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"], # "hp_power"
                  output_vars_names:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"],
+                 dimensions_of_datapoint:Tuple[int, int, int]=[20,150,16],
                  **kwargs)-> Dataset:
         super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         assert mode in ["train", "val", "test"], "wrong mode for dataset given"
@@ -77,13 +77,13 @@ class DatasetSimulationData(Dataset):
         
         self.data_paths, self.runs = self.make_dataset(self)
         # self.time_init =     "Time:  0.00000E+00 y"
-        self.time_first =    "   1 Time  1.00000E-01 y"
-        self.time_final =    "   2 Time  5.00000E+00 y"
+        self.time_first =    "Time:  1.00000E-01 y" # differs for unstructured grid: "   1 Time  1.00000E-01 y" 
+        self.time_final =    "Time:  5.00000E+00 y" # differs for unstructured grid: "   2 Time  5.00000E+00 y" 
         # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
         self.input_vars_empty_value = PhysicalVariables(self.time_first, input_vars_names)
         self.output_vars_empty_value = PhysicalVariables(self.time_final, output_vars_names)
         self.datapoints = {}
-        self.dimensions_of_datapoint:Tuple[int, int, int] = get_dimensions(f"{dataset_path}/{dataset_name}")
+        self.dimensions_of_datapoint = dimensions_of_datapoint
 
         
     def __len__(self):
@@ -99,24 +99,22 @@ class DatasetSimulationData(Dataset):
             - data_paths is a list containing paths to all simulation runs in the dataset, NOT the actual simulated data
             - runs is a list containing one label per run
         """
-        dataset_path = self.dataset_path
-        set_data_paths_runs, runs = [], []
+        directory = self.dataset_path
+        data_paths, runs = [], []
         found_dataset = False
     
-        logging.info(f"Directory of currently used dataset is: {dataset_path}")
-        for _, folders, _ in os.walk(dataset_path):
+        logging.info(f"Directory of currently used dataset is: {directory}")
+        for _, folders, _ in os.walk(directory):
             for folder in folders:
-                for file in os.listdir(os.path.join(dataset_path, folder)):
+                for file in os.listdir(os.path.join(directory, folder)):
                     if file == "pflotran.h5":
-                        set_data_paths_runs.append((folder, os.path.join(dataset_path, folder, file)))
+                        data_paths.append(os.path.join(directory, folder, file))
+                        runs.append(folder)
                         found_dataset = True
         # Sort the data and runs in ascending order
-        set_data_paths_runs = sorted(set_data_paths_runs, key=lambda val: int(val[0].strip('RUN_')))
-        runs = [data_path[0] for data_path in set_data_paths_runs]
-        data_paths = [data_path[1] for data_path in set_data_paths_runs]
-        # Split the data and runs into train, val and test
+        data_paths, runs = (list(t) for t in zip(*sorted(zip(data_paths, runs))))
         data_paths, runs = self._select_split(data_paths, runs)
-
+        
         if not found_dataset:
             raise ValueError("No dataset found")
         assert len(data_paths) == len(runs)
@@ -173,9 +171,8 @@ class DatasetSimulationData(Dataset):
         datapoint.inputs = self._load_data_as_numpy(self.data_paths[index], self.input_vars_empty_value)
         datapoint.labels = self._load_data_as_numpy(self.data_paths[index], self.output_vars_empty_value)
         try:
-            loc_hp_x = int(datapoint.get_loc_hp()[0])
-            datapoint.inputs = self.transform(datapoint.inputs, loc_hp_x)
-            datapoint.labels = self.transform(datapoint.labels, loc_hp_x)
+            datapoint.inputs = self.transform(datapoint.inputs)
+            datapoint.labels = self.transform(datapoint.labels)
         except Exception as e:
             print("no transforms applied: ", e)
 
@@ -199,13 +196,6 @@ class DatasetSimulationData(Dataset):
         _assertion_error_2d(datapoint)
 
         return datapoint
-
-    def reverse_transform_temperature(self, temperature:Tensor, index_in_dataset:int) -> Tensor:
-        mean_orig=self.datapoints[index_in_dataset].labels["Temperature [C]"].mean_orig
-        std_orig=self.datapoints[index_in_dataset].labels["Temperature [C]"].std_orig
-        temperature = self.transform.reverse_tensor_input(temperature, mean_orig=mean_orig, std_orig=std_orig)
-        return temperature
-
 
     def _select_split(self, data_paths:List[str], labels:List[str]) -> Tuple[List[str], List[str]]:
         """
@@ -253,7 +243,7 @@ class DatasetSimulationData(Dataset):
         with h5py.File(data_path, "r") as file:
             for key, value in file[variables.time].items():
                 if key in variables.get_ids_list(): # properties
-                    loaded_datapoint[key] = np.array(value).reshape(self.dimensions_of_datapoint, order='F')
+                    loaded_datapoint[key] = np.array(value)
         return loaded_datapoint
 
 '''NICHT ÜBERARBEITET
