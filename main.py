@@ -9,7 +9,7 @@ import sys
 import logging
 import numpy as np
 
-def run_experiment(n_epochs:int=1000, lr:float=5e-4, inputs:str="pk", model_choice="unet", name_folder_destination:str="dummy", dataset_name:str="small_dataset_test", 
+def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choice="unet", name_folder_destination:str="default", dataset_name:str="small_dataset_test", 
     path_to_datasets = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets", overfit=True):
     
     time_begin = dt.datetime.now()
@@ -85,8 +85,9 @@ if __name__ == "__main__":
     cla = sys.argv
     kwargs = {}
 
-    kwargs["dataset_name"] = "small_dataset_test"
+    kwargs["dataset_name"] = "test_dataset_01"
     kwargs["n_epochs"] = 1
+    kwargs["name_folder_destination"] = "default"
 
     if len(cla) >= 2:
         kwargs["n_epochs"] = int(cla[1])
@@ -97,7 +98,7 @@ if __name__ == "__main__":
                 if len(cla) >= 5:
                     kwargs["inputs"] = cla[4]
                     if len(cla) >= 6:
-                        kwargs["name_folder"] = cla[5]
+                        kwargs["name_folder_destination"] = cla[5]
                         if len(cla) >= 7:
                             kwargs["dataset_name"] = cla[6]
 
