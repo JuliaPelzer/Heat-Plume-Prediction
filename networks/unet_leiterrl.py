@@ -119,11 +119,12 @@ class UNet(nn.Module):
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find("Conv") != -1:
-        m.weight.data.normal_(0.0, 0.02)
+        m.weight.data.normal_(0.0, 0.02) #01) # 0.02
+        # m.weight.data.zero_()
     elif classname.find("BatchNorm") != -1:
-        m.weight.data.normal_(1.0, 0.02)
-        m.bias.data.fill_(0)
-
+        m.weight.data.normal_(1.0, 0.02) #01) # 0.02
+        # m.weight.data.fill_(1)
+        m.bias.data.zero_()
 
 def blockUNet(in_c, out_c, name, transposed=False, bn=True, relu=True, size=4, pad=1, dropout=0.0):
     block = nn.Sequential()
