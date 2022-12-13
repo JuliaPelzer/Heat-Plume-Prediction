@@ -60,6 +60,7 @@ class Solver(object):
         self.loss_func = loss_func
 
         self.opt = optimizer(self.model.parameters(), learning_rate)
+        self.scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, factor = 0.5, verbose = True)
 
         self.debug_output = debug_output
         self.print_every = print_every
@@ -105,7 +106,7 @@ class Solver(object):
         loss = None
 
         # self.model.zero_grad() #
-        # self.opt.zero_grad() #
+        self.opt.zero_grad()
 
         # Forward pass
         y_pred = self.model(X)
@@ -139,11 +140,6 @@ class Solver(object):
             # Iterate over all training samples
             train_epoch_loss = 0.0
 
-            # manual lr decay
-            if epoch == 40:
-                for param_group in self.opt.param_groups:
-                    param_group['lr'] *= 0.1
-
             for batch_idx, data_values in enumerate(self.train_dataloader):
                 # Unpack data
                 X = data_values.inputs.float()
@@ -151,7 +147,7 @@ class Solver(object):
 
                 # Update the model parameters.
                 validate = epoch == 0
-                train_loss, y_pred = self._step(X, y, validation=validate) #
+                train_loss, y_pred = self._step(X, y, validation=validate)
 
                 self.train_batch_loss.append(train_loss)
                 train_epoch_loss += train_loss
@@ -179,6 +175,7 @@ class Solver(object):
                 val_epoch_loss += val_loss
 
             val_epoch_loss /= len(self.val_dataloader)
+            self.scheduler.step(val_epoch_loss) #TODO test
 
             if self.debug_output:
                 writer.add_scalar("val_loss", val_epoch_loss.item(), epoch *
@@ -189,7 +186,7 @@ class Solver(object):
             self.val_loss_history.append(val_epoch_loss)
 
             if self.debug_output and epoch % self.print_every == 0:
-                epochs.set_postfix_str(f"train loss: {train_epoch_loss:.4f}, val loss: {val_epoch_loss:.4f}, lr: {self.opt.param_groups[0]['lr']:.1e}")
+                epochs.set_postfix_str(f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
                 # print('(Epoch %d / %d) train loss: %f; val loss: %f' % (
                 #     epoch + 1, epochs, train_epoch_loss, val_epoch_loss))
 
