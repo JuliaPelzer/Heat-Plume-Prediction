@@ -1,9 +1,12 @@
 from data.dataset_loading import init_data
+from data.utils import load_settings, save_settings
 from solver import Solver
 from networks.unet_leiterrl import TurbNetG, UNet
 from networks.dummy_network import DummyNet
 from visualization.visualize_data import plot_sample
 from torch.nn import MSELoss
+from torch import cuda, device
+from utils.utils_networks import count_parameters
 import datetime as dt
 import sys
 import logging
@@ -45,7 +48,13 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
     else:
         print("model choice not recognized")
         sys.exit()
-    # model.to(device)
+
+    device_used = device('cuda' if cuda.is_available() else 'cpu')
+    logging.warning(f"Using {device_used} device")
+    model.to(device_used)
+
+    number_parameter = count_parameters(model)
+    logging.warning(f"Model {model_choice} with number of parameters: {number_parameter}")
 
     # train model
     if overfit:
@@ -54,13 +63,13 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
     else:
         solver = Solver(model, dataloaders_2D["train"], dataloaders_2D["val"], 
                     learning_rate=lr, loss_func=loss_fn)
-    solver.train(n_epochs=n_epochs, name_folder=name_folder_destination)
+    solver.train(device_used, n_epochs=n_epochs, name_folder=name_folder_destination)
 
     # visualization
     if overfit:
-        error, error_mean = plot_sample(model, dataloaders_2D["train"], name_folder_destination, plot_name="plot_learned_test_sample")
+        error, error_mean = plot_sample(model, dataloaders_2D["train"], device_used, name_folder_destination, plot_name="plot_learned_test_sample")
     else:
-        error, error_mean = plot_sample(model, dataloaders_2D["test"], name_folder_destination, plot_name="plot_learned_test_sample", plot_one_bool=False)
+        error, error_mean = plot_sample(model, dataloaders_2D["test"], device_used, name_folder_destination, plot_name="plot_learned_test_sample", plot_one_bool=False)
     
     # save model - TODO : both options currently not working
     # save(model, str(name_folder)+str(dataset_name)+str(inputs)+".pt")
@@ -84,10 +93,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)        # level: DEBUG, INFO, WARNING, ERROR, CRITICAL
     cla = sys.argv
     kwargs = {}
-
-    kwargs["dataset_name"] = "test_dataset_01"
-    kwargs["n_epochs"] = 1
-    kwargs["name_folder_destination"] = "default"
+    kwargs = load_settings(".", "settings_training")
 
     if len(cla) >= 2:
         kwargs["n_epochs"] = int(cla[1])
@@ -101,6 +107,9 @@ if __name__ == "__main__":
                         kwargs["name_folder_destination"] = cla[5]
                         if len(cla) >= 7:
                             kwargs["dataset_name"] = cla[6]
+
+    # save_settings(kwargs, kwargs["name_folder_destination"], "settings_training")
+    # TODO
 
     run_experiment(**kwargs)
 

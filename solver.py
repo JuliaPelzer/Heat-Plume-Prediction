@@ -125,7 +125,7 @@ class Solver(object):
 
         return loss, y_pred
 
-    def train(self, n_epochs:int=100, patience:int=None, name_folder: str = "default"):
+    def train(self, device, n_epochs:int=100, patience:int=None, name_folder: str = "default"):
         """
         Run optimization to train the model.
         """
@@ -142,14 +142,14 @@ class Solver(object):
 
             for batch_idx, data_values in enumerate(self.train_dataloader):
                 # Unpack data
-                X = data_values.inputs.float()
-                y = data_values.labels.float()
+                X = data_values.inputs.float().to(device)
+                y = data_values.labels.float().to(device)
 
                 # Update the model parameters.
                 validate = epoch == 0
                 train_loss, y_pred = self._step(X, y, validation=validate)
 
-                self.train_batch_loss.append(train_loss)
+                self.train_batch_loss.append(train_loss.detach().item())
                 train_epoch_loss += train_loss
 
             train_epoch_loss /= len(self.train_dataloader)
@@ -166,12 +166,12 @@ class Solver(object):
 
             for batch_idx, data_values in enumerate(self.val_dataloader):
                 # Unpack data
-                X = data_values.inputs.float()
-                y = data_values.labels.float()
+                X = data_values.inputs.float().to(device)
+                y = data_values.labels.float().to(device)
 
                 # Compute Loss - no param update at validation time!
                 val_loss, _ = self._step(X, y, validation=True) #
-                self.val_batch_loss.append(val_loss)
+                self.val_batch_loss.append(val_loss.detach().item())
                 val_epoch_loss += val_loss
 
             val_epoch_loss /= len(self.val_dataloader)
@@ -182,8 +182,8 @@ class Solver(object):
                                   len(self.train_dataloader)+batch_idx)
 
             # Record the losses for later inspection.
-            self.train_loss_history.append(train_epoch_loss)
-            self.val_loss_history.append(val_epoch_loss)
+            self.train_loss_history.append(train_epoch_loss.detach().item())
+            self.val_loss_history.append(val_epoch_loss.detach().item())
 
             if self.debug_output and epoch % self.print_every == 0:
                 epochs.set_postfix_str(f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")

@@ -1,0 +1,6 @@
+dataset_name: "test_dataset_10"
+n_epochs: 10000
+lr: 5e-3
+model_choice: unet
+inputs: pk
+name_folder_destination: default

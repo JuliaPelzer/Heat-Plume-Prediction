@@ -201,7 +201,7 @@ class ToTensorTransform:
         return data
 
     def reverse_tensor(self, data: Tensor, **normalize_kwargs) -> np.ndarray:
-        return data.detach().numpy()
+        return data.detach() #.numpy() TODO maybe change back if on cpu?
 
 
 class ComposeTransform:

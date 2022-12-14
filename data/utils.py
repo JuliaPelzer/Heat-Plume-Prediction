@@ -161,6 +161,15 @@ def get_dimensions(path:str) -> Tuple[int, int, int]:
     dimensions_of_datapoint = perm_settings["grid"]["ncells"]
     return dimensions_of_datapoint
 
+def load_settings(path:str, file_name="settings") -> Dict:
+	with open(f"{path}/{file_name}.yaml", "r") as file:
+		settings = yaml.load(file, Loader=yaml.SafeLoader)
+	return settings
+
+def save_settings(settings:Dict, path:str, name_file:str="settings"):
+	with open(f"{path}/{name_file}.yaml", "w") as file:
+		yaml.dump(settings, file)
+
 def _assertion_error_2d(datapoint:DataPoint):
     # TODO how/where to test whether reduce_to_2D worked?
     """
