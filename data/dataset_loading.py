@@ -86,7 +86,7 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
 def _build_property_list(properties:str) -> List:
     vars_list = [properties[i] for i in range(len(properties))]
     for i in vars_list:
-        assert i in ["x", "y", "z", "p", "t", "k"], "input parameter inputs has to be a string of characters, each of which is either x, y, z, p, t, k"
+        assert i in ["x", "y", "z", "p", "t", "k"], "input parameters have to be a string of characters, each of which is either x, y, z, p, t, k"
 
     vars = []
     if 'x' in vars_list:
