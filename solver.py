@@ -60,7 +60,7 @@ class Solver(object):
         self.loss_func = loss_func
 
         self.opt = optimizer(self.model.parameters(), learning_rate)
-        self.scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, factor = 0.5, verbose = True)
+        self.scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, factor = 0.5, cooldown = 10, verbose = True)
 
         self.debug_output = debug_output
         self.print_every = print_every
@@ -151,8 +151,7 @@ class Solver(object):
 
                 self.train_batch_loss.append(train_loss.detach().item())
                 train_epoch_loss += train_loss
-
-            train_epoch_loss /= len(self.train_dataloader)
+            train_epoch_loss /= len(self.train_dataloader.dataset)
 
             # self.opt.lr *= self.lr_decay
             if self.debug_output:
@@ -174,7 +173,7 @@ class Solver(object):
                 self.val_batch_loss.append(val_loss.detach().item())
                 val_epoch_loss += val_loss
 
-            val_epoch_loss /= len(self.val_dataloader)
+            val_epoch_loss /= len(self.val_dataloader.dataset)
             self.scheduler.step(val_epoch_loss) #TODO test
 
             if self.debug_output:
