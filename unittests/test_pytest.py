@@ -5,7 +5,7 @@ import data.utils as utils
 
 # additional libraries
 import numpy as np
-from torch import Tensor, zeros, eq, Size
+from torch import Tensor, zeros, eq, Size, mean, std
 
 def test_compute_data_max_and_min():
     # Fixture
@@ -24,9 +24,11 @@ def test_compute_data_max_and_min():
 def test_normalize_transform():
     data = utils.PhysicalVariables(time="now", properties=["test"])
     data["test"] = Tensor(np.array([[[[-2, -1, -1],[-1, 0, -1], [-1, -1, -1]]]]))
+    mean_val = {"test": -1}
+    std_val = {"test": 0.5}
     data_norm = Tensor(np.array([[[[-2, 0, 0],[0, 2, 0], [0, 0, 0]]]]))
     transform = trans.NormalizeTransform()
-    tensor_eq = eq(transform(data)["test"].value, data_norm).flatten
+    tensor_eq = eq(transform(data, mean_val, std_val)["test"].value, data_norm).flatten
     assert tensor_eq
 
 def test_reduceto2d_transform():
@@ -183,3 +185,5 @@ if __name__ == "__main__":
     test_data_init()
     test_combinations()
     test_dataloader_iter()
+    
+    test_normalize_transform()

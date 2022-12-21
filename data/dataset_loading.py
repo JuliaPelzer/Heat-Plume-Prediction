@@ -34,13 +34,12 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
         path_to_datasets, str), "input parameters dataset_name, path_to_datasets have to be str"
 
     datasets = {}
-    transforms_list = [
-        ToTensorTransform(), PowerOfTwoTransform(oriented="left")]
-        # @Manuel: Du kannst PowerOfTwoTransform rauskicken, wenn du willst. Ich habs jetzt mal dringelassen, damit dein Input so nah dran an meinem ist wie möglich. Allerdings kannst es wirklich gerne entfernen.
+    transforms_list = [ToTensorTransform(), PowerOfTwoTransform(oriented="left")]
     if reduce_to_2D:
         transforms_list.append(ReduceTo2DTransform(reduce_to_2D_xy=reduce_to_2D_xy))
     if normalize:
-        transforms_list.append(NormalizeTransform(reduced_to_2D=reduce_to_2D))
+        transforms_list.append(NormalizeTransform())
+
     logging.info(f"transforms_list: {transforms_list}")
 
     transforms = ComposeTransform(transforms_list)
@@ -59,13 +58,18 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
     input_vars.append("Material ID") # if unstructured grid
     output_vars = _build_property_list(labels)
 
+    means_stds_train_tuple=None
     for mode in ['train', 'val', 'test']:
         temp_dataset = DatasetSimulationData(
             dataset_name=dataset_name, dataset_path=path_to_datasets,
             transform=transforms, input_vars_names=input_vars,
             output_vars_names=output_vars,  # . "Liquid_Pressure [Pa]"
             mode=mode, split=split,
+            means_stds_train_tuple=means_stds_train_tuple
         )
+        if mode == "train":    
+            means_stds_train_tuple = temp_dataset.mean_inputs, temp_dataset.std_inputs, temp_dataset.mean_labels, temp_dataset.std_labels
+
         datasets[mode] = temp_dataset
 
     # Create a dataloader for each split.
@@ -79,14 +83,13 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
         )
         dataloaders[mode] = temp_dataloader
     print(f'init done [total number of datapoints/runs: {len(datasets["train"])+len(datasets["val"])+len(datasets["test"])}], with train: {len(datasets["train"])}, val: {len(datasets["val"])}, test: {len(datasets["test"])}')
-
     return datasets, dataloaders
 
 
 def _build_property_list(properties:str) -> List:
     vars_list = [properties[i] for i in range(len(properties))]
     for i in vars_list:
-        assert i in ["x", "y", "z", "p", "t", "k"], "input parameter inputs has to be a string of characters, each of which is either x, y, z, p, t, k"
+        assert i in ["x", "y", "z", "p", "t", "k"], "input parameters have to be a string of characters, each of which is either x, y, z, p, t, k"
 
     vars = []
     if 'x' in vars_list:

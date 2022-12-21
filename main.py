@@ -1,15 +1,18 @@
 from data.dataset_loading import init_data
+from data.utils import load_settings, save_settings
 from solver import Solver
 from networks.unet_leiterrl import TurbNetG, UNet
 from networks.dummy_network import DummyNet
 from visualization.visualize_data import plot_sample
 from torch.nn import MSELoss
+from torch import cuda, device
+from utils.utils_networks import count_parameters, append_results_to_csv
 import datetime as dt
 import sys
 import logging
 import numpy as np
 
-def run_experiment(n_epochs:int=1000, lr:float=5e-4, inputs:str="pk", model_choice="unet", name_folder_destination:str="dummy", dataset_name:str="small_dataset_test", 
+def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choice="unet", name_folder_destination:str="default", dataset_name:str="small_dataset_test", 
     path_to_datasets = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets", overfit=True):
     
     time_begin = dt.datetime.now()
@@ -17,7 +20,7 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-4, inputs:str="pk", model_choi
     # parameters of model and training
     loss_fn = MSELoss()
     n_epochs = n_epochs
-    lr=lr
+    lr=float(lr)
     reduce_to_2D=True
     reduce_to_2D_xy=True
     overfit=overfit
@@ -45,7 +48,14 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-4, inputs:str="pk", model_choi
     else:
         print("model choice not recognized")
         sys.exit()
-    # model.to(device)
+
+    device_used = device('cuda' if cuda.is_available() else 'cpu')
+    if not device_used == 'cuda':
+        logging.info(f"Using {device_used} device")
+    model.to(device_used)
+
+    number_parameter = count_parameters(model)
+    logging.info(f"Model {model_choice} with number of parameters: {number_parameter}")
 
     # train model
     if overfit:
@@ -54,13 +64,14 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-4, inputs:str="pk", model_choi
     else:
         solver = Solver(model, dataloaders_2D["train"], dataloaders_2D["val"], 
                     learning_rate=lr, loss_func=loss_fn)
-    solver.train(n_epochs=n_epochs, name_folder=name_folder_destination)
+    patience_for_early_stopping = 50
+    solver.train(device_used, n_epochs=n_epochs, name_folder=name_folder_destination, patience=patience_for_early_stopping)
 
     # visualization
     if overfit:
-        error, error_mean = plot_sample(model, dataloaders_2D["train"], name_folder_destination, plot_name="plot_learned_test_sample")
+        error, error_mean, final_max_error = plot_sample(model, dataloaders_2D["train"], device_used, name_folder_destination, plot_name="plot_learned_test_sample")
     else:
-        error, error_mean = plot_sample(model, dataloaders_2D["test"], name_folder_destination, plot_name="plot_learned_test_sample", plot_one_bool=False)
+        error, error_mean, final_max_error = plot_sample(model, dataloaders_2D["test"], device_used, name_folder_destination, plot_name="plot_learned_test_sample", plot_one_bool=False)
     
     # save model - TODO : both options currently not working
     # save(model, str(name_folder)+str(dataset_name)+str(inputs)+".pt")
@@ -78,15 +89,17 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-4, inputs:str="pk", model_choi
     #vis.plot_exemplary_learned_result(model, dataloaders_2D, name_pic=f"plot_y_exemplary_{now}")
 
     time_end = dt.datetime.now()
-    print(f"Time needed for experiment: {(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds")
+    duration = f"{(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds"
+    print(f"Time needed for experiment: {duration}")
+
+    results = {"timestamp": time_begin, "model":model_choice, "dataset":dataset_name, "overfit":overfit, "inputs":inputs, "n_epochs":n_epochs, "lr":lr, "error_mean":error_mean[-1], "error_max":final_max_error, "duration":duration, "name_destination_folder":name_folder_destination}
+    append_results_to_csv(results, "runs/collected_results_rough_idea.csv")
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)        # level: DEBUG, INFO, WARNING, ERROR, CRITICAL
     cla = sys.argv
     kwargs = {}
-
-    kwargs["dataset_name"] = "small_dataset_test"
-    kwargs["n_epochs"] = 1
+    kwargs = load_settings(".", "settings_training")
 
     if len(cla) >= 2:
         kwargs["n_epochs"] = int(cla[1])
@@ -97,10 +110,15 @@ if __name__ == "__main__":
                 if len(cla) >= 5:
                     kwargs["inputs"] = cla[4]
                     if len(cla) >= 6:
-                        kwargs["name_folder"] = cla[5]
+                        kwargs["name_folder_destination"] = cla[5]
                         if len(cla) >= 7:
                             kwargs["dataset_name"] = cla[6]
 
+    # save_settings(kwargs, kwargs["name_folder_destination"], "settings_training")
+    # TODO
+
+    # print eps
+    print(f"Maximum achievable precision: for double precision: {np.finfo(np.float64).eps}, for single precision: {np.finfo(np.complex64).eps}")
     run_experiment(**kwargs)
 
     # vary lr, vary input_Vars

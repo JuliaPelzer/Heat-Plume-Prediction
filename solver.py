@@ -60,6 +60,7 @@ class Solver(object):
         self.loss_func = loss_func
 
         self.opt = optimizer(self.model.parameters(), learning_rate)
+        self.scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, factor = 0.5, cooldown = 10) #, verbose = True)
 
         self.debug_output = debug_output
         self.print_every = print_every
@@ -68,7 +69,6 @@ class Solver(object):
         self.val_dataloader = val_dataloader
 
         self.current_patience = 0
-
         self._reset()
 
     def _reset(self):
@@ -105,7 +105,7 @@ class Solver(object):
         loss = None
 
         # self.model.zero_grad() #
-        # self.opt.zero_grad() #
+        self.opt.zero_grad()
 
         # Forward pass
         y_pred = self.model(X)
@@ -124,12 +124,12 @@ class Solver(object):
 
         return loss, y_pred
 
-    def train(self, n_epochs:int=100, patience:int=None, name_folder: str = "default"):
+    def train(self, device, n_epochs:int=100, patience:int=None, name_folder: str = "default"):
         """
         Run optimization to train the model.
         """
         # initialize tensorboard
-        if self.debug_output: #
+        if self.debug_output:
             writer = SummaryWriter(f"runs/{name_folder}")
 
         epochs = tqdm(range(n_epochs), desc="epochs")
@@ -139,57 +139,50 @@ class Solver(object):
             # Iterate over all training samples
             train_epoch_loss = 0.0
 
-            # manual lr decay
-            if epoch == 40:
-                for param_group in self.opt.param_groups:
-                    param_group['lr'] *= 0.1
-
             for batch_idx, data_values in enumerate(self.train_dataloader):
                 # Unpack data
-                X = data_values.inputs.float()
-                y = data_values.labels.float()
+                X = data_values.inputs.float().to(device)
+                y = data_values.labels.float().to(device)
 
                 # Update the model parameters.
                 validate = epoch == 0
-                train_loss, y_pred = self._step(X, y, validation=validate) #
+                train_loss, y_pred = self._step(X, y, validation=validate)
 
-                self.train_batch_loss.append(train_loss)
+                self.train_batch_loss.append(train_loss.detach().item())
                 train_epoch_loss += train_loss
-
-            train_epoch_loss /= len(self.train_dataloader)
+            train_epoch_loss /= len(self.train_dataloader.dataset)
 
             # self.opt.lr *= self.lr_decay
             if self.debug_output:
-                writer.add_scalar("train_loss", train_epoch_loss.item(), epoch *
-                                  len(self.train_dataloader)+batch_idx)
+                writer.add_scalar("train_loss", train_epoch_loss.item(), epoch) # * len(self.train_dataloader.dataset)+batch_idx)
                 writer.add_image("y_out", y_pred[0, 0, :, :], dataformats="WH",
-                                 global_step=epoch*len(self.train_dataloader)+batch_idx)
+                                 global_step=epoch) # *len(self.train_dataloader.dataset)+batch_idx)
 
             # Iterate over all validation samples
             val_epoch_loss = 0.0
 
             for batch_idx, data_values in enumerate(self.val_dataloader):
                 # Unpack data
-                X = data_values.inputs.float()
-                y = data_values.labels.float()
+                X = data_values.inputs.float().to(device)
+                y = data_values.labels.float().to(device)
 
                 # Compute Loss - no param update at validation time!
                 val_loss, _ = self._step(X, y, validation=True) #
-                self.val_batch_loss.append(val_loss)
+                self.val_batch_loss.append(val_loss.detach().item())
                 val_epoch_loss += val_loss
 
-            val_epoch_loss /= len(self.val_dataloader)
+            val_epoch_loss /= len(self.val_dataloader.dataset)
+            self.scheduler.step(val_epoch_loss) #TODO test
 
             if self.debug_output:
-                writer.add_scalar("val_loss", val_epoch_loss.item(), epoch *
-                                  len(self.train_dataloader)+batch_idx)
+                writer.add_scalar("val_loss", val_epoch_loss.item(), epoch) # * len(self.train_dataloader.dataset)+batch_idx)
 
             # Record the losses for later inspection.
-            self.train_loss_history.append(train_epoch_loss)
-            self.val_loss_history.append(val_epoch_loss)
+            self.train_loss_history.append(train_epoch_loss.detach().item())
+            self.val_loss_history.append(val_epoch_loss.detach().item())
 
             if self.debug_output and epoch % self.print_every == 0:
-                epochs.set_postfix_str(f"train loss: {train_epoch_loss:.4f}, val loss: {val_epoch_loss:.4f}, lr: {self.opt.param_groups[0]['lr']:.1e}")
+                epochs.set_postfix_str(f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
                 # print('(Epoch %d / %d) train loss: %f; val loss: %f' % (
                 #     epoch + 1, epochs, train_epoch_loss, val_epoch_loss))
 
