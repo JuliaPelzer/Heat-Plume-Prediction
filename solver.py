@@ -60,7 +60,7 @@ class Solver(object):
         self.loss_func = loss_func
 
         self.opt = optimizer(self.model.parameters(), learning_rate)
-        self.scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, factor = 0.5, cooldown = 10, verbose = True)
+        self.scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, factor = 0.5, cooldown = 10) #, verbose = True)
 
         self.debug_output = debug_output
         self.print_every = print_every
@@ -69,7 +69,6 @@ class Solver(object):
         self.val_dataloader = val_dataloader
 
         self.current_patience = 0
-
         self._reset()
 
     def _reset(self):
@@ -130,7 +129,7 @@ class Solver(object):
         Run optimization to train the model.
         """
         # initialize tensorboard
-        if self.debug_output: #
+        if self.debug_output:
             writer = SummaryWriter(f"runs/{name_folder}")
 
         epochs = tqdm(range(n_epochs), desc="epochs")
@@ -155,10 +154,9 @@ class Solver(object):
 
             # self.opt.lr *= self.lr_decay
             if self.debug_output:
-                writer.add_scalar("train_loss", train_epoch_loss.item(), epoch *
-                                  len(self.train_dataloader)+batch_idx)
+                writer.add_scalar("train_loss", train_epoch_loss.item(), epoch) # * len(self.train_dataloader.dataset)+batch_idx)
                 writer.add_image("y_out", y_pred[0, 0, :, :], dataformats="WH",
-                                 global_step=epoch*len(self.train_dataloader)+batch_idx)
+                                 global_step=epoch) # *len(self.train_dataloader.dataset)+batch_idx)
 
             # Iterate over all validation samples
             val_epoch_loss = 0.0
@@ -177,8 +175,7 @@ class Solver(object):
             self.scheduler.step(val_epoch_loss) #TODO test
 
             if self.debug_output:
-                writer.add_scalar("val_loss", val_epoch_loss.item(), epoch *
-                                  len(self.train_dataloader)+batch_idx)
+                writer.add_scalar("val_loss", val_epoch_loss.item(), epoch) # * len(self.train_dataloader.dataset)+batch_idx)
 
             # Record the losses for later inspection.
             self.train_loss_history.append(train_epoch_loss.detach().item())

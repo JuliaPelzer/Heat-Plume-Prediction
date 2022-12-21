@@ -64,13 +64,14 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
     else:
         solver = Solver(model, dataloaders_2D["train"], dataloaders_2D["val"], 
                     learning_rate=lr, loss_func=loss_fn)
-    solver.train(device_used, n_epochs=n_epochs, name_folder=name_folder_destination)
+    patience_for_early_stopping = 50
+    solver.train(device_used, n_epochs=n_epochs, name_folder=name_folder_destination, patience=patience_for_early_stopping)
 
     # visualization
     if overfit:
-        error, error_mean = plot_sample(model, dataloaders_2D["train"], device_used, name_folder_destination, plot_name="plot_learned_test_sample")
+        error, error_mean, final_max_error = plot_sample(model, dataloaders_2D["train"], device_used, name_folder_destination, plot_name="plot_learned_test_sample")
     else:
-        error, error_mean = plot_sample(model, dataloaders_2D["test"], device_used, name_folder_destination, plot_name="plot_learned_test_sample", plot_one_bool=False)
+        error, error_mean, final_max_error = plot_sample(model, dataloaders_2D["test"], device_used, name_folder_destination, plot_name="plot_learned_test_sample", plot_one_bool=False)
     
     # save model - TODO : both options currently not working
     # save(model, str(name_folder)+str(dataset_name)+str(inputs)+".pt")
