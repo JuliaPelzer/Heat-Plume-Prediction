@@ -50,11 +50,12 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
         sys.exit()
 
     device_used = device('cuda' if cuda.is_available() else 'cpu')
-    logging.warning(f"Using {device_used} device")
+    if not device_used == 'cuda':
+        logging.info(f"Using {device_used} device")
     model.to(device_used)
 
     number_parameter = count_parameters(model)
-    logging.warning(f"Model {model_choice} with number of parameters: {number_parameter}")
+    logging.info(f"Model {model_choice} with number of parameters: {number_parameter}")
 
     # train model
     if overfit:
@@ -115,6 +116,8 @@ if __name__ == "__main__":
     # save_settings(kwargs, kwargs["name_folder_destination"], "settings_training")
     # TODO
 
+    # print eps
+    print(f"Maximum achievable precision: for double precision: {np.finfo(np.float64).eps}, for single precision: {np.finfo(np.complex64).eps}")
     run_experiment(**kwargs)
 
     # vary lr, vary input_Vars
