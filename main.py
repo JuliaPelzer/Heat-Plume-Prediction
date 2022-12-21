@@ -6,7 +6,7 @@ from networks.dummy_network import DummyNet
 from visualization.visualize_data import plot_sample
 from torch.nn import MSELoss
 from torch import cuda, device
-from utils.utils_networks import count_parameters
+from utils.utils_networks import count_parameters, append_results_to_csv
 import datetime as dt
 import sys
 import logging
@@ -20,7 +20,7 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
     # parameters of model and training
     loss_fn = MSELoss()
     n_epochs = n_epochs
-    lr=lr
+    lr=float(lr)
     reduce_to_2D=True
     reduce_to_2D_xy=True
     overfit=overfit
@@ -87,7 +87,11 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
     #vis.plot_exemplary_learned_result(model, dataloaders_2D, name_pic=f"plot_y_exemplary_{now}")
 
     time_end = dt.datetime.now()
-    print(f"Time needed for experiment: {(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds")
+    duration = f"{(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds"
+    print(f"Time needed for experiment: {duration}")
+
+    results = {"timestamp": time_begin, "model":model_choice, "dataset":dataset_name, "overfit":overfit, "inputs":inputs, "n_epochs":n_epochs, "lr":lr, "error_mean":error_mean[-1], "error_max":final_max_error, "duration":duration, "name_destination_folder":name_folder_destination}
+    append_results_to_csv(results, "runs/collected_results_rough_idea.csv")
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)        # level: DEBUG, INFO, WARNING, ERROR, CRITICAL

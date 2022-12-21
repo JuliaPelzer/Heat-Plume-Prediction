@@ -1,7 +1,7 @@
-dataset_name: "test_dataset_10"
-n_epochs: 10000
+dataset_name: "dataset_pressure_vary_perm_iso_3D_1dp" # "test_dataset_10"
+n_epochs: 700
 lr: 5e-3
 model_choice: unet
-inputs: pk
-name_folder_destination: default
+inputs: p
+name_folder_destination: 10_perm_iso_pt
 overfit: True
