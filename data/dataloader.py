@@ -64,11 +64,11 @@ class DataLoader:
         for data in self.dataset:
             data = self.dataset.reverse_transform(data)
 
-    def reverse_transform_temperature(self, temperature:Tensor, index_in_dataset:int) -> Tensor:
+    def reverse_transform_temperature(self, temperature:Tensor) -> Tensor:
         """
         Reverses the transformation of the output of a model - ! expects the output to be temperature
         """
-        temperature = self.dataset.reverse_transform_temperature(temperature, index_in_dataset)
+        temperature = self.dataset.reverse_transform_temperature(temperature)
         return temperature
 
 def _append_batch_by_datapoint(datapoint:Batch, batch:Batch) -> None:

@@ -99,8 +99,9 @@ def plot_sample(model:UNet, dataloader: DataLoader, device, name_folder, plot_on
             if not reverse_done:
                 dataloader.reverse_transform()
                 reverse_done = True
-            y = dataloader.reverse_transform_temperature(y, index_in_dataset=datapoint)
-            y_out = dataloader.reverse_transform_temperature(y_out, index_in_dataset=datapoint)
+            # print("labels", dataloader.dataset.datapoints[datapoint].labels)
+            y = dataloader.reverse_transform_temperature(y)
+            y_out = dataloader.reverse_transform_temperature(y_out)
             x = dataloader.dataset.datapoints[datapoint].inputs
 
             error_current = y-y_out
@@ -119,18 +120,15 @@ def plot_sample(model:UNet, dataloader: DataLoader, device, name_folder, plot_on
 
             error.append(abs(error_current.detach()))
             error_mean.append(np.mean(error_current.cpu().numpy()).item())
-            # error_abs = torch.abs(error_temp)
-
-            # writer.add_image("x_unseen", x[0, 0, :, :], dataformats="WH")
-            # writer.add_image("y_unseen_out", y_out[0, 0, :, :], dataformats="WH")
-            # writer.add_image("y_unseen_true", y[0, 0, :, :], dataformats="WH")
 
             if plot_one_bool:
                 # if only one sample should be plotted and compared
                 break
 
         writer.close()
-    return error, error_mean
+    max_error = np.max(error[-1].cpu().numpy())
+    print("Maximum error: ", max_error)
+    return error, error_mean, max_error
 
 def plot_exemplary_learned_result_OLD(model, dataloaders, name_pic="plot_y_exemplary"):
     """not pretty but functional to get a first glimpse of how y_out looks compared to y_truth"""

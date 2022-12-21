@@ -61,8 +61,10 @@ class DatasetSimulationData(Dataset):
                  split:Dict[str, float]={'train': 0.6, 'val': 0.2, 'test': 0.2},
                  input_vars_names:List[str]=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
                  "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"], # "hp_power"
-                 output_vars_names:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"],
+                 output_vars_names:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"], 
+                 means_stds_train_tuple:Tuple[Dict, Dict, Dict, Dict]=None,
                  **kwargs)-> Dataset:
+
         super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         assert mode in ["train", "val", "test"], "wrong mode for dataset given"
         
@@ -79,12 +81,18 @@ class DatasetSimulationData(Dataset):
         # self.time_init =     "Time:  0.00000E+00 y"
         self.time_first =    "   1 Time  1.00000E-01 y"
         self.time_final =    "   2 Time  5.00000E+00 y"
-        # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
-        self.input_vars_empty_value = PhysicalVariables(self.time_first, input_vars_names)
-        self.output_vars_empty_value = PhysicalVariables(self.time_final, output_vars_names)
+        
         self.datapoints = {}
         self.dimensions_of_datapoint:Tuple[int, int, int] = get_dimensions(f"{dataset_path}/{dataset_name}")
-
+        # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
+        self.input_vars_empty_value = PhysicalVariables(self.time_first, input_vars_names) # collection of overall information but not std, mean
+        self.output_vars_empty_value = PhysicalVariables(self.time_final, output_vars_names)
+        self.has_to_calc_mean_std = True
+        if mode=="train":
+            self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = self._calc_mean_std_dataset()   # calc mean, std for all dataset runs
+        else:
+            self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = means_stds_train_tuple
+        self.has_to_calc_mean_std = False
         
     def __len__(self):
         # Return the length of the dataset (number of runs), but fill them only on their first call
@@ -116,10 +124,10 @@ class DatasetSimulationData(Dataset):
         data_paths = [data_path[1] for data_path in set_data_paths_runs]
         # Split the data and runs into train, val and test
         data_paths, runs = self._select_split(data_paths, runs)
-
         if not found_dataset:
             raise ValueError("No dataset found")
         assert len(data_paths) == len(runs)
+
         return data_paths, runs
 
     def get_input_properties(self) -> List[str]:
@@ -127,7 +135,7 @@ class DatasetSimulationData(Dataset):
 
     def get_output_properties(self) -> List[str]:
         return list(self.output_vars_empty_value.keys)
-
+        
     def __getitem__(self, index:int) -> Dict[int, DataPoint]:
         """
         Get a data point as a dict at a given run id (index) in the dataset
@@ -174,8 +182,13 @@ class DatasetSimulationData(Dataset):
         datapoint.labels = self._load_data_as_numpy(self.data_paths[index], self.output_vars_empty_value)
         try:
             loc_hp_x = int(datapoint.get_loc_hp()[0])
-            datapoint.inputs = self.transform(datapoint.inputs, loc_hp_x)
-            datapoint.labels = self.transform(datapoint.labels, loc_hp_x)
+            if self.has_to_calc_mean_std:
+                # mean, std first have to be calculated for later use
+                datapoint.inputs = self.transform(datapoint.inputs, loc_hp_x)
+                datapoint.labels = self.transform(datapoint.labels, loc_hp_x)
+            else:
+                datapoint.inputs = self.transform(datapoint.inputs, loc_hp_x, self.mean_inputs, self.std_inputs)
+                datapoint.labels = self.transform(datapoint.labels, loc_hp_x, self.mean_labels, self.std_labels)
         except Exception as e:
             print("no transforms applied: ", e)
 
@@ -186,26 +199,17 @@ class DatasetSimulationData(Dataset):
         """
         Reverse the transformation of the data.
         """
-        # data_dict = {}
-        # index_material_id = self.get_input_properties().index('Material_ID')
-        # data_dict["x"] = self.transform.reverse(self[index]["x"], mean=x_mean, std=x_std, index_material_id=index_material_id)
-        # index_material_id = None
-        # data_dict["y"] = self.transform.reverse(self[index]["y"], mean=y_mean, std=y_std)
-        # data_dict["run_id"] = self.runs[index]
 
-        datapoint.inputs = self.transform.reverse(datapoint.inputs)
-        datapoint.labels = self.transform.reverse(datapoint.labels)
+        datapoint.inputs = self.transform.reverse(datapoint.inputs, mean_val=self.mean_inputs, std_val=self.std_inputs)
+        datapoint.labels = self.transform.reverse(datapoint.labels, mean_val=self.mean_labels, std_val=self.std_labels)
 
         _assertion_error_2d(datapoint)
 
         return datapoint
 
-    def reverse_transform_temperature(self, temperature:Tensor, index_in_dataset:int) -> Tensor:
-        mean_orig=self.datapoints[index_in_dataset].labels["Temperature [C]"].mean_orig
-        std_orig=self.datapoints[index_in_dataset].labels["Temperature [C]"].std_orig
-        temperature = self.transform.reverse_tensor_input(temperature, mean_orig=mean_orig, std_orig=std_orig)
+    def reverse_transform_temperature(self, temperature:Tensor) -> Tensor:
+        temperature = self.transform.reverse_tensor_input(temperature, mean_val=self.mean_labels["Temperature [C]"], std_val=self.std_labels["Temperature [C]"])
         return temperature
-
 
     def _select_split(self, data_paths:List[str], labels:List[str]) -> Tuple[List[str], List[str]]:
         """
@@ -230,6 +234,7 @@ class DatasetSimulationData(Dataset):
         
         np.random.seed(0)   # TODO remove later only for testing
         rand_perm = np.random.permutation(num_samples)
+        # TODO check communicate rand_perm with the datasets of all 3 modes?
         
         if self.mode == 'train':
             indices = rand_perm[:num_train]
@@ -255,6 +260,55 @@ class DatasetSimulationData(Dataset):
                 if key in variables.get_ids_list(): # properties
                     loaded_datapoint[key] = np.array(value).reshape(self.dimensions_of_datapoint, order='F')
         return loaded_datapoint
+
+    def _calc_mean_std_dataset(self):
+        """
+        Calculate mean and std of the dataset.
+        """
+        mean_in = {}
+        std_in = {}
+        mean_labels = {}
+        std_labels = {}
+        number_datapoints = len(self)
+
+
+        # load all dataset + calc mean, std and save it
+        for run in range(len(self)):
+            for key, value in self[run].inputs.items():
+                # print(key, value.mean_orig, value.std_orig)
+                assert (key in mean_in.keys() and key in std_in.keys()) or \
+                       (key not in mean_in.keys() and key not in std_in.keys()), f"property {key} should either be in both mean and std already calculated or in neither"
+                        
+                if key in mean_in.keys() and key in std_in.keys():
+                    mean_in[key] += value.mean_orig
+                    std_in[key] += value.std_orig # TODO TODO reasonable?? to calc mean of std???
+                else:
+                    mean_in[key] = value.mean_orig
+                    std_in[key] = value.std_orig # TODO TODO reasonable?? to calc mean of std???
+            for key, value in self[run].labels.items():
+                if key in mean_labels.keys() and key in std_labels.keys():
+                    mean_labels[key] += value.mean_orig
+                    std_labels[key] += value.std_orig # TODO TODO reasonable?? to calc mean of std???
+                else:
+                    mean_labels[key] = value.mean_orig
+                    std_labels[key] = value.std_orig # TODO TODO reasonable?? to calc mean of std???
+        # then save it in self.input_vars_empty_value
+        for key, prop in mean_in.items():
+            prop /= number_datapoints
+            # self.input_vars_empty_value[key].mean_orig = prop/number_datapoints
+        for key, prop in std_in.items():
+            prop /= number_datapoints
+            # self.input_vars_empty_value[key].std_orig = prop/number_datapoints
+        for key, prop in mean_labels.items():
+            prop /= number_datapoints
+            # self.output_vars_empty_value[key].mean_orig = prop/number_datapoints
+        for key, prop in std_labels.items():
+            prop /= number_datapoints
+            # self.output_vars_empty_value[key].std_orig = prop/number_datapoints
+
+        self.datapoints = {}    # del all datapoints created in this process to free space
+        return mean_in, std_in, mean_labels, std_labels
+
 
 '''NICHT ÜBERARBEITET
 class MemoryImageFolderDataset(ImageFolderDataset):

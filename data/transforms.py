@@ -7,6 +7,7 @@ import numpy as np
 from torchvision.transforms import Normalize
 from torch import Tensor, squeeze, unsqueeze, round, from_numpy
 from data.utils import PhysicalVariables
+from typing import Dict
 
 
 class RescaleTransform:
@@ -60,7 +61,6 @@ def _compute_data_max_and_min(data):
 
     return max, min
 
-
 class NormalizeTransform:
     """
     Transform class to normalize data using mean and std
@@ -70,19 +70,42 @@ class NormalizeTransform:
             then normalize each image channel separately
     """
 
-    def __init__(self, reduced_to_2D: bool = False):
+    def __init__(self):
         """
         :param mean: mean of data to be normalized
             can be a single value, or a numpy array of size C
         :param std: standard deviation of data to be normalized
              can be a single value or a numpy array of size C
         """
-        self.reduced_to_2D = reduced_to_2D
+        self.names_material = ["Material_ID", "Material ID"]
 
-    def __call__(self, data: PhysicalVariables):
-        # manual shift of material IDs  TODO change this in pflotran file!! not here
-        names_material = ["Material_ID", "Material ID"]
-        for name_material in names_material:
+    def __call__(self, data: PhysicalVariables, mean_val:Dict, std_val:Dict):
+        # index shift for material ID
+        for name_material in self.names_material:
+            if name_material in data.keys():
+                data[name_material].value -= 1
+                mask = data[name_material].value == 2
+                data[name_material].value[mask] = -1
+                data[name_material].value = data[name_material].value.double() # casting from int to double
+
+        # normalize data to mean and std
+        for prop in data.keys():
+            Normalize(mean_val[prop], std_val[prop], inplace=True)(data[prop].value)
+            # TODO next lines necessary?
+            # # squeeze in case of reduced_to_2D_wrong necessary because unsqueezed before for Normalize to work
+            data[prop].value = squeeze(data[prop].value)
+        # ## OLD
+        # # normalize data to mean and std
+        # for prop in data.keys():
+        #     Normalize(data[prop].mean_orig, data[prop].std_orig,
+        #               inplace=True)(data[prop].value)
+        #     # squeeze in case of reduced_to_2D_wrong necessary because unsqueezed before for Normalize to work
+        #     data[prop].value = squeeze(data[prop].value)
+
+        return data
+
+    def init_mean_std(self, data: PhysicalVariables):
+        for name_material in self.names_material:
             if name_material in data.keys():
                 data[name_material].value -= 1
                 mask = data[name_material].value == 2
@@ -93,39 +116,24 @@ class NormalizeTransform:
             data[prop].calc_mean()  # dim=(1, 2, 3), keepdim=True)
             data[prop].calc_std()  # dim=(1, 2, 3), keepdim=True)
 
-        # normalize data to mean and std
-        for prop in data.keys():
-            Normalize(data[prop].mean_orig, data[prop].std_orig,
-                      inplace=True)(data[prop].value)
-            # squeeze in case of reduced_to_2D_wrong necessary because unsqueezed before for Normalize to work
-            data[prop].value = squeeze(data[prop].value)
-
-        # assert if rounded value of mean is not 0 or of std is not 1
-        for prop in data.keys():
-            assert round(data[prop].value.mean() * 1e4) == 0, f"Mean of {prop} is not 0 but {data[prop].value.mean()}"
-            assert round(data[prop].value.std() * 1e4) == 1e4, f"Std of {prop} is not 1 but {data[prop].value.std()}"
         return data
 
-    def reverse(self, data:PhysicalVariables):
+    def reverse(self, data:PhysicalVariables, mean_val:Dict, std_val:Dict):
         # reverse normalization
         for prop in data.keys():
-            data[prop].value = data[prop].value * \
-                data[prop].std_orig + data[prop].mean_orig
+            data[prop].value = data[prop].value * std_val[prop] + mean_val[prop]
 
-        names_material = ["Material_ID", "Material ID"]
-        for name_material in names_material:
+        for name_material in self.names_material:
             if name_material in data.keys():
                 mask = data[name_material].value == -1
                 data[name_material].value[mask] = 2  # only required, if extraction well (with ID=3) exists
                 data[name_material].value += 1
         return data
 
-    def reverse_tensor(self, data:Tensor, **normalize_kwargs) -> Tensor:
-        mean_orig, std_orig = normalize_kwargs["mean_orig"], normalize_kwargs["std_orig"]
+    def reverse_tensor(self, data:Tensor, mean_val, std_val) -> Tensor:
         # reverse normalization
-        data = data * std_orig + mean_orig
+        data = data * std_val + mean_val
         return data
-
 
 class PowerOfTwoTransform:  # CutOffEdgesTransform:
     """
@@ -167,7 +175,7 @@ class ReduceTo2DTransform:
         self.reduce_to_2D_xy = reduce_to_2D_xy
         self.loc_hp_x = loc_hp_x
 
-    def __call__(self, data: PhysicalVariables, loc_hp_x:int = None):
+    def __call__(self, data: PhysicalVariables, loc_hp_x:int=None):
         if loc_hp_x is not None:
             self.loc_hp_x = loc_hp_x
             
@@ -194,14 +202,15 @@ class ToTensorTransform:
         for prop in data.keys():
             data[prop].value = from_numpy(data[prop].value)
         return data
-
-    def reverse(self, data: PhysicalVariables):
-        for prop in data.keys():
-            data[prop].value = data[prop].value.numpy()
-        return data
+    
+    ##TODO include when change back to cpu?
+    # def reverse(self, data: PhysicalVariables, **normalize_kwargs):
+    #     for prop in data.keys():
+    #         data[prop].value = data[prop].value.numpy()
+    #     return data
 
     def reverse_tensor(self, data: Tensor, **normalize_kwargs) -> np.ndarray:
-        return data.detach() #.numpy() TODO maybe change back if on cpu?
+        return data.detach() #.numpy() 
 
 
 class ComposeTransform:
@@ -213,21 +222,25 @@ class ComposeTransform:
         """
         self.transforms = transforms
 
-    def __call__(self, data: PhysicalVariables, loc_hp_x: int = None):
+    def __call__(self, data: PhysicalVariables, loc_hp_x:int=None, mean_val:Dict=None, std_val:Dict=None):
         for transform in self.transforms:
             if isinstance(transform, ReduceTo2DTransform):
                 data = transform(data, loc_hp_x)
+            elif isinstance(transform, NormalizeTransform):
+                if not mean_val==None and not std_val==None:
+                    data = transform(data, mean_val, std_val)
+                else:
+                    data = transform.init_mean_std(data)
             else:
                 data = transform(data)
         return data
 
-    def reverse(self, data: PhysicalVariables):
+    def reverse(self, data: PhysicalVariables, **normalize_kwargs):
         for transform in reversed(self.transforms):
             try:
-                data = transform.reverse(data)
+                data = transform.reverse(data, **normalize_kwargs)
             except AttributeError as e:
                 pass
-                # print(e)
         return data
     
     def reverse_tensor_input(self, data: Tensor, **normalize_kwargs):
@@ -236,5 +249,4 @@ class ComposeTransform:
                 data = transform.reverse_tensor(data, **normalize_kwargs)
             except AttributeError as e:
                 pass
-                # print(e)
         return data
