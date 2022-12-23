@@ -95,9 +95,9 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
     results = {"timestamp": time_begin, "model":model_choice, "dataset":dataset_name, "overfit":overfit, "inputs":inputs, "n_epochs":n_epochs, "lr":lr, "error_mean":error_mean[-1], "error_max":final_max_error, "duration":duration, "name_destination_folder":name_folder_destination}
     append_results_to_csv(results, "runs/collected_results_rough_idea.csv")
     
-    model.detach()
+    # model.detach()
     del model
-    
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)        # level: DEBUG, INFO, WARNING, ERROR, CRITICAL
     cla = sys.argv
