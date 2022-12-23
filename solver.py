@@ -190,6 +190,7 @@ class Solver(object):
             self.update_best_loss(val_epoch_loss, train_epoch_loss)
             if patience and self.current_patience >= patience:
                 print("Stopping early at epoch {}!".format(epoch))
+                n_epochs = epoch
                 break
 
         # At the end of training swap the best params into the model
