@@ -62,6 +62,7 @@ class DatasetSimulationData(Dataset):
                  input_vars_names:List[str]=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
                  "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"], # "hp_power"
                  output_vars_names:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"], 
+                 normalize_bool:bool=True,
                  means_stds_train_tuple:Tuple[Dict, Dict, Dict, Dict]=None,
                  **kwargs)-> Dataset:
 
@@ -87,12 +88,13 @@ class DatasetSimulationData(Dataset):
         # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
         self.input_vars_empty_value = PhysicalVariables(self.time_first, input_vars_names) # collection of overall information but not std, mean
         self.output_vars_empty_value = PhysicalVariables(self.time_final, output_vars_names)
-        self.has_to_calc_mean_std = True
-        if mode=="train":
-            self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = self._calc_mean_std_dataset()   # calc mean, std for all dataset runs
-        else:
-            self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = means_stds_train_tuple
-        self.has_to_calc_mean_std = False
+        if normalize_bool:
+            self.has_to_calc_mean_std = True
+            if mode=="train":
+                self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = self._calc_mean_std_dataset()   # calc mean, std for all dataset runs
+            else:
+                self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = means_stds_train_tuple
+            self.has_to_calc_mean_std = False
         
     def __len__(self):
         # Return the length of the dataset (number of runs), but fill them only on their first call

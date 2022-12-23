@@ -64,7 +64,7 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
             dataset_name=dataset_name, dataset_path=path_to_datasets,
             transform=transforms, input_vars_names=input_vars,
             output_vars_names=output_vars,  # . "Liquid_Pressure [Pa]"
-            mode=mode, split=split,
+            mode=mode, split=split, normalize_bool=normalize,
             means_stds_train_tuple=means_stds_train_tuple
         )
         if mode == "train":    
