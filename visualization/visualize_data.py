@@ -108,9 +108,9 @@ def plot_sample(model:UNet, dataloader: DataLoader, device, name_folder, plot_on
             temp_max = max(y.max(), y_out.max())
             temp_min = min(y.min(), y_out.min())
             list_to_plot = [
-                _make_dict_batchbased(y.cpu(), "temperature true", 0, vmax=temp_max, vmin=temp_min),
-                _make_dict_batchbased(y_out.cpu(), "temperature out", 0, vmax=temp_max, vmin=temp_min),
-                _make_dict_batchbased(error_current.cpu(), "error", 0),
+                _make_dict_batchbased(y.detach().cpu(), "temperature true", 0, vmax=temp_max, vmin=temp_min),
+                _make_dict_batchbased(y_out.detach().cpu(), "temperature out", 0, vmax=temp_max, vmin=temp_min),
+                _make_dict_batchbased(error_current.detach().cpu(), "error", 0),
             ]
 
             for physical_var in x.keys():
