@@ -2,6 +2,7 @@ import logging
 import numpy as np
 from main import run_experiment
 from data.utils import load_settings, save_settings
+import sys
 
 if __name__ == "__main__":
 
