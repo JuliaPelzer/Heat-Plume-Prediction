@@ -10,6 +10,9 @@ import sys
 import logging
 import numpy as np
 
+dataset_name = "approach2_dataset_generation_simplified/dataset_HDF5_testtest"
+path_to_datasets = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets"
+
 def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choice="unet", name_folder_destination:str="default", dataset_name:str="small_dataset_test", overfit=True):
     
     time_begin = dt.datetime.now()
