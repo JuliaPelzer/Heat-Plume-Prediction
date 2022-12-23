@@ -11,7 +11,7 @@ from data.utils import PhysicalVariables, DataPoint, _assertion_error_2d, get_di
 import os, sys
 import numpy as np
 import h5py
-from torch import Tensor
+from torch import Tensor, square, mean, sqrt
 
 @dataclass
 class Dataset(ABC):
@@ -268,45 +268,32 @@ class DatasetSimulationData(Dataset):
         Calculate mean and std of the dataset.
         """
         mean_in = {}
-        std_in = {}
         mean_labels = {}
-        std_labels = {}
         number_datapoints = len(self)
 
-
-        # load all dataset + calc mean, std and save it
+        # load all dataset + calc mean
         for run in range(len(self)):
             for key, value in self[run].inputs.items():
-                # print(key, value.mean_orig, value.std_orig)
-                assert (key in mean_in.keys() and key in std_in.keys()) or \
-                       (key not in mean_in.keys() and key not in std_in.keys()), f"property {key} should either be in both mean and std already calculated or in neither"
-                        
-                if key in mean_in.keys() and key in std_in.keys():
-                    mean_in[key] += value.mean_orig
-                    std_in[key] += value.std_orig # TODO TODO reasonable?? to calc mean of std???
-                else:
-                    mean_in[key] = value.mean_orig
-                    std_in[key] = value.std_orig # TODO TODO reasonable?? to calc mean of std???
+                mean_in[key] = mean_in[key]+value.mean_orig if key in mean_in.keys() else value.mean_orig
             for key, value in self[run].labels.items():
-                if key in mean_labels.keys() and key in std_labels.keys():
-                    mean_labels[key] += value.mean_orig
-                    std_labels[key] += value.std_orig # TODO TODO reasonable?? to calc mean of std???
-                else:
-                    mean_labels[key] = value.mean_orig
-                    std_labels[key] = value.std_orig # TODO TODO reasonable?? to calc mean of std???
-        # then save it in self.input_vars_empty_value
-        for key, prop in mean_in.items():
-            prop /= number_datapoints
-            # self.input_vars_empty_value[key].mean_orig = prop/number_datapoints
-        for key, prop in std_in.items():
-            prop /= number_datapoints
-            # self.input_vars_empty_value[key].std_orig = prop/number_datapoints
-        for key, prop in mean_labels.items():
-            prop /= number_datapoints
-            # self.output_vars_empty_value[key].mean_orig = prop/number_datapoints
-        for key, prop in std_labels.items():
-            prop /= number_datapoints
-            # self.output_vars_empty_value[key].std_orig = prop/number_datapoints
+                mean_labels[key] = mean_labels[key]+value.mean_orig if key in mean_labels.keys() else value.mean_orig
+
+        for key, prop in mean_in.items(): prop /= number_datapoints
+        for key, prop in mean_labels.items(): prop /= number_datapoints
+
+        # calc std
+        std_in = {}
+        std_labels = {}
+        squaresum_mean_in = {}
+        squaresum_mean_labels = {}
+        for run in range(len(self)):
+            for key, value in self[run].inputs.items():
+                squaresum_mean_in[key] = squaresum_mean_in[key] + square(value.value-mean_in[key]) if key in std_in.keys() else square(value.value-mean_in[key])
+            for key, value in self[run].labels.items():
+                squaresum_mean_labels[key] = squaresum_mean_labels[key] + square(value.value-mean_labels[key]) if key in std_labels.keys() else square(value.value-mean_labels[key])
+        
+        for key, prop in squaresum_mean_in.items(): std_in[key]=sqrt(mean(prop))
+        for key, prop in squaresum_mean_labels.items(): std_labels[key]=sqrt(mean(prop))
 
         self.datapoints = {}    # del all datapoints created in this process to free space
         return mean_in, std_in, mean_labels, std_labels
