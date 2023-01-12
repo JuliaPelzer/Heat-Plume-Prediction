@@ -80,7 +80,7 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
     print(f"Resulting picture is at {pic_file_name}")
     plt.savefig(pic_file_name)
 
-def plot_sample(model:UNet, dataloader: DataLoader, device, name_folder, plot_one_bool = True, plot_name:str="plot_learned_test_sample"):
+def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str, plot_one_bool:str = True, plot_name:str="plot_learned_test_sample"):
     
     writer = SummaryWriter(f"runs/{name_folder}")
     error = []
@@ -102,7 +102,10 @@ def plot_sample(model:UNet, dataloader: DataLoader, device, name_folder, plot_on
             # print("labels", dataloader.dataset.datapoints[datapoint].labels)
             y = dataloader.reverse_transform_temperature(y)
             y_out = dataloader.reverse_transform_temperature(y_out)
-            x = dataloader.dataset.datapoints[datapoint].inputs
+            try:
+                x = dataloader.dataset.datapoints[datapoint].inputs
+            except:
+                x = dataloader.dataset[datapoint].inputs
 
             error_current = y-y_out
             temp_max = max(y.max(), y_out.max())
@@ -116,7 +119,7 @@ def plot_sample(model:UNet, dataloader: DataLoader, device, name_folder, plot_on
             for physical_var in x.keys():
                 list_to_plot.append(_make_dict_datapointbased(x, physical_var))
 
-            _plot_y(list_to_plot, name_pic=plot_name+"_"+str(datapoint))
+            _plot_y(list_to_plot, title=name_folder, name_pic=plot_name+"_"+str(datapoint))
 
             error.append(abs(error_current.detach()))
             error_mean.append(np.mean(error_current.cpu().numpy()).item())
@@ -164,7 +167,7 @@ def plot_exemplary_learned_result_OLD(model, dataloaders, name_pic="plot_y_exemp
         _make_dict_batchbased(x_exemplary, "hp location", 1),
     ]
 
-    _plot_y(list_to_plot, name_pic=name_pic)
+    _plot_y(list_to_plot, title=name_pic, name_pic=name_pic)
 
     return error
 
@@ -286,10 +289,10 @@ def _make_dict_datapointbased(data:PhysicalVariables, physical_property:str, **i
     data_dict = {"data" : data[physical_property].value, "property" : physical_property, "imshowargs" : imshowargs}
     return data_dict
 
-def _plot_y(data, name_pic="plot_y_exemplary"):
+def _plot_y(data, title, name_pic="plot_y_exemplary"):
     n_subplots = len(data)
     _, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(20,3*(n_subplots)))
-    #plt.title("Exemplary Comparison Input Output")
+    plt.title(title)
     
     for index, data_point in enumerate(data):
         plt.sca(axes[index])

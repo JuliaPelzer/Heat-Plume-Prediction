@@ -5,7 +5,7 @@ import logging
 from typing import List
 
 def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit: bool = False, normalize: bool = True, 
-              just_plotting: bool = False, batch_size: int = 100, inputs: str = "xyzpt", labels: str = "txyz",
+              just_plotting: bool = False, batch_size: int = 1000, inputs: str = "xyzpt", labels: str = "txyz",
               dataset_name: str = "perm_pressure1D_10dp", 
               path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets"):
     """
