@@ -84,6 +84,7 @@ class DatasetSimulationData(Dataset):
         self.time_final =    "   2 Time  5.00000E+00 y"
         
         self.datapoints = {}
+        self.keep_datapoints_in_memory = True
         self.dimensions_of_datapoint:Tuple[int, int, int] = get_dimensions(f"{dataset_path}/{dataset_name}")
         # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
         self.input_vars_empty_value = PhysicalVariables(self.time_first, input_vars_names) # collection of overall information but not std, mean
@@ -165,12 +166,13 @@ class DatasetSimulationData(Dataset):
         """
         # TODO x is a numpy array of shape CxHxWxD (C=channels, HxWxD=spatial dimensions)
         # TODO y is a numpy array of shape CxHxWxD (C= output channels, HxWxD=spatial dimensions)
-        
-        if index not in self.datapoints.keys():
-            self.datapoints[index] = self.load_datapoint(index)
-            # print("created datapoint at index", index)
-
-        return self.datapoints[index]
+        if self.keep_datapoints_in_memory:
+            if index not in self.datapoints.keys():
+                self.datapoints[index] = self.load_datapoint(index)
+                # print("created datapoint at index", index)
+            return self.datapoints[index]
+        else:
+            return self.load_datapoint(index)
 
     def load_datapoint(self, index:int) -> DataPoint:
         """
