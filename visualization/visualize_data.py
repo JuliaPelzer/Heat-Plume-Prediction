@@ -93,7 +93,7 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
             x = torch.unsqueeze(x,0)
             y = batch.labels.float().to(device)[datapoint]
             y = torch.unsqueeze(y,0)
-            y_out = model(x)
+            y_out = model(x).to(device)
             
             # reverse transform for plotting real values
             if not reverse_done:

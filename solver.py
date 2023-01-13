@@ -89,7 +89,7 @@ class Solver(object):
         self.current_patience = 0
         self.model.apply(weights_init) #
 
-    def _step(self, X, y, validation=False):
+    def _step(self, X, y, device, validation=False):
         """
         Make a single gradient update. This is called by train() and should not
         be called manually.
@@ -106,7 +106,7 @@ class Solver(object):
         # self.model.zero_grad() #
         self.opt.zero_grad()
 
-        y_pred = self.model(X)  # Forward pass
+        y_pred = self.model(X).to(device)  # Forward pass
         loss = self.loss_func(y_pred, y)    # Compute loss
         # loss += sum(self.model.reg.values())  # Add the regularization    #   
         if not validation:  # Perform gradient update (only in train mode)
@@ -138,8 +138,8 @@ class Solver(object):
 
                 # Update the model parameters.
                 validate = epoch == 0
-                train_loss, y_pred = self._step(X, y, validation=validate)
-                train_loss = train_loss.detach().item()
+                train_loss, y_pred = self._step(X, y, device, validation=validate)
+                train_loss, y_pred = train_loss.detach().item(), y_pred.detach()
                 self.train_batch_loss.append(train_loss)
                 train_epoch_loss += train_loss
             train_epoch_loss /= len(self.train_dataloader.dataset)
@@ -159,7 +159,7 @@ class Solver(object):
                 y = data_values.labels.float().to(device)
 
                 # Compute Loss - no param update at validation time!
-                val_loss, _ = self._step(X, y, validation=True) #
+                val_loss, _ = self._step(X, y, device, validation=True) #
                 val_loss = val_loss.detach().item()
                 self.val_batch_loss.append(val_loss)
                 val_epoch_loss += val_loss
