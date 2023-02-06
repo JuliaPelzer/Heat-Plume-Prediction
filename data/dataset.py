@@ -41,7 +41,7 @@ class Dataset(ABC):
         """
         dataset_path_full = os.path.join(self.dataset_path, self.dataset_name)
         if not os.path.exists(dataset_path_full):
-            raise ValueError(f"Dataset {self.dataset_name} does not exist")
+            raise ValueError(f"Dataset {self.dataset_name} does not exist in {dataset_path_full}")
         if len(os.listdir(dataset_path_full)) == 0:
             raise ValueError(f"Dataset {self.dataset_name} is empty")
         return dataset_path_full
@@ -66,9 +66,13 @@ class DatasetSimulationData(Dataset):
                  means_stds_train_tuple:Tuple[Dict, Dict, Dict, Dict]=None,
                  **kwargs)-> Dataset:
 
+        if mode == "test":
+            dataset_name += "_TEST"
+            split = {"train": 0, "val": 0, "test": 1}
+
         super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         assert mode in ["train", "val", "test"], "wrong mode for dataset given"
-        
+
         self.mode = mode
         self.split = split
         self.transform = transform
@@ -113,7 +117,7 @@ class DatasetSimulationData(Dataset):
         dataset_path = self.dataset_path
         set_data_paths_runs, runs = [], []
         found_dataset = False
-    
+
         logging.info(f"Directory of currently used dataset is: {dataset_path}")
         for _, folders, _ in os.walk(dataset_path):
             for folder in folders:
@@ -229,7 +233,6 @@ class DatasetSimulationData(Dataset):
         data_paths: where only the indices for the corresponding data split are selected
         runs: where only the indices for the corresponding data split are selected
         """
-         
         fraction_train = self.split['train']
         fraction_val = self.split['val']
         num_samples = len(data_paths)
@@ -250,7 +253,8 @@ class DatasetSimulationData(Dataset):
         elif self.mode == 'val':
             indices = rand_perm[num_train:num_train+num_val]
         elif self.mode == 'test':
-            indices = rand_perm[num_train+num_val:]
+            indices = rand_perm[:]
+            # indices = rand_perm[num_train+num_val:]
 
         if isinstance(data_paths, list): 
             return list(np.array(data_paths)[indices]), list(np.array(labels)[indices])
