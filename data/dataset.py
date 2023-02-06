@@ -81,7 +81,7 @@ class DatasetSimulationData(Dataset):
         self.data_paths, self.runs = self.make_dataset(self)
         # self.time_init =     "Time:  0.00000E+00 y"
         self.time_first =    "   1 Time  1.00000E-01 y"
-        self.time_final =    "   2 Time  5.00000E+00 y"
+        self.time_final =    "   3 Time  5.00000E+00 y"
         
         self.datapoints = {}
         self.keep_datapoints_in_memory = True
@@ -229,13 +229,18 @@ class DatasetSimulationData(Dataset):
         data_paths: where only the indices for the corresponding data split are selected
         runs: where only the indices for the corresponding data split are selected
         """
-
+         
         fraction_train = self.split['train']
         fraction_val = self.split['val']
         num_samples = len(data_paths)
         num_train = int(num_samples * fraction_train)
-        num_valid = int(num_samples * fraction_val)
+        num_val = int(num_samples * fraction_val)
         
+        # if leftover files, due to rounding
+        if self.split["test"] == 0:
+            if num_train + num_val < num_samples:
+                num_train = num_samples - num_val
+
         np.random.seed(0)   # TODO remove later only for testing
         rand_perm = np.random.permutation(num_samples)
         # TODO check communicate rand_perm with the datasets of all 3 modes?
@@ -243,9 +248,9 @@ class DatasetSimulationData(Dataset):
         if self.mode == 'train':
             indices = rand_perm[:num_train]
         elif self.mode == 'val':
-            indices = rand_perm[num_train:num_train+num_valid]
+            indices = rand_perm[num_train:num_train+num_val]
         elif self.mode == 'test':
-            indices = rand_perm[num_train+num_valid:]
+            indices = rand_perm[num_train+num_val:]
 
         if isinstance(data_paths, list): 
             return list(np.array(data_paths)[indices]), list(np.array(labels)[indices])

@@ -1,7 +1,9 @@
 from data.dataset import DatasetSimulationData
 from data.dataloader import DataLoader
 from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, PowerOfTwoTransform, ToTensorTransform
+import os
 import logging
+import numpy as np
 from typing import List
 
 def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit: bool = False, normalize: bool = True, 
@@ -47,6 +49,25 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
         split = {'train': 0.7, 'val': 0.2, 'test': 0.1}
     else:
         split = {'train': 1, 'val': 0, 'test': 0}
+
+    if split["test"] != 0:
+        # if no test folder yet, create one
+        if not os.path.exists(f"{path_to_datasets}/{dataset_name}_TEST"):
+            logging.warning("No TEST data folder yet, creating one now")
+            os.mkdir(f"{path_to_datasets}/{dataset_name}_TEST")
+            number_test_files = int(len(os.listdir(f"{path_to_datasets}/{dataset_name}")) * split["test"])
+            # select random files
+            for index_file in range(number_test_files):
+                file = os.listdir(f"{path_to_datasets}/{dataset_name}")[index_file]
+                if file != "inputs":
+                    os.rename(f"{path_to_datasets}/{dataset_name}/{file}", f"{path_to_datasets}/{dataset_name}_TEST/{file}")
+        # if test folder already exists, use it
+        else:
+            logging.warning("Test data folder exists already, using it")
+
+        split["train"] = np.round(split["train"]/(1-split["test"]), 2)
+        split["val"] = np.round(1-split["train"], 2)
+        split["test"] = 0
 
     # just plotting (for Marius)
     if just_plotting:
