@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 from copy import copy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from typing import Dict
 
 ###### Requirements etc
 # only applicable to:
@@ -82,7 +83,26 @@ def ellipse_1_percent(inj_point, alpha_L, alpha_T):
     width = 40 * alpha_L
     return Ellipse(inj_point, width, height, fill=False, color="red")
 
-def plot_temperature_lahm(data, x_grid, y_grid, title="", ellipses=None):
+def plot_temperature_lahm(data:Dict, x_grid, y_grid, title=""):
+    """
+    Plot the temperature field.
+    """
+    n_subplots = len(data.keys())
+    _, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(20,3*(n_subplots)))
+    
+    for index, (key, value) in enumerate(data.items()):
+        plt.sca(axes[index])
+        plt.title(f"{title}\n{key}")
+        levels = np.arange(10, 15.0, 0.25)
+        plt.contourf(x_grid, y_grid, value, levels=levels, cmap='RdBu_r', extent=(0,1280,100,0))
+        plt.ylabel("x [m]")
+        _aligned_colorbar(label=title)
+
+    plt.xlabel("y [m]")
+    # plt.show()
+    plt.savefig(f"{title}.png")
+
+def plot_different_versions_of_temperature_lahm(data, x_grid, y_grid, title="", ellipses=None):
     """
     Plot the temperature field.
     """
@@ -117,7 +137,8 @@ def plot_temperature_lahm(data, x_grid, y_grid, title="", ellipses=None):
 
 ###### helper functions
 def _time_years_to_seconds(time_years):
-    return time_years * 365 * 24 * 60 * 60
+    factor = 365 * 24 * 60 * 60
+    return time_years * factor
 
 def _velocity_m_day_to_m_s(velocity_m_day):
     return velocity_m_day / (24 * 60 * 60)

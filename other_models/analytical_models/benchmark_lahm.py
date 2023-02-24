@@ -5,20 +5,24 @@ import analytical_steady_state_model_willibald as willibald
 
 def check_lahm_requirements(parameters):
     # first lahm requirement: 
-    print(parameters["v_a"]*60*60*24)
+    # print(parameters["v_a"]*60*60*24)
     assert parameters["v_a"]*60*60*24 <= -1, "v_a must be at least 1 m per day to get a valid result"
     # second lahm requirement: energy extraction / injection must be at most 45.000 kWh/year
     energy_extraction_boundary = 45000e3/365/24 #[W] = [J/s]
-    print(parameters["q_inj"]*1000)
-    print(parameters["q_inj"] * parameters["C_w"] * parameters["T_inj_diff"], energy_extraction_boundary)
+    # print(parameters["q_inj"]*1000)
+    # print(parameters["q_inj"] * parameters["C_w"] * parameters["T_inj_diff"], energy_extraction_boundary)
     assert parameters["q_inj"] * parameters["C_w"] * parameters["T_inj_diff"] <= energy_extraction_boundary, "energy extraction must be at most 45.000 kWh/year"
 
 def calc_and_plot(domain, parameters):
-    delta_T_grid = lahm.delta_T(domain.x_grid-domain.injection_point[0], domain.y_grid-domain.injection_point[1], parameters["time_sim"], parameters["q_inj"], parameters)
-    print("T diff", delta_T_grid[int(domain.injection_point[1]/domain.cell_size), int(domain.injection_point[0]/domain.cell_size)])
+    results = {}
+    factor_year_to_seconds = 60*60*24*365
+    for t in parameters["time_sim"]:
+        delta_T_grid = lahm.delta_T(domain.x_grid-domain.injection_point[0], domain.y_grid-domain.injection_point[1], t, parameters["q_inj"], parameters)
+        print("T diff", delta_T_grid[int(domain.injection_point[1]/domain.cell_size), int(domain.injection_point[0]/domain.cell_size)])
+        results[f"{np.multiply(1/factor_year_to_seconds, t)} years"] = delta_T_grid+parameters["T_gwf"]
 
-    ellipse_10 = lahm.ellipse_10_percent(domain.injection_point, parameters["alpha_L"], parameters["alpha_T"])
-    lahm.plot_temperature_lahm(delta_T_grid+parameters["T_gwf"], domain.x_grid, domain.y_grid, title=parameters["name"], ellipses=[ellipse_10])
+    # ellipse_10 = lahm.ellipse_10_percent(domain.injection_point, parameters["alpha_L"], parameters["alpha_T"])
+    lahm.plot_temperature_lahm(results, domain.x_grid, domain.y_grid, title=parameters["name"]) #, ellipses=[ellipse_10])
 
 def run_willibald(domain, parameters:dict):
     T_isoline = 12
@@ -68,7 +72,7 @@ if __name__ == "__main__":
     T_gwf = 10.6
     T_inj_diff = 5
     q_inj = 0.00024 #[m^3/s]
-    t_sim = 5 # [years]
+    t_sim = np.array([1, 5, 27.5]) - 72/365 # 5?[years]
 
     testcases = [
         {"case": "1", "grad_p": 0.0015, "k_cond": 0.002, "k_perm": 0, "vf": 0, "va": 0, "va_m_per_day": 0},
@@ -90,7 +94,7 @@ if __name__ == "__main__":
     for testcase in testcases:
 
         parameters = {
-            "name": f'benchmark_lahm_testcase_{testcase["case"]}_after_{t_sim}_years',
+            "name": f'benchmark_lahm_testcase_{testcase["case"]}',
             "C_w": Cw,
             "n_e": ne, 
             "M": m_aquifer, 
