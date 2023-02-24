@@ -18,7 +18,7 @@ def calc_and_plot(domain, parameters):
     print("T diff", delta_T_grid[int(domain.injection_point[1]/domain.cell_size), int(domain.injection_point[0]/domain.cell_size)])
 
     ellipse_10 = lahm.ellipse_10_percent(domain.injection_point, parameters["alpha_L"], parameters["alpha_T"])
-    lahm.plot_temperature_lahm(delta_T_grid+parameters["T_gwf"], domain.x_grid, domain.y_grid, title="Temperature [C]", ellipses=[ellipse_10])
+    lahm.plot_temperature_lahm(delta_T_grid+parameters["T_gwf"], domain.x_grid, domain.y_grid, title=parameters["name"], ellipses=[ellipse_10])
 
 def run_willibald(domain, parameters:dict):
     T_isoline = 12
@@ -90,6 +90,7 @@ if __name__ == "__main__":
     for testcase in testcases:
 
         parameters = {
+            "name": f'benchmark_testcase_{testcase["case"]}_after_{t_sim}_years',
             "C_w": Cw,
             "n_e": ne, 
             "M": m_aquifer, 
@@ -104,6 +105,6 @@ if __name__ == "__main__":
             "k_perm": testcase["k_perm"], # [m^2] # for Willibald
             "grad_p": testcase["grad_p"], # [m/s] # for Willibald
         }
-        # check_lahm_requirements(parameters)
-        # calc_and_plot(domain, parameters)
-        x, y, y_minus = run_willibald(domain, parameters)
+        check_lahm_requirements(parameters)
+        calc_and_plot(domain, parameters)
+        # x, y, y_minus = run_willibald(domain, parameters)
