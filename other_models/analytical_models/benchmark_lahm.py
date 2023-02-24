@@ -90,7 +90,7 @@ if __name__ == "__main__":
     for testcase in testcases:
 
         parameters = {
-            "name": f'benchmark_testcase_{testcase["case"]}_after_{t_sim}_years',
+            "name": f'benchmark_lahm_testcase_{testcase["case"]}_after_{t_sim}_years',
             "C_w": Cw,
             "n_e": ne, 
             "M": m_aquifer, 
