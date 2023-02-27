@@ -176,10 +176,19 @@ class ReduceTo2DTransform:
         self.loc_hp_x = loc_hp_x
 
     def __call__(self, data: PhysicalVariables, loc_hp_x:int=None):
+
+        # check if data is already 2D, if so: do nothing
+        for data_prop in data.keys():
+            data_shape = data[data_prop].value.shape
+            if 1 in data_shape or len(data_shape) == 2:
+                logging.warn("ReduceTo2DTransform: data has dummy dimension 0")
+                return data
+            break
+
         if loc_hp_x is not None:
             self.loc_hp_x = loc_hp_x
             
-        # reduce data to 2D
+        # else: reduce data to 2D
         if self.reduce_to_2D_xy:
             for prop in data.keys():
                 data[prop].value.transpose_(0, 2) # (1,3)
