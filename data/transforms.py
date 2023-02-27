@@ -179,26 +179,28 @@ class ReduceTo2DTransform:
     def __call__(self, data: PhysicalVariables, loc_hp_x:int=None):
         logging.info("Start ReduceTo2DTransform")
 
-        # check if data is already 2D, if so: do nothing
         for data_prop in data.keys():
+            # check if data is already 2D, if so: do nothing/ only switch axes (for plotting)
             data_shape = data[data_prop].value.shape
             if 1 in data_shape or len(data_shape) == 2:
-                logging.warn("ReduceTo2DTransform: data has dummy dimension 0")
-                return data
-            break
+                if data_shape[-1] == 1 and len(data_shape) == 3:
+                    data[data_prop].value = np.swapaxes(data[data_prop].value, 0, 1)
 
-        if loc_hp_x is not None:
-            self.loc_hp_x = loc_hp_x
-            
-        # else: reduce data to 2D
-        if self.reduce_to_2D_xy:
-            for prop in data.keys():
-                data[prop].value.transpose_(0, 2) # (1,3)
+            # else: reduce data to 2D
+            else:
+                if loc_hp_x is not None:
+                    self.loc_hp_x = loc_hp_x
+                    
+                # else: reduce data to 2D
+                if self.reduce_to_2D_xy:
+                    for prop in data.keys():
+                        data[prop].value.transpose_(0, 2) # (1,3)
 
-        for prop in data.keys():
-            assert self.loc_hp_x <= data[prop].value.shape[0], "ReduceTo2DTransform: x is larger than data dimension 0"
-            data[prop].value = data[prop].value[self.loc_hp_x, :, :]
-            data[prop].value = unsqueeze(data[prop].value, 0)
+                for prop in data.keys():
+                    assert self.loc_hp_x <= data[prop].value.shape[0], "ReduceTo2DTransform: x is larger than data dimension 0"
+                    data[prop].value = data[prop].value[self.loc_hp_x, :, :]
+                    data[prop].value = unsqueeze(data[prop].value, 0)
+
         logging.info(
             "Reduced data to 2D, but still has dummy dimension 0 for Normalization to work")
         return data
