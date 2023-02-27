@@ -9,7 +9,6 @@ from torch import Tensor, squeeze, unsqueeze, round, from_numpy
 from data.utils import PhysicalVariables
 from typing import Dict
 
-
 class RescaleTransform:
     """Transform class to rescale data to a given range"""
 
@@ -80,6 +79,7 @@ class NormalizeTransform:
         self.names_material = ["Material_ID", "Material ID"]
 
     def __call__(self, data: PhysicalVariables, mean_val:Dict, std_val:Dict):
+        logging.info("Start normalization")
         # index shift for material ID
         for name_material in self.names_material:
             if name_material in data.keys():
@@ -101,7 +101,7 @@ class NormalizeTransform:
         #               inplace=True)(data[prop].value)
         #     # squeeze in case of reduced_to_2D_wrong necessary because unsqueezed before for Normalize to work
         #     data[prop].value = squeeze(data[prop].value)
-
+        logging.info("Data normalized")
         return data
 
     def init_mean_std(self, data: PhysicalVariables):
@@ -147,7 +147,7 @@ class PowerOfTwoTransform:  # CutOffEdgesTransform:
         self.orientation = oriented
 
     def __call__(self, data: PhysicalVariables):
-
+        logging.info("Start PowerOfTwoTransform")
         def po2(array, axis):
             dim = array.shape[axis]
             target = 2 ** int(np.log2(dim))
@@ -162,6 +162,7 @@ class PowerOfTwoTransform:  # CutOffEdgesTransform:
             for axis in (0, 1, 2):  # ,3): # for axis width, length, depth
                 data[prop].value = po2(data[prop].value, axis)
 
+        logging.info("Data reduced to power of 2")
         return data
 
 
@@ -176,6 +177,7 @@ class ReduceTo2DTransform:
         self.loc_hp_x = loc_hp_x
 
     def __call__(self, data: PhysicalVariables, loc_hp_x:int=None):
+        logging.info("Start ReduceTo2DTransform")
 
         # check if data is already 2D, if so: do nothing
         for data_prop in data.keys():
@@ -208,8 +210,10 @@ class ToTensorTransform:
         pass
 
     def __call__(self, data: PhysicalVariables):
+        logging.info("Start ToTensorTransform")
         for prop in data.keys():
             data[prop].value = from_numpy(data[prop].value)
+        logging.info("Converted data to torch.Tensor")
         return data
     
     ##TODO include when change back to cpu?
