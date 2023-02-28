@@ -41,7 +41,7 @@ class Dataset(ABC):
         """
         dataset_path_full = os.path.join(self.dataset_path, self.dataset_name)
         if not os.path.exists(dataset_path_full):
-            raise ValueError(f"Dataset {self.dataset_name} does not exist")
+            raise ValueError(f"Dataset {self.dataset_name} does not exist in {dataset_path_full}")
         if len(os.listdir(dataset_path_full)) == 0:
             raise ValueError(f"Dataset {self.dataset_name} is empty")
         return dataset_path_full
@@ -68,7 +68,7 @@ class DatasetSimulationData(Dataset):
 
         super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         assert mode in ["train", "val", "test"], "wrong mode for dataset given"
-        
+
         self.mode = mode
         self.split = split
         self.transform = transform
@@ -82,6 +82,7 @@ class DatasetSimulationData(Dataset):
         # self.time_init =     "Time:  0.00000E+00 y"
         self.time_first =    "   1 Time  1.00000E-01 y"
         self.time_final =    "   2 Time  5.00000E+00 y"
+        # self.time_final =    "   3 Time  5.00000E+00 y"
         
         self.datapoints = {}
         self.keep_datapoints_in_memory = True
@@ -113,7 +114,7 @@ class DatasetSimulationData(Dataset):
         dataset_path = self.dataset_path
         set_data_paths_runs, runs = [], []
         found_dataset = False
-    
+
         logging.info(f"Directory of currently used dataset is: {dataset_path}")
         for _, folders, _ in os.walk(dataset_path):
             for folder in folders:
@@ -184,17 +185,17 @@ class DatasetSimulationData(Dataset):
 
         datapoint.inputs = self._load_data_as_numpy(self.data_paths[index], self.input_vars_empty_value)
         datapoint.labels = self._load_data_as_numpy(self.data_paths[index], self.output_vars_empty_value)
-        try:
-            loc_hp_x = int(datapoint.get_loc_hp()[0])
-            if self.has_to_calc_mean_std:
-                # mean, std first have to be calculated for later use
-                datapoint.inputs = self.transform(datapoint.inputs, loc_hp_x)
-                datapoint.labels = self.transform(datapoint.labels, loc_hp_x)
-            else:
-                datapoint.inputs = self.transform(datapoint.inputs, loc_hp_x, self.mean_inputs, self.std_inputs)
-                datapoint.labels = self.transform(datapoint.labels, loc_hp_x, self.mean_labels, self.std_labels)
-        except Exception as e:
-            print("no transforms applied: ", e)
+        #try:
+        loc_hp = datapoint.get_loc_hp()
+        if self.has_to_calc_mean_std:
+            # mean, std first have to be calculated for later use
+            datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp)
+            datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp)
+        else:
+            datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp, mean_val=self.mean_inputs, std_val=self.std_inputs)
+            datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp, mean_val=self.mean_labels, std_val=self.std_labels)
+        #except Exception as e:
+        #    print("no transforms applied: ", e)
 
         _assertion_error_2d(datapoint)
         return datapoint
@@ -236,7 +237,7 @@ class DatasetSimulationData(Dataset):
         num_train = int(num_samples * fraction_train)
         num_valid = int(num_samples * fraction_val)
         
-        np.random.seed(0)   # TODO remove later only for testing
+        # np.random.seed(0)   # TODO remove later only for testing, also at another place in the code apparently
         rand_perm = np.random.permutation(num_samples)
         # TODO check communicate rand_perm with the datasets of all 3 modes?
         
