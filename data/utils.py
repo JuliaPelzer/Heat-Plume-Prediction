@@ -104,7 +104,7 @@ class DataPoint():
             ids = self.inputs["Material_ID"].value
             
         max_id = ids.max()
-        loc_hp = np.where(ids == max_id)
+        loc_hp = np.array(np.where(ids == max_id)).squeeze()
         return loc_hp
         
 @dataclass
@@ -176,10 +176,10 @@ def _assertion_error_2d(datapoint:DataPoint):
     checks if the data is 2D or 3D - else: error
     """
     for input_var in datapoint.inputs.values():
-        assert input_var.dim() == 2 or input_var.dim() == 3, "Input data is neither 2D nor 3D"
+        assert input_var.dim() == 2 or input_var.dim() == 3, "Input data is neither 2D nor 3D but {}D".format(input_var.dim())
         break
     for output_var in datapoint.labels.values():
-        assert output_var.dim() == 2 or output_var.dim() == 3, "Input data is neither 2D nor 3D"
+        assert output_var.dim() == 2 or output_var.dim() == 3, "Input data is neither 2D nor 3D but {}D".format(output_var.dim())
         break
 
 def _test_physical_variable():

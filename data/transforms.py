@@ -7,7 +7,7 @@ import numpy as np
 from torchvision.transforms import Normalize
 from torch import Tensor, squeeze, unsqueeze, round, from_numpy
 from data.utils import PhysicalVariables
-from typing import Dict
+from typing import Dict, Union, Tuple
 
 
 class RescaleTransform:
@@ -80,6 +80,7 @@ class NormalizeTransform:
         self.names_material = ["Material_ID", "Material ID"]
 
     def __call__(self, data: PhysicalVariables, mean_val:Dict, std_val:Dict):
+        logging.info("Start normalization")
         # index shift for material ID
         for name_material in self.names_material:
             if name_material in data.keys():
@@ -101,7 +102,7 @@ class NormalizeTransform:
         #               inplace=True)(data[prop].value)
         #     # squeeze in case of reduced_to_2D_wrong necessary because unsqueezed before for Normalize to work
         #     data[prop].value = squeeze(data[prop].value)
-
+        logging.info("Data normalized")
         return data
 
     def init_mean_std(self, data: PhysicalVariables):
@@ -147,7 +148,7 @@ class PowerOfTwoTransform:  # CutOffEdgesTransform:
         self.orientation = oriented
 
     def __call__(self, data: PhysicalVariables):
-
+        logging.info("Start PowerOfTwoTransform")
         def po2(array, axis):
             dim = array.shape[axis]
             target = 2 ** int(np.log2(dim))
@@ -162,6 +163,7 @@ class PowerOfTwoTransform:  # CutOffEdgesTransform:
             for axis in (0, 1, 2):  # ,3): # for axis width, length, depth
                 data[prop].value = po2(data[prop].value, axis)
 
+        logging.info("Data reduced to power of 2")
         return data
 
 
@@ -170,26 +172,43 @@ class ReduceTo2DTransform:
     Transform class to reduce data to 2D, reduce in x, in height of hp: x=7 (if after Normalize)
     """
 
-    def __init__(self, reduce_to_2D_xy=False, loc_hp_x: int = 9):
+    def __init__(self, reduce_to_2D_xy=False):
         # if reduce_to_2D_wrong then the data will still be reduced to 2D but in x,y dimension instead of y,z
         self.reduce_to_2D_xy = reduce_to_2D_xy
-        self.loc_hp_x = loc_hp_x
+        if reduce_to_2D_xy:
+            self.slice_dimension = 2 # z
+        else:
+            self.slice_dimension = 0 # x
+        loc_hp = np.array([2,9,2])
+        self.loc_hp_slice = int(loc_hp[self.slice_dimension]) 
 
-    def __call__(self, data: PhysicalVariables, loc_hp_x:int=None):
-        if loc_hp_x is not None:
-            self.loc_hp_x = loc_hp_x
-            
-        # reduce data to 2D
-        if self.reduce_to_2D_xy:
+    def __call__(self, data: PhysicalVariables, loc_hp: Tuple=None):
+        logging.info("Start ReduceTo2DTransform")
+        already_2d:bool = False
+
+        for data_prop in data.keys():
+            # check if data is already 2D, if so: do nothing/ only switch axes (for plotting)
+            data_shape = data[data_prop].value.shape
+            if 1 in data_shape or len(data_shape) == 2:
+                if data_shape[-1] == 1 and len(data_shape) == 3:
+                    data[data_prop].value = np.swapaxes(data[data_prop].value, 0, 1)
+                already_2d = True
+
+            # else: reduce data to 2D
+        if not already_2d:
+            if loc_hp is not None:
+                self.loc_hp_slice = loc_hp[self.slice_dimension]
+
+            #else: reduce data to 2D
+            if self.reduce_to_2D_xy:
+                for prop in data.keys():
+                    data[prop].value.transpose_(0, 2) # (1,3)
             for prop in data.keys():
-                data[prop].value.transpose_(0, 2) # (1,3)
-
-        for prop in data.keys():
-            assert self.loc_hp_x <= data[prop].value.shape[0], "ReduceTo2DTransform: x is larger than data dimension 0"
-            data[prop].value = data[prop].value[self.loc_hp_x, :, :]
-            data[prop].value = unsqueeze(data[prop].value, 0)
-        logging.info(
-            "Reduced data to 2D, but still has dummy dimension 0 for Normalization to work")
+                assert self.loc_hp_slice <= data[prop].value.shape[0], "ReduceTo2DTransform: x is larger than data dimension 0"
+                data[prop].value = data[prop].value[self.loc_hp_slice, :, :]
+                data[prop].value = unsqueeze(data[prop].value, 0) # TODO necessary? 
+        
+        logging.info("Reduced data to 2D, but still has dummy dimension 0 for Normalization to work")
         return data
 
 class ToTensorTransform:
@@ -199,8 +218,10 @@ class ToTensorTransform:
         pass
 
     def __call__(self, data: PhysicalVariables):
+        logging.info("Start ToTensorTransform")
         for prop in data.keys():
             data[prop].value = from_numpy(data[prop].value)
+        logging.info("Converted data to torch.Tensor")
         return data
     
     ##TODO include when change back to cpu?
@@ -222,10 +243,10 @@ class ComposeTransform:
         """
         self.transforms = transforms
 
-    def __call__(self, data: PhysicalVariables, loc_hp_x:int=None, mean_val:Dict=None, std_val:Dict=None):
+    def __call__(self, data: PhysicalVariables, loc_hp:Tuple=None, mean_val:Dict=None, std_val:Dict=None):
         for transform in self.transforms:
             if isinstance(transform, ReduceTo2DTransform):
-                data = transform(data, loc_hp_x)
+                data = transform(data, loc_hp)
             elif isinstance(transform, NormalizeTransform):
                 if not mean_val==None and not std_val==None:
                     data = transform(data, mean_val, std_val)

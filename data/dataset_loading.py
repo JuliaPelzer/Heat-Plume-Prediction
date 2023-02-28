@@ -1,11 +1,14 @@
 from data.dataset import DatasetSimulationData
 from data.dataloader import DataLoader
 from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, PowerOfTwoTransform, ToTensorTransform
+import os
+from shutil import copyfile
 import logging
 from typing import List
+import numpy as np
 
 def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit: bool = False, normalize: bool = True, 
-              just_plotting: bool = False, batch_size: int = 100, inputs: str = "xyzpt", labels: str = "txyz",
+              just_plotting: bool = False, batch_size: int = 1000, inputs: str = "xyzpt", labels: str = "txyz",
               dataset_name: str = "perm_pressure1D_10dp", 
               path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets"):
     """
@@ -33,7 +36,6 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
     assert isinstance(dataset_name, str) and isinstance(
         path_to_datasets, str), "input parameters dataset_name, path_to_datasets have to be str"
 
-    datasets = {}
     transforms_list = [ToTensorTransform(), PowerOfTwoTransform(oriented="left")]
     if reduce_to_2D:
         transforms_list.append(ReduceTo2DTransform(reduce_to_2D_xy=reduce_to_2D_xy))
@@ -52,29 +54,34 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
     if just_plotting:
         split = {'train': 1, 'val': 0, 'test': 0}
         transforms = None
+    
+    modes = ['train', 'val', 'test'] if split["test"] != 0 else ['train', 'val']
+    split = _split_test_data_extra_folder(split, path_to_datasets, dataset_name)
 
     input_vars = _build_property_list(inputs)
     input_vars.append("Material_ID") # if structured grid
     input_vars.append("Material ID") # if unstructured grid
     output_vars = _build_property_list(labels)
 
+    datasets = {}
     means_stds_train_tuple=None
-    for mode in ['train', 'val', 'test']:
+    for mode in modes:
+        dataset_name_temp = dataset_name+"_TEST" if mode=="test" else dataset_name
+
         temp_dataset = DatasetSimulationData(
-            dataset_name=dataset_name, dataset_path=path_to_datasets,
+            dataset_name=dataset_name_temp, dataset_path=path_to_datasets,
             transform=transforms, input_vars_names=input_vars,
-            output_vars_names=output_vars,  # . "Liquid_Pressure [Pa]"
-            mode=mode, split=split,
+            output_vars_names=output_vars,
+            mode=mode, split=split, normalize_bool=normalize,
             means_stds_train_tuple=means_stds_train_tuple
         )
-        if mode == "train":    
+        if mode == "train" and normalize:    
             means_stds_train_tuple = temp_dataset.mean_inputs, temp_dataset.std_inputs, temp_dataset.mean_labels, temp_dataset.std_labels
-
         datasets[mode] = temp_dataset
 
     # Create a dataloader for each split.
     dataloaders = {}
-    for mode in ['train', 'val', 'test']:
+    for mode in modes:
         temp_dataloader = DataLoader(
             dataset=datasets[mode],
             batch_size=batch_size,
@@ -82,7 +89,11 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
             drop_last=False,
         )
         dataloaders[mode] = temp_dataloader
-    print(f'init done [total number of datapoints/runs: {len(datasets["train"])+len(datasets["val"])+len(datasets["test"])}], with train: {len(datasets["train"])}, val: {len(datasets["val"])}, test: {len(datasets["test"])}')
+
+    len_datasets = ""
+    for mode in modes:
+        len_datasets += f"{mode}: {len(datasets[mode])} "
+    print(f'init done [total number of datapoints/runs: {np.sum([len(datasets[mode]) for mode in modes])}], with {len_datasets}')
     return datasets, dataloaders
 
 
@@ -107,3 +118,32 @@ def _build_property_list(properties:str) -> List:
         vars.append("Permeability X [m^2]")
 
     return vars
+
+def _split_test_data_extra_folder(split:dict, path_to_datasets:str, dataset_name:str):
+    if split["test"] != 0:
+        # if no test folder yet, create one
+        if not os.path.exists(f"{path_to_datasets}/{dataset_name}_TEST"):
+            logging.warning("No TEST data folder yet, creating one now")
+            os.mkdir(f"{path_to_datasets}/{dataset_name}_TEST")
+            number_datapoints = len(os.listdir(f"{path_to_datasets}/{dataset_name}"))-1
+            number_test_files = int(number_datapoints * split["test"])
+            
+            # select and move random datapoints/ files to test folder
+            indices_test = np.random.permutation(number_datapoints)[:number_test_files]
+            for index_file in indices_test:
+                os.rename(f"{path_to_datasets}/{dataset_name}/RUN_{index_file}", f"{path_to_datasets}/{dataset_name}_TEST/RUN_{index_file}")
+
+            # copy inputs folder
+            os.mkdir(f"{path_to_datasets}/{dataset_name}_TEST/inputs")
+            for file in os.listdir(f"{path_to_datasets}/{dataset_name}/inputs"):
+                copyfile(f"{path_to_datasets}/{dataset_name}/inputs/{file}", f"{path_to_datasets}/{dataset_name}_TEST/inputs/{file}")
+                
+        # if test folder already exists, use it
+        else:
+            logging.warning("Test data folder exists already, using it")
+
+        split["train"] = np.round(split["train"]/(1-split["test"]), 2)
+        split["val"] = np.round(1-split["train"], 2)
+        split["test"] = 0
+
+    return split
