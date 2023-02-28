@@ -3,6 +3,7 @@ from data.dataloader import DataLoader
 from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, PowerOfTwoTransform, ToTensorTransform
 import logging
 from typing import List
+import numpy as np
 
 def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit: bool = False, normalize: bool = True, 
               just_plotting: bool = False, batch_size: int = 1000, inputs: str = "xyzpt", labels: str = "txyz",
@@ -52,6 +53,7 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
     if just_plotting:
         split = {'train': 1, 'val': 0, 'test': 0}
         transforms = None
+    modes = ['train', 'val', 'test'] if split["test"] != 0 else ['train', 'val']
 
     input_vars = _build_property_list(inputs)
     input_vars.append("Material_ID") # if structured grid
@@ -59,11 +61,11 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
     output_vars = _build_property_list(labels)
 
     means_stds_train_tuple=None
-    for mode in ['train', 'val', 'test']:
+    for mode in modes:
         temp_dataset = DatasetSimulationData(
             dataset_name=dataset_name, dataset_path=path_to_datasets,
             transform=transforms, input_vars_names=input_vars,
-            output_vars_names=output_vars,  # . "Liquid_Pressure [Pa]"
+            output_vars_names=output_vars,
             mode=mode, split=split, normalize_bool=normalize,
             means_stds_train_tuple=means_stds_train_tuple
         )
@@ -74,7 +76,7 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
 
     # Create a dataloader for each split.
     dataloaders = {}
-    for mode in ['train', 'val', 'test']:
+    for mode in modes:
         temp_dataloader = DataLoader(
             dataset=datasets[mode],
             batch_size=batch_size,
@@ -82,7 +84,11 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
             drop_last=False,
         )
         dataloaders[mode] = temp_dataloader
-    print(f'init done [total number of datapoints/runs: {len(datasets["train"])+len(datasets["val"])+len(datasets["test"])}], with train: {len(datasets["train"])}, val: {len(datasets["val"])}, test: {len(datasets["test"])}')
+
+    len_datasets = ""
+    for mode in modes:
+        len_datasets += f"{mode}: {len(datasets[mode])} "
+    print(f'init done [total number of datapoints/runs: {np.sum([len(datasets[mode]) for mode in modes])}], with {len_datasets}')
     return datasets, dataloaders
 
 
