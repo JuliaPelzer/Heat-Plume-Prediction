@@ -106,6 +106,7 @@ if __name__ == "__main__":
     cla = sys.argv
     kwargs = {}
     kwargs = load_settings(".", "settings_training")
+    kwargs["overfit"] = True
 
     if len(cla) >= 2:
         kwargs["n_epochs"] = int(cla[1])

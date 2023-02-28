@@ -124,6 +124,7 @@ class Solver(object):
         if self.debug_output:
             writer = SummaryWriter(f"runs/{name_folder}")
 
+        # epochs = range(n_epochs)
         epochs = tqdm(range(n_epochs), desc="epochs")
         # Start an epoch
         for epoch in epochs:

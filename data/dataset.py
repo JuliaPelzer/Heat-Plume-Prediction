@@ -79,10 +79,11 @@ class DatasetSimulationData(Dataset):
         self.dataset_path = super().check_for_dataset()
         
         self.data_paths, self.runs = self.make_dataset(self)
+        logging.info(f"Dataset {self.dataset_name} in mode {self.mode} has {len(self.data_paths)} runs, named {self.runs}")
         # self.time_init =     "Time:  0.00000E+00 y"
         self.time_first =    "   1 Time  1.00000E-01 y"
-        self.time_final =    "   2 Time  5.00000E+00 y"
-        # self.time_final =    "   3 Time  5.00000E+00 y"
+        # self.time_final =    "   2 Time  5.00000E+00 y"
+        self.time_final =    "   3 Time  5.00000E+00 y"
         
         self.datapoints = {}
         self.keep_datapoints_in_memory = True
@@ -126,8 +127,9 @@ class DatasetSimulationData(Dataset):
         set_data_paths_runs = sorted(set_data_paths_runs, key=lambda val: int(val[0].strip('RUN_')))
         runs = [data_path[0] for data_path in set_data_paths_runs]
         data_paths = [data_path[1] for data_path in set_data_paths_runs]
-        # Split the data and runs into train, val and test
-        data_paths, runs = self._select_split(data_paths, runs)
+        # Split the data and runs into train, val
+        if not self.mode == "test":
+            data_paths, runs = self._select_split(data_paths, runs)
         if not found_dataset:
             raise ValueError("No dataset found")
         assert len(data_paths) == len(runs)
@@ -230,27 +232,28 @@ class DatasetSimulationData(Dataset):
         data_paths: where only the indices for the corresponding data split are selected
         runs: where only the indices for the corresponding data split are selected
         """
+        " !!only done for train and val, not for test!!"
 
         fraction_train = self.split['train']
         fraction_val = self.split['val']
         num_samples = len(data_paths)
-        num_train = int(num_samples * fraction_train)
-        num_valid = int(num_samples * fraction_val)
-        
-        # np.random.seed(0)   # TODO remove later only for testing, also at another place in the code apparently
-        rand_perm = np.random.permutation(num_samples)
+        num_train = int(np.round(num_samples * fraction_train, 0))
+        num_valid = int(np.round(num_samples * fraction_val, 0))
+            
+        np.random.seed(0)   
+        # TODO have to keep it somehow or split "RUN_x" beforehand - to make sure that validation is actually working on other files than training!! remove later only for testing
         # TODO check communicate rand_perm with the datasets of all 3 modes?
+        rand_perm = np.random.permutation(num_samples)
         
         if self.mode == 'train':
             indices = rand_perm[:num_train]
         elif self.mode == 'val':
             indices = rand_perm[num_train:num_train+num_valid]
-        elif self.mode == 'test':
-            indices = rand_perm[num_train+num_valid:]
 
         if isinstance(data_paths, list): 
             return list(np.array(data_paths)[indices]), list(np.array(labels)[indices])
         else: 
+            logging.error("I did not expect this to be the case at any moment!")
             return data_paths[indices], list(np.array(labels)[indices])
         
     def _load_data_as_numpy(self, data_path:str, variables:PhysicalVariables) -> PhysicalVariables:
