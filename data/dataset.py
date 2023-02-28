@@ -11,7 +11,7 @@ from data.utils import PhysicalVariables, DataPoint, _assertion_error_2d, get_di
 import os, sys
 import numpy as np
 import h5py
-from torch import Tensor
+from torch import Tensor, square, mean, sqrt
 
 @dataclass
 class Dataset(ABC):
@@ -41,7 +41,7 @@ class Dataset(ABC):
         """
         dataset_path_full = os.path.join(self.dataset_path, self.dataset_name)
         if not os.path.exists(dataset_path_full):
-            raise ValueError(f"Dataset {self.dataset_name} does not exist")
+            raise ValueError(f"Dataset {self.dataset_name} does not exist in {dataset_path_full}")
         if len(os.listdir(dataset_path_full)) == 0:
             raise ValueError(f"Dataset {self.dataset_name} is empty")
         return dataset_path_full
@@ -62,12 +62,13 @@ class DatasetSimulationData(Dataset):
                  input_vars_names:List[str]=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
                  "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"], # "hp_power"
                  output_vars_names:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"], 
+                 normalize_bool:bool=True,
                  means_stds_train_tuple:Tuple[Dict, Dict, Dict, Dict]=None,
                  **kwargs)-> Dataset:
 
         super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         assert mode in ["train", "val", "test"], "wrong mode for dataset given"
-        
+
         self.mode = mode
         self.split = split
         self.transform = transform
@@ -78,21 +79,25 @@ class DatasetSimulationData(Dataset):
         self.dataset_path = super().check_for_dataset()
         
         self.data_paths, self.runs = self.make_dataset(self)
+        logging.info(f"Dataset {self.dataset_name} in mode {self.mode} has {len(self.data_paths)} runs, named {self.runs}")
         # self.time_init =     "Time:  0.00000E+00 y"
         self.time_first =    "   1 Time  1.00000E-01 y"
-        self.time_final =    "   2 Time  5.00000E+00 y"
+        # self.time_final =    "   2 Time  5.00000E+00 y"
+        self.time_final =    "   3 Time  5.00000E+00 y"
         
         self.datapoints = {}
+        self.keep_datapoints_in_memory = True
         self.dimensions_of_datapoint:Tuple[int, int, int] = get_dimensions(f"{dataset_path}/{dataset_name}")
         # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
         self.input_vars_empty_value = PhysicalVariables(self.time_first, input_vars_names) # collection of overall information but not std, mean
         self.output_vars_empty_value = PhysicalVariables(self.time_final, output_vars_names)
-        self.has_to_calc_mean_std = True
-        if mode=="train":
-            self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = self._calc_mean_std_dataset()   # calc mean, std for all dataset runs
-        else:
-            self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = means_stds_train_tuple
-        self.has_to_calc_mean_std = False
+        if normalize_bool:
+            self.has_to_calc_mean_std = True
+            if mode=="train":
+                self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = self._calc_mean_std_dataset()   # calc mean, std for all dataset runs
+            else:
+                self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = means_stds_train_tuple
+            self.has_to_calc_mean_std = False
         
     def __len__(self):
         # Return the length of the dataset (number of runs), but fill them only on their first call
@@ -110,7 +115,7 @@ class DatasetSimulationData(Dataset):
         dataset_path = self.dataset_path
         set_data_paths_runs, runs = [], []
         found_dataset = False
-    
+
         logging.info(f"Directory of currently used dataset is: {dataset_path}")
         for _, folders, _ in os.walk(dataset_path):
             for folder in folders:
@@ -122,8 +127,9 @@ class DatasetSimulationData(Dataset):
         set_data_paths_runs = sorted(set_data_paths_runs, key=lambda val: int(val[0].strip('RUN_')))
         runs = [data_path[0] for data_path in set_data_paths_runs]
         data_paths = [data_path[1] for data_path in set_data_paths_runs]
-        # Split the data and runs into train, val and test
-        data_paths, runs = self._select_split(data_paths, runs)
+        # Split the data and runs into train, val
+        if not self.mode == "test":
+            data_paths, runs = self._select_split(data_paths, runs)
         if not found_dataset:
             raise ValueError("No dataset found")
         assert len(data_paths) == len(runs)
@@ -163,12 +169,13 @@ class DatasetSimulationData(Dataset):
         """
         # TODO x is a numpy array of shape CxHxWxD (C=channels, HxWxD=spatial dimensions)
         # TODO y is a numpy array of shape CxHxWxD (C= output channels, HxWxD=spatial dimensions)
-        
-        if index not in self.datapoints.keys():
-            self.datapoints[index] = self.load_datapoint(index)
-            # print("created datapoint at index", index)
-
-        return self.datapoints[index]
+        if self.keep_datapoints_in_memory:
+            if index not in self.datapoints.keys():
+                self.datapoints[index] = self.load_datapoint(index)
+                # print("created datapoint at index", index)
+            return self.datapoints[index]
+        else:
+            return self.load_datapoint(index)
 
     def load_datapoint(self, index:int) -> DataPoint:
         """
@@ -180,17 +187,17 @@ class DatasetSimulationData(Dataset):
 
         datapoint.inputs = self._load_data_as_numpy(self.data_paths[index], self.input_vars_empty_value)
         datapoint.labels = self._load_data_as_numpy(self.data_paths[index], self.output_vars_empty_value)
-        try:
-            loc_hp_x = int(datapoint.get_loc_hp()[0])
-            if self.has_to_calc_mean_std:
-                # mean, std first have to be calculated for later use
-                datapoint.inputs = self.transform(datapoint.inputs, loc_hp_x)
-                datapoint.labels = self.transform(datapoint.labels, loc_hp_x)
-            else:
-                datapoint.inputs = self.transform(datapoint.inputs, loc_hp_x, self.mean_inputs, self.std_inputs)
-                datapoint.labels = self.transform(datapoint.labels, loc_hp_x, self.mean_labels, self.std_labels)
-        except Exception as e:
-            print("no transforms applied: ", e)
+        #try:
+        loc_hp = datapoint.get_loc_hp()
+        if self.has_to_calc_mean_std:
+            # mean, std first have to be calculated for later use
+            datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp)
+            datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp)
+        else:
+            datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp, mean_val=self.mean_inputs, std_val=self.std_inputs)
+            datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp, mean_val=self.mean_labels, std_val=self.std_labels)
+        #except Exception as e:
+        #    print("no transforms applied: ", e)
 
         _assertion_error_2d(datapoint)
         return datapoint
@@ -225,27 +232,28 @@ class DatasetSimulationData(Dataset):
         data_paths: where only the indices for the corresponding data split are selected
         runs: where only the indices for the corresponding data split are selected
         """
+        " !!only done for train and val, not for test!!"
 
         fraction_train = self.split['train']
         fraction_val = self.split['val']
         num_samples = len(data_paths)
-        num_train = int(num_samples * fraction_train)
-        num_valid = int(num_samples * fraction_val)
-        
-        np.random.seed(0)   # TODO remove later only for testing
-        rand_perm = np.random.permutation(num_samples)
+        num_train = int(np.round(num_samples * fraction_train, 0))
+        num_valid = int(np.round(num_samples * fraction_val, 0))
+            
+        np.random.seed(0)   
+        # TODO have to keep it somehow or split "RUN_x" beforehand - to make sure that validation is actually working on other files than training!! remove later only for testing
         # TODO check communicate rand_perm with the datasets of all 3 modes?
+        rand_perm = np.random.permutation(num_samples)
         
         if self.mode == 'train':
             indices = rand_perm[:num_train]
         elif self.mode == 'val':
             indices = rand_perm[num_train:num_train+num_valid]
-        elif self.mode == 'test':
-            indices = rand_perm[num_train+num_valid:]
 
         if isinstance(data_paths, list): 
             return list(np.array(data_paths)[indices]), list(np.array(labels)[indices])
         else: 
+            logging.error("I did not expect this to be the case at any moment!")
             return data_paths[indices], list(np.array(labels)[indices])
         
     def _load_data_as_numpy(self, data_path:str, variables:PhysicalVariables) -> PhysicalVariables:
@@ -266,45 +274,32 @@ class DatasetSimulationData(Dataset):
         Calculate mean and std of the dataset.
         """
         mean_in = {}
-        std_in = {}
         mean_labels = {}
-        std_labels = {}
         number_datapoints = len(self)
 
-
-        # load all dataset + calc mean, std and save it
+        # load all dataset + calc mean
         for run in range(len(self)):
             for key, value in self[run].inputs.items():
-                # print(key, value.mean_orig, value.std_orig)
-                assert (key in mean_in.keys() and key in std_in.keys()) or \
-                       (key not in mean_in.keys() and key not in std_in.keys()), f"property {key} should either be in both mean and std already calculated or in neither"
-                        
-                if key in mean_in.keys() and key in std_in.keys():
-                    mean_in[key] += value.mean_orig
-                    std_in[key] += value.std_orig # TODO TODO reasonable?? to calc mean of std???
-                else:
-                    mean_in[key] = value.mean_orig
-                    std_in[key] = value.std_orig # TODO TODO reasonable?? to calc mean of std???
+                mean_in[key] = mean_in[key]+value.mean_orig if key in mean_in.keys() else value.mean_orig
             for key, value in self[run].labels.items():
-                if key in mean_labels.keys() and key in std_labels.keys():
-                    mean_labels[key] += value.mean_orig
-                    std_labels[key] += value.std_orig # TODO TODO reasonable?? to calc mean of std???
-                else:
-                    mean_labels[key] = value.mean_orig
-                    std_labels[key] = value.std_orig # TODO TODO reasonable?? to calc mean of std???
-        # then save it in self.input_vars_empty_value
-        for key, prop in mean_in.items():
-            prop /= number_datapoints
-            # self.input_vars_empty_value[key].mean_orig = prop/number_datapoints
-        for key, prop in std_in.items():
-            prop /= number_datapoints
-            # self.input_vars_empty_value[key].std_orig = prop/number_datapoints
-        for key, prop in mean_labels.items():
-            prop /= number_datapoints
-            # self.output_vars_empty_value[key].mean_orig = prop/number_datapoints
-        for key, prop in std_labels.items():
-            prop /= number_datapoints
-            # self.output_vars_empty_value[key].std_orig = prop/number_datapoints
+                mean_labels[key] = mean_labels[key]+value.mean_orig if key in mean_labels.keys() else value.mean_orig
+
+        for key, prop in mean_in.items(): prop /= number_datapoints
+        for key, prop in mean_labels.items(): prop /= number_datapoints
+
+        # calc std
+        std_in = {}
+        std_labels = {}
+        squaresum_mean_in = {}
+        squaresum_mean_labels = {}
+        for run in range(len(self)):
+            for key, value in self[run].inputs.items():
+                squaresum_mean_in[key] = squaresum_mean_in[key] + square(value.value-mean_in[key]) if key in std_in.keys() else square(value.value-mean_in[key])
+            for key, value in self[run].labels.items():
+                squaresum_mean_labels[key] = squaresum_mean_labels[key] + square(value.value-mean_labels[key]) if key in std_labels.keys() else square(value.value-mean_labels[key])
+        
+        for key, prop in squaresum_mean_in.items(): std_in[key]=sqrt(mean(prop))
+        for key, prop in squaresum_mean_labels.items(): std_labels[key]=sqrt(mean(prop))
 
         self.datapoints = {}    # del all datapoints created in this process to free space
         return mean_in, std_in, mean_labels, std_labels

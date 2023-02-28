@@ -2,7 +2,7 @@ from data.dataset_loading import init_data
 from data.utils import load_settings, save_settings
 from solver import Solver
 from networks.unet_leiterrl import TurbNetG, UNet
-from networks.dummy_network import DummyNet
+from networks.dummy_network import DummyNet, DummyCNN
 from visualization.visualize_data import plot_sample
 from torch.nn import MSELoss
 from torch import cuda, device
@@ -41,17 +41,19 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
             size_domain_2D = size_domain_2D[1:]
         # transform to PowerOfTwo
         size_domain_2D = [2 ** int(np.log2(dimension)) for dimension in size_domain_2D]
-
         model = DummyNet(in_channels=in_channels, out_channels=1, size=size_domain_2D).float()
+    elif model_choice == "cnn":
+        model = DummyCNN(in_channels=in_channels, out_channels=1).float()
     elif model_choice == "turbnet":
         model = TurbNetG(channelExponent=4, in_channels=in_channels, out_channels=1).float()
     else:
         print("model choice not recognized")
         sys.exit()
+    # print(model)
 
     device_used = device('cuda' if cuda.is_available() else 'cpu')
     if not device_used == 'cuda':
-        logging.info(f"Using {device_used} device")
+        logging.warning(f"Using {device_used} device")
     model.to(device_used)
 
     number_parameter = count_parameters(model)
@@ -69,9 +71,9 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
 
     # visualization
     if overfit:
-        error, error_mean, final_max_error = plot_sample(model, dataloaders_2D["train"], device_used, name_folder_destination, plot_name="plot_learned_test_sample")
+        error, error_mean, final_max_error = plot_sample(model, dataloaders_2D["train"], device_used, name_folder_destination, plot_name=name_folder_destination+"/plot_train_sample_applied")
     else:
-        error, error_mean, final_max_error = plot_sample(model, dataloaders_2D["test"], device_used, name_folder_destination, plot_name="plot_learned_test_sample", plot_one_bool=False)
+        error, error_mean, final_max_error = plot_sample(model, dataloaders_2D["test"], device_used, name_folder_destination, plot_name=name_folder_destination+"/plot_test_sample_applied", plot_one_bool=False)
     
     # save model - TODO : both options currently not working
     # save(model, str(name_folder)+str(dataset_name)+str(inputs)+".pt")
@@ -94,12 +96,17 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
 
     results = {"timestamp": time_begin, "model":model_choice, "dataset":dataset_name, "overfit":overfit, "inputs":inputs, "n_epochs":n_epochs, "lr":lr, "error_mean":error_mean[-1], "error_max":final_max_error, "duration":duration, "name_destination_folder":name_folder_destination}
     append_results_to_csv(results, "runs/collected_results_rough_idea.csv")
+    
+    model.to("cpu")
+    # del model
+    return model
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)        # level: DEBUG, INFO, WARNING, ERROR, CRITICAL
     cla = sys.argv
     kwargs = {}
     kwargs = load_settings(".", "settings_training")
+    kwargs["overfit"] = True
 
     if len(cla) >= 2:
         kwargs["n_epochs"] = int(cla[1])

@@ -14,7 +14,7 @@ class DataLoader:
     Defines an iterable batch-sampler over a given dataset
     """
     dataset:DatasetSimulationData  #where to load the data from
-    batch_size:int=1        #how many samples per batch to load
+    batch_size:int=10       #how many samples per batch to load
     shuffle:bool=False      #set to True to have the data reshuffled at every epoch
     drop_last:bool=False    #set to True to drop the last incomplete batch, if the dataset size is not divisible by the batch size. If False and the size of dataset is not divisible by the batch size, then the last batch will be smaller.
 

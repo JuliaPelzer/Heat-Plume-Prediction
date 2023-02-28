@@ -36,7 +36,7 @@ def test_reduceto2d_transform():
     data["test"] = zeros([4,2,4])
     data_reduced = zeros([1,2,4])
     # Actual result
-    data_actual = trans.ReduceTo2DTransform(loc_hp_x=0)(data)
+    data_actual = trans.ReduceTo2DTransform()(data, loc_hp=[0,1,1])
     # Test
     assert data_actual["test"].value.shape == data_reduced.shape
     tensor_eq = eq(data_actual["test"].value, data_reduced).flatten
@@ -106,7 +106,7 @@ def test_physical_property():
 
 def test_data_init():
     _, dataloaders = lp.init_data(reduce_to_2D=False, overfit=True, dataset_name="test_dataset_01", inputs="xyz")
-    assert len(dataloaders) == 3
+    assert len(dataloaders) == 2
     assert len(dataloaders["train"].dataset[0].inputs) == 4
     for prop in dataloaders["train"].dataset[0].inputs.values():
         assert prop.shape() == (8,128,8)

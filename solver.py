@@ -49,7 +49,7 @@ class Solver(object):
         - optimizer: The optimizer specifying the update rule
 
         Optional arguments:
-        - verbose: Boolean; if set to false then no output will be printed during
+        - debug_output: Boolean; if set to false then no output will be printed during
           training.
         - print_every: Integer; training losses will be printed every print_every
           iterations.
@@ -89,7 +89,7 @@ class Solver(object):
         self.current_patience = 0
         self.model.apply(weights_init) #
 
-    def _step(self, X, y, validation=False):
+    def _step(self, X, y, device, validation=False):
         """
         Make a single gradient update. This is called by train() and should not
         be called manually.
@@ -103,24 +103,16 @@ class Solver(object):
             labels y
         """
         loss = None
-
         # self.model.zero_grad() #
         self.opt.zero_grad()
 
-        # Forward pass
-        y_pred = self.model(X)
-        # Compute loss
-        loss = self.loss_func(y_pred, y)
-        # Add the regularization
-        # loss += sum(self.model.reg.values()) #
-
-        # Perform gradient update (only in train mode)
-        if not validation:
-            # Compute gradients
-            loss.backward() #
+        y_pred = self.model(X).to(device)  # Forward pass
+        loss = self.loss_func(y_pred, y)    # Compute loss
+        # loss += sum(self.model.reg.values())  # Add the regularization    #   
+        if not validation:  # Perform gradient update (only in train mode)
+            loss.backward() # Compute gradients     #
             # self.opt.backward(y_pred, y) #
-            # Update weights
-            self.opt.step()
+            self.opt.step() # Update weights
 
         return loss, y_pred
 
@@ -132,6 +124,7 @@ class Solver(object):
         if self.debug_output:
             writer = SummaryWriter(f"runs/{name_folder}")
 
+        # epochs = range(n_epochs)
         epochs = tqdm(range(n_epochs), desc="epochs")
         # Start an epoch
         for epoch in epochs:
@@ -146,15 +139,15 @@ class Solver(object):
 
                 # Update the model parameters.
                 validate = epoch == 0
-                train_loss, y_pred = self._step(X, y, validation=validate)
-
-                self.train_batch_loss.append(train_loss.detach().item())
+                train_loss, y_pred = self._step(X, y, device, validation=validate)
+                train_loss, y_pred = train_loss.detach().item(), y_pred.detach()
+                self.train_batch_loss.append(train_loss)
                 train_epoch_loss += train_loss
             train_epoch_loss /= len(self.train_dataloader.dataset)
 
             # self.opt.lr *= self.lr_decay
             if self.debug_output:
-                writer.add_scalar("train_loss", train_epoch_loss.item(), epoch) # * len(self.train_dataloader.dataset)+batch_idx)
+                writer.add_scalar("train_loss", train_epoch_loss, epoch) # * len(self.train_dataloader.dataset)+batch_idx)
                 writer.add_image("y_out", y_pred[0, 0, :, :], dataformats="WH",
                                  global_step=epoch) # *len(self.train_dataloader.dataset)+batch_idx)
 
@@ -167,19 +160,20 @@ class Solver(object):
                 y = data_values.labels.float().to(device)
 
                 # Compute Loss - no param update at validation time!
-                val_loss, _ = self._step(X, y, validation=True) #
-                self.val_batch_loss.append(val_loss.detach().item())
+                val_loss, _ = self._step(X, y, device, validation=True) #
+                val_loss = val_loss.detach().item()
+                self.val_batch_loss.append(val_loss)
                 val_epoch_loss += val_loss
 
             val_epoch_loss /= len(self.val_dataloader.dataset)
             self.scheduler.step(val_epoch_loss) #TODO test
 
             if self.debug_output:
-                writer.add_scalar("val_loss", val_epoch_loss.item(), epoch) # * len(self.train_dataloader.dataset)+batch_idx)
+                writer.add_scalar("val_loss", val_epoch_loss, epoch) # * len(self.train_dataloader.dataset)+batch_idx)
 
             # Record the losses for later inspection.
-            self.train_loss_history.append(train_epoch_loss.detach().item())
-            self.val_loss_history.append(val_epoch_loss.detach().item())
+            self.train_loss_history.append(train_epoch_loss)
+            self.val_loss_history.append(val_epoch_loss)
 
             if self.debug_output and epoch % self.print_every == 0:
                 epochs.set_postfix_str(f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
@@ -190,6 +184,7 @@ class Solver(object):
             self.update_best_loss(val_epoch_loss, train_epoch_loss)
             if patience and self.current_patience >= patience:
                 print("Stopping early at epoch {}!".format(epoch))
+                n_epochs = epoch
                 break
 
         # At the end of training swap the best params into the model
