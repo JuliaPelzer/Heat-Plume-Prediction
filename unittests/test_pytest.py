@@ -1,7 +1,10 @@
+import pytest
+
 import data.transforms as trans    # The code to test
 import data.dataloader as dataloader
 import data.dataset_loading as lp
 import data.utils as utils
+import networks.losses
 
 # additional libraries
 import numpy as np
@@ -180,6 +183,19 @@ def test_reverse_transform():
     for _, data in enumerate(dataloaders_2D["train"]):
         for data in dataloaders_2D["train"].dataset:
             dataloaders_2D["train"].dataset.reverse_transform(data)
+
+def test_mselossexcludenotchangedtemp():
+    import torch
+    # Fixture
+    tensor1 = torch.tensor([[10.6, 12], [12, 10.6]])
+    tensor2 = torch.tensor([[10.6, 12], [10.6, 12]])
+    # Expected result
+    expected_value = torch.tensor(1.30666667)
+    # Actual result
+    value = networks.losses.MSELossExcludeNotChangedTemp(ignore_temp=10.6)(tensor1, tensor2)
+    # Test
+    assert expected_value == pytest.approx(value)
+
 
 if __name__ == "__main__":
     test_data_init()
