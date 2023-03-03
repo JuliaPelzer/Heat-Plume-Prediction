@@ -95,13 +95,6 @@ class NormalizeTransform:
             # TODO next lines necessary?
             # # squeeze in case of reduced_to_2D_wrong necessary because unsqueezed before for Normalize to work
             data[prop].value = squeeze(data[prop].value)
-        # ## OLD
-        # # normalize data to mean and std
-        # for prop in data.keys():
-        #     Normalize(data[prop].mean_orig, data[prop].std_orig,
-        #               inplace=True)(data[prop].value)
-        #     # squeeze in case of reduced_to_2D_wrong necessary because unsqueezed before for Normalize to work
-        #     data[prop].value = squeeze(data[prop].value)
         logging.info("Data normalized")
         return data
 
