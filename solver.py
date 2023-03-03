@@ -1,6 +1,7 @@
 ## mainly copied from I2DL course at TUM, Munich
 from torch.optim import Adam, lr_scheduler
 from torch.nn import MSELoss, Module
+import torch
 from tqdm.auto import tqdm
 from data.dataloader import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -54,13 +55,11 @@ class Solver(object):
         - print_every: Integer; training losses will be printed every print_every
           iterations.
         """
-        # TODO include writer for tensorboard
         self.model:Module = model
         self.learning_rate = learning_rate
         self.loss_func = loss_func
-
         self.opt = optimizer(self.model.parameters(), learning_rate)
-        self.scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, factor = 0.5, cooldown = 10) #, verbose = True)
+        self.scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, factor = 0.5, cooldown = 10, verbose = True)
 
         self.debug_output = debug_output
         self.print_every = print_every
@@ -93,18 +92,12 @@ class Solver(object):
         """
         Make a single gradient update. This is called by train() and should not
         be called manually.
-
-        :param X: batch of training features
-        :param y: batch of corresponding training labels
-        :param validation: Boolean indicating whether this is a training or
-            validation step
-
         :return loss: Loss between the model prediction for X and the target
             labels y
         """
         loss = None
-        # self.model.zero_grad() #
-        self.opt.zero_grad()
+        if not validation:
+            self.opt.zero_grad()
 
         y_pred = self.model(X).to(device)  # Forward pass
         loss = self.loss_func(y_pred, y)    # Compute loss
@@ -113,6 +106,9 @@ class Solver(object):
             loss.backward() # Compute gradients     #
             # self.opt.backward(y_pred, y) #
             self.opt.step() # Update weights
+
+        loss = loss.detach().item()
+        y_pred = y_pred.detach()
 
         return loss, y_pred
 
@@ -131,54 +127,47 @@ class Solver(object):
 
             # Iterate over all training samples
             train_epoch_loss = 0.0
-
             for batch_idx, data_values in enumerate(self.train_dataloader):
                 # Unpack data
                 X = data_values.inputs.float().to(device)
                 y = data_values.labels.float().to(device)
 
-                # Update the model parameters.
+                # Train step + update model parameters
                 validate = epoch == 0
                 train_loss, y_pred = self._step(X, y, device, validation=validate)
-                train_loss, y_pred = train_loss.detach().item(), y_pred.detach()
-                self.train_batch_loss.append(train_loss)
+                # self.train_batch_loss.append(train_loss)
                 train_epoch_loss += train_loss
+            # train_epoch_loss /= (batch_idx+1)
             train_epoch_loss /= len(self.train_dataloader.dataset)
-
-            # self.opt.lr *= self.lr_decay
-            if self.debug_output:
-                writer.add_scalar("train_loss", train_epoch_loss, epoch) # * len(self.train_dataloader.dataset)+batch_idx)
-                writer.add_image("y_out", y_pred[0, 0, :, :], dataformats="WH",
-                                 global_step=epoch) # *len(self.train_dataloader.dataset)+batch_idx)
-
+            train_max_error, train_pos_of_max_error = get_max_error_and_pos(y,y_pred)
             # Iterate over all validation samples
             val_epoch_loss = 0.0
-
             for batch_idx, data_values in enumerate(self.val_dataloader):
                 # Unpack data
                 X = data_values.inputs.float().to(device)
                 y = data_values.labels.float().to(device)
-
                 # Compute Loss - no param update at validation time!
-                val_loss, _ = self._step(X, y, device, validation=True) #
-                val_loss = val_loss.detach().item()
-                self.val_batch_loss.append(val_loss)
+                val_loss, y_pred_val = self._step(X, y, device, validation=True) #
+                # self.val_batch_loss.append(val_loss)
                 val_epoch_loss += val_loss
-
+            # val_epoch_loss /= (batch_idx+1)
             val_epoch_loss /= len(self.val_dataloader.dataset)
             self.scheduler.step(val_epoch_loss) #TODO test
 
             if self.debug_output:
+                writer.add_scalar("train_loss", train_epoch_loss, epoch) # * len(self.train_dataloader.dataset)+batch_idx)
+                writer.add_image("train_y_out", y_pred[0, 0, :, :], dataformats="WH", global_step=epoch) # *len(self.train_dataloader.dataset)+batch_idx)
+                writer.add_image("val_y_out", y_pred_val[0, 0, :, :], dataformats="WH", global_step=epoch) # *len(self.train_dataloader.dataset)+batch_idx)
                 writer.add_scalar("val_loss", val_epoch_loss, epoch) # * len(self.train_dataloader.dataset)+batch_idx)
+            
+            val_max_error, val_pos_of_max_error = get_max_error_and_pos(y,y_pred_val)
 
             # Record the losses for later inspection.
             self.train_loss_history.append(train_epoch_loss)
             self.val_loss_history.append(val_epoch_loss)
 
             if self.debug_output and epoch % self.print_every == 0:
-                epochs.set_postfix_str(f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
-                # print('(Epoch %d / %d) train loss: %f; val loss: %f' % (
-                #     epoch + 1, epochs, train_epoch_loss, val_epoch_loss))
+                epochs.set_postfix_str(f"train_max_loss {train_max_error:.2e} at {train_pos_of_max_error}, val_max_loss {val_max_error:.2e} at {val_pos_of_max_error} train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
 
             # Keep track of the best model
             self.update_best_loss(val_epoch_loss, train_epoch_loss)
@@ -198,3 +187,12 @@ class Solver(object):
             self.current_patience = 0
         else:
             self.current_patience += 1
+
+def get_max_error_and_pos(y,y_pred):
+    max_value = torch.max(abs(y-y_pred))
+    pos = find_pos(max_value, abs(y-y_pred))
+    return max_value, pos
+
+def find_pos(value, field):
+    condition = field == value
+    return condition.nonzero()
