@@ -84,6 +84,7 @@ class DatasetSimulationData(Dataset):
         self.time_first =    "   1 Time  1.00000E-01 y"
         # self.time_final =    "   2 Time  5.00000E+00 y"
         self.time_final =    "   3 Time  5.00000E+00 y"
+        # self.time_first = self.time_final
         
         self.datapoints = {}
         self.keep_datapoints_in_memory = True
@@ -91,7 +92,9 @@ class DatasetSimulationData(Dataset):
         # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
         self.input_vars_empty_value = PhysicalVariables(self.time_first, input_vars_names) # collection of overall information but not std, mean
         self.output_vars_empty_value = PhysicalVariables(self.time_final, output_vars_names)
-        if normalize_bool:
+
+        self.normalize_bool = normalize_bool
+        if self.normalize_bool:
             self.has_to_calc_mean_std = True
             if mode=="train":
                 self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = self._calc_mean_std_dataset()   # calc mean, std for all dataset runs
@@ -189,13 +192,18 @@ class DatasetSimulationData(Dataset):
         datapoint.labels = self._load_data_as_numpy(self.data_paths[index], self.output_vars_empty_value)
         #try:
         loc_hp = datapoint.get_loc_hp()
-        if self.has_to_calc_mean_std:
-            # mean, std first have to be calculated for later use
+        if self.normalize_bool:
+            if self.has_to_calc_mean_std:
+                # mean, std first have to be calculated for later use
+                datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp)
+                datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp)
+            else:
+                datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp, mean_val=self.mean_inputs, std_val=self.std_inputs)
+                datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp, mean_val=self.mean_labels, std_val=self.std_labels)
+        else:
             datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp)
             datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp)
-        else:
-            datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp, mean_val=self.mean_inputs, std_val=self.std_inputs)
-            datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp, mean_val=self.mean_labels, std_val=self.std_labels)
+
         #except Exception as e:
         #    print("no transforms applied: ", e)
 
