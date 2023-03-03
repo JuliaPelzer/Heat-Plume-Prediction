@@ -59,7 +59,7 @@ class Solver(object):
         self.learning_rate = learning_rate
         self.loss_func = loss_func
         self.opt = optimizer(self.model.parameters(), learning_rate)
-        self.scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, factor = 0.5, cooldown = 10, verbose = True)
+        self.scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, factor = 0.5, cooldown = 10) #, verbose = True)
 
         self.debug_output = debug_output
         self.print_every = print_every
