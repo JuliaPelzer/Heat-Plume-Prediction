@@ -7,7 +7,7 @@ from typing import List
 import torch
 from data.dataset import DatasetSimulationData
 from data.utils import separate_property_unit
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 from data.dataloader import DataLoader
 from networks.unet_leiterrl import UNet
 from data.utils import PhysicalVariables
@@ -82,16 +82,16 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
 
 def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str, plot_one_bool:str = True, plot_name:str="plot_learned_test_sample"):
     
-    writer = SummaryWriter(f"runs/{name_folder}")
+    # writer = SummaryWriter(f"runs/{name_folder}")
     error = []
     error_mean = []
     reverse_done = False
 
-    for _, batch in enumerate(dataloader):
-        for datapoint in range(batch.inputs.shape[0]):
-            x = batch.inputs.float().to(device)[datapoint]
+    for _, data_values in enumerate(dataloader):
+        for datapoint in range(data_values.inputs.shape[0]):
+            x = data_values.inputs.float().to(device)[datapoint]
             x = torch.unsqueeze(x,0)
-            y = batch.labels.float().to(device)[datapoint]
+            y = data_values.labels.float().to(device)[datapoint]
             y = torch.unsqueeze(y,0)
             y_out = model(x).to(device)
             
@@ -102,22 +102,22 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
             # print("labels", dataloader.dataset.datapoints[datapoint].labels)
             y = dataloader.reverse_transform_temperature(y)
             y_out = dataloader.reverse_transform_temperature(y_out)
-            try:
-                x = dataloader.dataset.datapoints[datapoint].inputs
+            try: #TODO THIS IS THE PROBLEM NEXT
+                physical_vars = dataloader.dataset.datapoints[datapoint].inputs.keys()
             except:
-                x = dataloader.dataset[datapoint].inputs
+                physical_vars = dataloader.dataset[datapoint].inputs.keys()
 
             error_current = y-y_out
             temp_max = max(y.max(), y_out.max())
             temp_min = min(y.min(), y_out.min())
             list_to_plot = [
-                _make_dict_batchbased(y.detach().cpu(), "temperature true", 0, vmax=temp_max, vmin=temp_min),
-                _make_dict_batchbased(y_out.detach().cpu(), "temperature out", 0, vmax=temp_max, vmin=temp_min),
+                _make_dict_batchbased(y.detach().cpu(), "temperature true", 0),# vmax=temp_max, vmin=temp_min),
+                _make_dict_batchbased(y_out.detach().cpu(), "temperature out", 0),# vmax=temp_max, vmin=temp_min),
                 _make_dict_batchbased(error_current.detach().cpu(), "error", 0),
             ]
 
-            for physical_var in x.keys():
-                list_to_plot.append(_make_dict_datapointbased(x, physical_var))
+            for index, physical_var in enumerate(physical_vars):
+                list_to_plot.append(_make_dict_batchbased(x.detach().cpu(), physical_var, index))
 
             _plot_y(list_to_plot, title=name_folder, name_pic=plot_name+"_"+str(datapoint))
 
@@ -128,9 +128,9 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
                 # if only one sample should be plotted and compared
                 break
 
-        writer.close()
     max_error = np.max(error[-1].cpu().numpy())
     print("Maximum error: ", max_error)
+        # writer.close()
     return error, error_mean, max_error
 
 def plot_exemplary_learned_result_OLD(model, dataloaders, name_pic="plot_y_exemplary"):
