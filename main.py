@@ -5,6 +5,7 @@ from networks.unet_leiterrl import TurbNetG, UNet
 from networks.dummy_network import DummyNet, DummyCNN
 from visualization.visualize_data import plot_sample
 from torch.nn import MSELoss
+from networks.losses import MSELossExcludeNotChangedTemp, InfinityLoss, normalize
 from torch import cuda, device
 from utils.utils_networks import count_parameters, append_results_to_csv
 import datetime as dt
@@ -17,18 +18,13 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
     
     time_begin = dt.datetime.now()
     
-    # parameters of model and training
-    loss_fn = MSELoss()
-    n_epochs = n_epochs
-    lr=float(lr)
+    # parameters of data
     reduce_to_2D=True
     reduce_to_2D_xy=True
     overfit=overfit
-
     # init data
     datasets_2D, dataloaders_2D = init_data(dataset_name=dataset_name, path_to_datasets=path_to_datasets,
-        reduce_to_2D=reduce_to_2D, reduce_to_2D_xy=reduce_to_2D_xy,
-        inputs=inputs, labels="t", overfit=overfit)
+        reduce_to_2D=reduce_to_2D, reduce_to_2D_xy=reduce_to_2D_xy, inputs=inputs, labels="t", overfit=overfit)
 
     # model choice
     in_channels = len(inputs)+1
@@ -58,6 +54,22 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
 
     number_parameter = count_parameters(model)
     logging.info(f"Model {model_choice} with number of parameters: {number_parameter}")
+
+    # parameters of training
+    loss_fn_str = "MSE"
+    if loss_fn_str == "ExcludeNotChangedTemp":
+        ignore_temp = 10.6
+        temp_mean, temp_std = dataloaders_2D["train"].dataset.mean_labels["Temperature [C]"], dataloaders_2D["train"].dataset.std_labels["Temperature [C]"]
+        normalized_ignore_temp = normalize(ignore_temp, temp_mean, temp_std)
+        print(temp_std, temp_mean, normalized_ignore_temp)
+        loss_fn = MSELossExcludeNotChangedTemp(ignore_temp=normalized_ignore_temp)
+    elif loss_fn_str == "MSE":
+        loss_fn = MSELoss()
+    elif loss_fn_str == "Infinity":
+        loss_fn = InfinityLoss()
+
+    n_epochs = n_epochs
+    lr=float(lr)
 
     # train model
     if overfit:
