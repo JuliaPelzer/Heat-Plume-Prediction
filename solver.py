@@ -59,7 +59,6 @@ class Solver(object):
         self.learning_rate = learning_rate
         self.loss_func = loss_func
         self.opt = optimizer(self.model.parameters(), learning_rate)
-        self.scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, factor = 0.5, cooldown = 10) #, verbose = True)
 
         self.debug_output = debug_output
         self.print_every = print_every
@@ -137,9 +136,7 @@ class Solver(object):
                 train_loss, y_pred = self._step(X, y, device, validation=validate)
                 # self.train_batch_loss.append(train_loss)
                 train_epoch_loss += train_loss
-            # train_epoch_loss /= (batch_idx+1)
-            train_epoch_loss /= len(self.train_dataloader.dataset)
-            train_max_error, train_pos_of_max_error = get_max_error_and_pos(y,y_pred)
+            train_epoch_loss /= len(self.train_dataloader)
             # Iterate over all validation samples
             val_epoch_loss = 0.0
             for batch_idx, data_values in enumerate(self.val_dataloader):
@@ -150,9 +147,7 @@ class Solver(object):
                 val_loss, y_pred_val = self._step(X, y, device, validation=True) #
                 # self.val_batch_loss.append(val_loss)
                 val_epoch_loss += val_loss
-            # val_epoch_loss /= (batch_idx+1)
-            val_epoch_loss /= len(self.val_dataloader.dataset)
-            self.scheduler.step(val_epoch_loss) #TODO test
+            val_epoch_loss /= len(self.val_dataloader)
 
             if self.debug_output:
                 writer.add_scalar("train_loss", train_epoch_loss, epoch) # * len(self.train_dataloader.dataset)+batch_idx)
@@ -160,14 +155,12 @@ class Solver(object):
                 writer.add_image("val_y_out", y_pred_val[0, 0, :, :], dataformats="WH", global_step=epoch) # *len(self.train_dataloader.dataset)+batch_idx)
                 writer.add_scalar("val_loss", val_epoch_loss, epoch) # * len(self.train_dataloader.dataset)+batch_idx)
             
-            val_max_error, val_pos_of_max_error = get_max_error_and_pos(y,y_pred_val)
-
             # Record the losses for later inspection.
             self.train_loss_history.append(train_epoch_loss)
             self.val_loss_history.append(val_epoch_loss)
 
             if self.debug_output and epoch % self.print_every == 0:
-                epochs.set_postfix_str(f"train_max_loss {train_max_error:.2e} at {train_pos_of_max_error}, val_max_loss {val_max_error:.2e} at {val_pos_of_max_error} train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
+                epochs.set_postfix_str(f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
 
             # Keep track of the best model
             self.update_best_loss(val_epoch_loss, train_epoch_loss)
@@ -177,7 +170,7 @@ class Solver(object):
                 break
 
         # At the end of training swap the best params into the model
-        self.model.params = self.best_params
+        # self.model.params = self.best_params #TODO später wieder reinnnehmen
 
     def update_best_loss(self, val_loss, train_loss):
         # Update the model and best loss if we see improvements.
@@ -187,12 +180,3 @@ class Solver(object):
             self.current_patience = 0
         else:
             self.current_patience += 1
-
-def get_max_error_and_pos(y,y_pred):
-    max_value = torch.max(abs(y-y_pred))
-    pos = find_pos(max_value, abs(y-y_pred))
-    return max_value, pos
-
-def find_pos(value, field):
-    condition = field == value
-    return condition.nonzero()
