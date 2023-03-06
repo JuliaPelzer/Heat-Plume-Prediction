@@ -46,7 +46,7 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
         print("model choice not recognized")
         sys.exit()
     # print(model)
-    logging.warning(count_parameters(model))
+    logging.warning(f"Number of parameters in model {count_parameters(model)}")
 
     device_used = device('cuda' if cuda.is_available() else 'cpu')
     if not device_used == 'cuda':
