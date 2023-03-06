@@ -87,8 +87,9 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
     error_mean = []
     reverse_done = False
 
-    for _, data_values in enumerate(dataloader):
-        for datapoint in range(data_values.inputs.shape[0]):
+    for batch_id, data_values in enumerate(dataloader):
+        len_batch = data_values.inputs.shape[0]
+        for datapoint in range(len_batch):
             x = data_values.inputs.float().to(device)[datapoint]
             x = torch.unsqueeze(x,0)
             y = data_values.labels.float().to(device)[datapoint]
@@ -99,10 +100,8 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
             if not reverse_done:
                 dataloader.reverse_transform()
                 reverse_done = True
-            # print("labels", dataloader.dataset.datapoints[datapoint].labels)
-            y = dataloader.reverse_transform_temperature(y)
             y_out = dataloader.reverse_transform_temperature(y_out)
-            try: #TODO THIS IS THE PROBLEM NEXT
+            try:
                 physical_vars = dataloader.dataset.datapoints[datapoint].inputs.keys()
             except:
                 physical_vars = dataloader.dataset[datapoint].inputs.keys()
@@ -119,7 +118,8 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
             for index, physical_var in enumerate(physical_vars):
                 list_to_plot.append(_make_dict_batchbased(x.detach().cpu(), physical_var, index))
 
-            _plot_y(list_to_plot, title=name_folder, name_pic=plot_name+"_"+str(datapoint))
+            current_id = datapoint + batch_id*len_batch
+            _plot_y(list_to_plot, title=name_folder, name_pic=plot_name+"_"+str(current_id))
 
             error.append(abs(error_current.detach()))
             error_mean.append(np.mean(error_current.cpu().numpy()).item())
