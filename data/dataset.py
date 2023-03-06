@@ -3,7 +3,7 @@ Dataset Class
 """
 
 import logging
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Union
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from data.transforms import ComposeTransform
@@ -210,13 +210,17 @@ class DatasetSimulationData(Dataset):
         _assertion_error_2d(datapoint)
         return datapoint
 
-    def reverse_transform(self, datapoint:DataPoint): #index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
+    def reverse_transform(self, datapoint:Union[DataPoint, Tensor]): #index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
         """
         Reverse the transformation of the data.
         """
-
-        datapoint.inputs = self.transform.reverse(datapoint.inputs, mean_val=self.mean_inputs, std_val=self.std_inputs)
-        datapoint.labels = self.transform.reverse(datapoint.labels, mean_val=self.mean_labels, std_val=self.std_labels)
+        if isinstance(datapoint, Tensor):
+            for id, property in enumerate(self.mean_inputs.keys()):
+                datapoint[:,id] = self.transform.reverse_tensor_input(datapoint[:,id], mean_val=self.mean_inputs[property], std_val=self.std_inputs[property])
+            return datapoint
+        else:
+            datapoint.inputs = self.transform.reverse(datapoint.inputs, mean_val=self.mean_inputs, std_val=self.std_inputs)
+            datapoint.labels = self.transform.reverse(datapoint.labels, mean_val=self.mean_labels, std_val=self.std_labels)
 
         _assertion_error_2d(datapoint)
 

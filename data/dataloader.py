@@ -56,13 +56,17 @@ class DataLoader:
         if len(batch) > 0 and not self.drop_last:
             yield batch
     
-    def reverse_transform(self):
+    def reverse_transform(self, datapoint:Tensor=None):
         """
         Reverses the transformation of the datapoints, i.e. each datapoint is scaled back to the original
         physical values
         """
-        for data in self.dataset:
-            data = self.dataset.reverse_transform(data)
+        if datapoint is not None:
+            datapoint = self.dataset.reverse_transform(datapoint)
+            return datapoint
+        else:
+            for data in self.dataset:
+                data = self.dataset.reverse_transform(data)
 
     def reverse_transform_temperature(self, temperature:Tensor) -> Tensor:
         """
