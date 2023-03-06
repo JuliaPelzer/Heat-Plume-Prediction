@@ -90,7 +90,8 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
     if overfit:
         error, error_mean, final_max_error = plot_sample(model, dataloaders_2D["train"], device_used, name_folder_destination, plot_name=name_folder_destination+"/plot_train_sample_applied")
     else:
-        error, error_mean, final_max_error = plot_sample(model, dataloaders_2D["test"], device_used, name_folder_destination, plot_name=name_folder_destination+"/plot_test_sample_applied", plot_one_bool=False)
+        error, error_mean, final_max_error = plot_sample(model, dataloaders_2D["train"], device_used, name_folder_destination, plot_name=name_folder_destination+"/plot_train_sample_applied", amount_plots=3)
+        error, error_mean, final_max_error = plot_sample(model, dataloaders_2D["val"], device_used, name_folder_destination, plot_name=name_folder_destination+"/plot_val_sample_applied", amount_plots=3)
     
     # save model - TODO : both options currently not working
     # save(model, str(name_folder)+str(dataset_name)+str(inputs)+".pt")

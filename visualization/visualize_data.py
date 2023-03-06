@@ -11,6 +11,7 @@ from data.utils import separate_property_unit
 from data.dataloader import DataLoader
 from networks.unet_leiterrl import UNet
 from data.utils import PhysicalVariables
+from torch.nn import MSELoss
 
 # TODO: look at vispy library for plotting 3D data
 
@@ -25,7 +26,7 @@ class View:
 def plot_datapoint(dataset : DatasetSimulationData, run_id : int, view="top", plot_streamlines=False, oriented="center") -> None:
     """
     Plot all physical properties of one data point, depending on the `view` with streamlines
-    
+
     Parameters
     ----------
         dataset : DatasetSimulationData
@@ -43,7 +44,7 @@ def plot_datapoint(dataset : DatasetSimulationData, run_id : int, view="top", pl
     plot_data_inner(data=dataset[run_id], property_names_in=dataset.get_input_properties(), property_names_out=dataset.get_output_properties(), run_id=run_id, view=view, plot_streamlines=plot_streamlines, oriented=oriented)
 
 
-def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str], property_names_out : List[str], run_id:int=42, view:str="top", 
+def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str], property_names_out : List[str], run_id:int=42, view:str="top",
     plot_streamlines=False, oriented="center"):
     # function excluded to also be able to plot the reversed dataset, #TODO make reversing cleaner so this step is unnecessary
     assert view in ["top", "topish", "top_hp", "side", "side_hp"], "view must be one of 'top', 'topish', 'top_hp', 'side', 'side_hp'"
@@ -52,20 +53,20 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
     index_overall = 0
     n_dims = len(property_names_in) + len(property_names_out)
     n_subplots = n_dims + 1 if plot_streamlines else n_dims
-    
+
     _, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(20,3*(n_subplots)))
 
     if oriented=="center":
         cut_x_hp = 7
     elif oriented=="left":
         cut_x_hp = 9
-    # dictionary of all potential views with respective labels and positions where to slice the data 
+    # dictionary of all potential views with respective labels and positions where to slice the data
     view_dict = {"top": View(name="top", x_label="y", y_label="x", cut_slice=np.s_[:, :, -1], transpose=False),
                 "top_hp": View(name="top_hp", x_label="y", y_label="x", cut_slice=np.s_[:, :, 9], transpose=False),
                 "topish": View(name="topish", x_label="y", y_label="x", cut_slice=np.s_[:, :, -3], transpose=False),
                 "side": View(name="side", x_label="y", y_label="z", cut_slice=np.s_[11, :, :], transpose=True),
                 "side_hp": View(name="side_hp", x_label="y", y_label="z", cut_slice=np.s_[cut_x_hp, :, :], transpose=True)}
-    
+
     index_overall = _plot_properties(data['x'], index_overall, view_dict[view], axes, property_names=property_names_in, prefix = "Input ")
     index_overall = _plot_properties(data['y'], index_overall, view_dict[view], axes, property_names=property_names_out, prefix = "Output ")
     if plot_streamlines:
@@ -80,31 +81,34 @@ def plot_data_inner(data : Dict[str, np.ndarray], property_names_in : List[str],
     print(f"Resulting picture is at {pic_file_name}")
     plt.savefig(pic_file_name)
 
-def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str, plot_one_bool:str = True, plot_name:str="plot_learned_test_sample"):
-    
+def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str, amount_plots:int=None, plot_name:str="plot_learned_test_sample"):
+
     # writer = SummaryWriter(f"runs/{name_folder}")
     error = []
     error_mean = []
     reverse_done = False
 
+    if amount_plots is None:
+        amount_plots = len(dataloader.dataset)
+
     for batch_id, data_values in enumerate(dataloader):
         len_batch = data_values.inputs.shape[0]
-        for datapoint in range(len_batch):
-            x = data_values.inputs.float().to(device)[datapoint]
+        for datapoint_id in range(len_batch):
+            x = data_values.inputs[datapoint_id].float().to(device)
             x = torch.unsqueeze(x,0)
-            y = data_values.labels.float().to(device)[datapoint]
+            y = data_values.labels[datapoint_id].float().to(device)
             y = torch.unsqueeze(y,0)
             y_out = model(x).to(device)
-            
+
             # reverse transform for plotting real values
-            if not reverse_done:
-                dataloader.reverse_transform()
-                reverse_done = True
+            x = dataloader.reverse_transform(x)
+            y = dataloader.reverse_transform_temperature(y)
             y_out = dataloader.reverse_transform_temperature(y_out)
+
             try:
-                physical_vars = dataloader.dataset.datapoints[datapoint].inputs.keys()
+                physical_vars = dataloader.dataset.datapoints[datapoint_id].inputs.keys()
             except:
-                physical_vars = dataloader.dataset[datapoint].inputs.keys()
+                physical_vars = dataloader.dataset[datapoint_id].inputs.keys()
 
             error_current = y-y_out
             temp_max = max(y.max(), y_out.max())
@@ -118,14 +122,13 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
             for index, physical_var in enumerate(physical_vars):
                 list_to_plot.append(_make_dict_batchbased(x.detach().cpu(), physical_var, index))
 
-            current_id = datapoint + batch_id*len_batch
+            current_id = datapoint_id + batch_id*len_batch
             _plot_y(list_to_plot, title=name_folder, name_pic=plot_name+"_"+str(current_id))
 
             error.append(abs(error_current.detach()))
             error_mean.append(np.mean(error_current.cpu().numpy()).item())
 
-            if plot_one_bool:
-                # if only one sample should be plotted and compared
+            if current_id == amount_plots-1:
                 break
 
     max_error = np.max(error[-1].cpu().numpy())
@@ -206,13 +209,13 @@ def _plot_properties(data : np.ndarray, index_overall:int, view: View, axes, pro
 
         else:
             plt.imshow(field[view.cut_slice])
-        
+
         plt.xlabel(view.x_label)
         plt.ylabel(view.y_label)
 
         _aligned_colorbar(label=property_names[channel])
         index_overall += 1
-    
+
     return index_overall
 
 def _plot_streamlines(data : np.ndarray, index_overall:int, view: View, axes, property_names: List[str]) -> int:
@@ -244,7 +247,7 @@ def _plot_streamlines(data : np.ndarray, index_overall:int, view: View, axes, pr
     else:
         U = field_U[view.cut_slice]
         V = field_V[view.cut_slice]
-    
+
     plt.streamplot(Y, Z, U, V, density=[1.2, 1.2], arrowstyle="->", broken_streamlines=False)
     if not view.transpose:
         plt.gca().invert_yaxis()
@@ -255,7 +258,7 @@ def _plot_streamlines(data : np.ndarray, index_overall:int, view: View, axes, pr
     index_overall += 1
 
     return index_overall
-  
+
 def _build_title(prefix:str, property_names:List[str], channel:int) -> str:
     """
     Build title for plot by removing the unit
@@ -274,7 +277,7 @@ def _build_title(prefix:str, property_names:List[str], channel:int) -> str:
         title : str
 
     """
-    
+
     title =  prefix + separate_property_unit(property_names[channel])[0]
     print(title)
 
@@ -293,7 +296,7 @@ def _plot_y(data, title, name_pic="plot_y_exemplary"):
     n_subplots = len(data)
     _, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(20,3*(n_subplots)))
     plt.title(title)
-    
+
     for index, data_point in enumerate(data):
         plt.sca(axes[index])
         plt.imshow(data_point["data"].T, **data_point["imshowargs"])
@@ -302,15 +305,15 @@ def _plot_y(data, title, name_pic="plot_y_exemplary"):
         plt.xlabel("y")
         plt.ylabel("z")
         _aligned_colorbar(label=data_point["property"])
-    
+
     pic_file_name = f"runs/{name_pic}.png"
-    print(f"Resulting picture is at {pic_file_name}")  
+    print(f"Resulting picture is at {pic_file_name}")
     plt.savefig(pic_file_name)
 
 def _aligned_colorbar(*args,**kwargs):
     cax = make_axes_locatable(plt.gca()).append_axes("right",size= 0.3,pad= 0.05)
     plt.colorbar(*args,cax=cax,**kwargs)
-    
+
 ## helper to find inlet, outlet alias max and min Material_ID
 # print(np.where(data["Material_ID"]==np.max(data["Material_ID"])))
 
