@@ -23,7 +23,7 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
     reduce_to_2D_xy=True
     overfit=overfit
     # init data
-    datasets_2D, dataloaders_2D = init_data(dataset_name=dataset_name, path_to_datasets=path_to_datasets,
+    datasets_2D, dataloaders_2D = init_data(dataset_name=dataset_name, path_to_datasets=path_to_datasets, batch_size=100,
         reduce_to_2D=reduce_to_2D, reduce_to_2D_xy=reduce_to_2D_xy, inputs=inputs, labels="t", overfit=overfit)
 
     # model choice
@@ -46,6 +46,7 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
         print("model choice not recognized")
         sys.exit()
     # print(model)
+    logging.warning(count_parameters(model))
 
     device_used = device('cuda' if cuda.is_available() else 'cpu')
     if not device_used == 'cuda':
@@ -73,13 +74,17 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
 
     # train model
     if overfit:
-        solver = Solver(model, dataloaders_2D["train"], dataloaders_2D["train"], 
+        solver = Solver(model, dataloaders_2D["train"], dataloaders_2D["train"],
                     learning_rate=lr, loss_func=loss_fn)
     else:
         solver = Solver(model, dataloaders_2D["train"], dataloaders_2D["val"], 
                     learning_rate=lr, loss_func=loss_fn)
-    patience_for_early_stopping = 50
-    solver.train(device_used, n_epochs=n_epochs, name_folder=name_folder_destination, patience=patience_for_early_stopping)
+    patience_for_early_stopping = 20000
+    try:
+        solver.train(device_used, n_epochs=n_epochs, name_folder=name_folder_destination, patience=patience_for_early_stopping)
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt")
+        pass
 
     # visualization
     if overfit:
