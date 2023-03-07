@@ -123,54 +123,62 @@ class Solver(object):
         epochs = tqdm(range(n_epochs), desc="epochs")
         # Start an epoch
         for epoch in epochs:
+            try:
+                # Iterate over all training samples
+                train_epoch_loss = 0.0
+                for batch_idx, data_values in enumerate(self.train_dataloader):
+                    # Unpack data
+                    X = data_values.inputs.float().to(device)
+                    y = data_values.labels.float().to(device)
 
-            # Iterate over all training samples
-            train_epoch_loss = 0.0
-            for batch_idx, data_values in enumerate(self.train_dataloader):
-                # Unpack data
-                X = data_values.inputs.float().to(device)
-                y = data_values.labels.float().to(device)
+                    # Train step + update model parameters
+                    validate = epoch == 0
+                    train_loss, y_pred = self._step(X, y, device, validation=validate)
+                    # self.train_batch_loss.append(train_loss)
+                    train_epoch_loss += train_loss
+                train_epoch_loss /= len(self.train_dataloader)
+                # Iterate over all validation samples
+                val_epoch_loss = 0.0
+                for batch_idx, data_values in enumerate(self.val_dataloader):
+                    # Unpack data
+                    X = data_values.inputs.float().to(device)
+                    y = data_values.labels.float().to(device)
+                    # Compute Loss - no param update at validation time!
+                    val_loss, y_pred_val = self._step(X, y, device, validation=True) #
+                    # self.val_batch_loss.append(val_loss)
+                    val_epoch_loss += val_loss
+                val_epoch_loss /= len(self.val_dataloader)
 
-                # Train step + update model parameters
-                validate = epoch == 0
-                train_loss, y_pred = self._step(X, y, device, validation=validate)
-                # self.train_batch_loss.append(train_loss)
-                train_epoch_loss += train_loss
-            train_epoch_loss /= len(self.train_dataloader)
-            # Iterate over all validation samples
-            val_epoch_loss = 0.0
-            for batch_idx, data_values in enumerate(self.val_dataloader):
-                # Unpack data
-                X = data_values.inputs.float().to(device)
-                y = data_values.labels.float().to(device)
-                # Compute Loss - no param update at validation time!
-                val_loss, y_pred_val = self._step(X, y, device, validation=True) #
-                # self.val_batch_loss.append(val_loss)
-                val_epoch_loss += val_loss
-            val_epoch_loss /= len(self.val_dataloader)
+                if self.debug_output:
+                    writer.add_scalar("train_loss", train_epoch_loss, epoch)
+                    writer.add_scalar("learning_rate", self.opt.param_groups[0]["lr"], epoch)
+                    writer.add_scalar("val_loss", val_epoch_loss, epoch)
+                
+                # Record the losses for later inspection.
+                self.train_loss_history.append(train_epoch_loss)
+                self.val_loss_history.append(val_epoch_loss)
 
-            if self.debug_output:
-                writer.add_scalar("train_loss", train_epoch_loss, epoch) # * len(self.train_dataloader.dataset)+batch_idx)
-                writer.add_image("train_y_out", y_pred[0, 0, :, :], dataformats="WH", global_step=epoch) # *len(self.train_dataloader.dataset)+batch_idx)
-                writer.add_image("val_y_out", y_pred_val[0, 0, :, :], dataformats="WH", global_step=epoch) # *len(self.train_dataloader.dataset)+batch_idx)
-                writer.add_scalar("val_loss", val_epoch_loss, epoch) # * len(self.train_dataloader.dataset)+batch_idx)
-            
-            # Record the losses for later inspection.
-            self.train_loss_history.append(train_epoch_loss)
-            self.val_loss_history.append(val_epoch_loss)
+                if self.debug_output and epoch % self.print_every == 0:
+                    epochs.set_postfix_str(f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
 
-            if self.debug_output and epoch % self.print_every == 0:
-                epochs.set_postfix_str(f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
+                # Keep track of the best model
+                self.update_best_loss(val_epoch_loss, train_epoch_loss)
+                if patience and self.current_patience >= patience:
+                    print("Stopping early at epoch {}!".format(epoch))
+                    n_epochs = epoch
+                    break
+            except KeyboardInterrupt:
+                try:
+                    new_lr = float(input("\nNew learning rate: "))
+                except ValueError as e:
+                    print(e)
+                else:
+                    for g in self.opt.param_groups:
+                            g['lr'] = new_lr
 
-            # Keep track of the best model
-            self.update_best_loss(val_epoch_loss, train_epoch_loss)
-            if patience and self.current_patience >= patience:
-                print("Stopping early at epoch {}!".format(epoch))
-                n_epochs = epoch
-                break
 
         # At the end of training swap the best params into the model
-        # self.model.params = self.best_params #TODO später wieder reinnnehmen
+        self.model.params = self.best_params
 
     def update_best_loss(self, val_loss, train_loss):
         # Update the model and best loss if we see improvements.
