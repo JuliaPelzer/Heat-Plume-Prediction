@@ -7,7 +7,7 @@ import logging
 from typing import List
 import numpy as np
 
-def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit: bool = False, normalize: bool = True, 
+def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit: bool = False, normalize: bool = True, sdf:bool = True,
               just_plotting: bool = False, batch_size: int = 1000, inputs: str = "xyzpt", labels: str = "txyz",
               dataset_name: str = "perm_pressure1D_10dp", 
               path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets"):
@@ -39,7 +39,6 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
     transforms_list = [ToTensorTransform(), PowerOfTwoTransform(oriented="left")]
     if reduce_to_2D:
         transforms_list.append(ReduceTo2DTransform(reduce_to_2D_xy=reduce_to_2D_xy))
-    sdf = True
     if sdf:
         transforms_list.append(SignedDistanceTransform())
     if normalize:
