@@ -42,7 +42,7 @@ def run_experiment(n_epochs: int = 1000, lr: float = 5e-3,
     # model choice
     in_channels = len(inputs) + 1
     if model_choice == "unet":
-        model = UNet(in_channels=in_channels, out_channels=1).float()
+        model = UNet(in_channels=in_channels, out_channels=1, depth=4).float()
     elif model_choice == "fc":
         size_domain_2D = datasets_2D["train"].dimensions_of_datapoint
         if reduce_to_2D:

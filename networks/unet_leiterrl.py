@@ -5,14 +5,14 @@ import torch
 import torch.nn as nn
 
 class UNet(nn.Module):
-    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=4, kernel_size=2):
+    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=4):
         super().__init__()
         features = init_features
         self.encoders = nn.ModuleList()
         self.pools = nn.ModuleList()
         for i in range(depth):
             self.encoders.append(UNet._block(in_channels, features))
-            self.pools.append(nn.MaxPool2d(kernel_size=kernel_size, stride=kernel_size))
+            self.pools.append(nn.MaxPool2d(kernel_size=2, stride=2))
             in_channels = features
             features *= 2
         self.encoders.append(UNet._block(in_channels, features))
@@ -20,7 +20,7 @@ class UNet(nn.Module):
         self.upconvs = nn.ModuleList()
         self.decoders = nn.ModuleList()
         for i in range(depth):
-            self.upconvs.append(nn.ConvTranspose2d(features, features // 2, kernel_size=kernel_size, stride=kernel_size))
+            self.upconvs.append(nn.ConvTranspose2d(features, features // 2, kernel_size=2, stride=2))
             self.decoders.append(UNet._block(features, features//2))
             features = features // 2
 
