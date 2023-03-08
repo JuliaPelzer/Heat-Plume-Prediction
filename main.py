@@ -45,7 +45,7 @@ def run_experiment(n_epochs: int = 1000, lr: float = 5e-3,
     train = True
     if train:
         # parameters of training
-        loss_fn_str = "ExcludeYBoundary" #MSE"
+        loss_fn_str = "MSE"
         loss_fn = create_loss_fn(loss_fn_str, dataloaders)
         n_epochs = n_epochs
         lr = float(lr)
@@ -61,7 +61,7 @@ def run_experiment(n_epochs: int = 1000, lr: float = 5e-3,
             print("KeyboardInterrupt")
     else:
         # load model
-        model = load_model({"model_choice":model_choice, "in_channels":in_channels}, os.path.join(os.getcwd(), "runs", name_folder_destination), f"{model_choice}_{inputs}")
+        model = load_model({"model_choice":model_choice, "in_channels":in_channels}, os.path.join(os.getcwd(), "runs", name_folder_destination), "model")
         model.to(device)
 
     # save model
@@ -71,8 +71,7 @@ def run_experiment(n_epochs: int = 1000, lr: float = 5e-3,
         
     # visualization
     if overfit:
-        _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination,
-            plot_name=name_folder_destination + "/plot_train_sample_applied",)
+        _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_train_sample_applied",)
     else:
         _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_train_sample_applied", amount_plots=3,)
         _, error_mean, final_max_error = plot_sample(model, dataloaders["val"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_val_sample_applied", amount_plots=3,)
