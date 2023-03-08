@@ -136,44 +136,6 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
         # writer.close()
     return error, error_mean, max_error
 
-def plot_exemplary_learned_result_OLD(model, dataloaders, name_pic="plot_y_exemplary"):
-    """not pretty but functional to get a first glimpse of how y_out looks compared to y_truth"""
-
-    for data in dataloaders["train"]:
-        x_exemplary = data["x"].float()
-        y_true_exemplary = data["y"].float()
-        y_out_exemplary = model(x_exemplary)
-        # writer.add_image("y_out_test_0", y_out_test[0,0,:,:], dataformats="WH", global_step=0)
-        # writer.add_image("y_true_test_0", y_true_test[0,0,:,:], dataformats="WH", global_step=0)
-        # mse_loss = loss_fn(y_out_test, y_true_test)
-        # loss = mse_loss
-        # writer.add_scalar("loss", loss.item(), 0)
-        break
-
-    # list_to_plot = [
-    #     make_dict(y_true_exemplary, "temperature", 0),
-    #     make_dict(y_out_exemplary, "temperature", 0),
-    #     make_dict(x_exemplary, "y_velocity", 0),
-    #     make_dict(x_exemplary, "z_velocity", 1),
-    #     make_dict(x_exemplary, "pressure", 2),
-    #     make_dict(x_exemplary, "hp location", 3),
-    #     make_dict(x_exemplary, "init temperature", 4),
-    # ]
-    error = y_true_exemplary-y_out_exemplary
-    # error_abs = torch.abs(error)
-    list_to_plot = [
-        _make_dict_batchbased(y_true_exemplary, "temperature true", 0),
-        _make_dict_batchbased(y_out_exemplary, "temperature out", 0),
-        _make_dict_batchbased(error, "error", 0),
-        #_make_dict(error_abs, "error abs", 0),
-        _make_dict_batchbased(x_exemplary, "pressure", 0),
-        _make_dict_batchbased(x_exemplary, "hp location", 1),
-    ]
-
-    _plot_y(list_to_plot, title=name_pic, name_pic=name_pic)
-
-    return error
-
 ## helper functions for plotting
 def _plot_properties(data : np.ndarray, index_overall:int, view: View, axes, property_names : List[str], prefix:str = "") -> int:
     """
@@ -288,10 +250,6 @@ def _make_dict_batchbased(data:np.ndarray, physical_property:str, index:int, **i
     data_dict["data"] = data_dict["data"][0,index,:,:]
     return data_dict
 
-def _make_dict_datapointbased(data:PhysicalVariables, physical_property:str, **imshowargs):
-    data_dict = {"data" : data[physical_property].value, "property" : physical_property, "imshowargs" : imshowargs}
-    return data_dict
-
 def _plot_y(data, title, name_pic="plot_y_exemplary"):
     n_subplots = len(data)
     _, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(20,3*(n_subplots)))
@@ -313,10 +271,3 @@ def _plot_y(data, title, name_pic="plot_y_exemplary"):
 def _aligned_colorbar(*args,**kwargs):
     cax = make_axes_locatable(plt.gca()).append_axes("right",size= 0.3,pad= 0.05)
     plt.colorbar(*args,cax=cax,**kwargs)
-
-## helper to find inlet, outlet alias max and min Material_ID
-# print(np.where(data["Material_ID"]==np.max(data["Material_ID"])))
-
-# def slice_y(y, property):
-#     property = 0 if property == "temperature" else property #1
-#     return y.detach().numpy()[0,property,:,:]
