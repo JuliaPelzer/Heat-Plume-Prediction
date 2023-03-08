@@ -56,7 +56,7 @@ class Solver(object):
         """
         # initialize tensorboard
         writer = SummaryWriter(f"runs/{name_folder}")
-        epochs = tqdm(range(n_epochs), desc="epochs",disable=True)
+        epochs = tqdm(range(n_epochs), desc="epochs",disable=False)
 
 
         self.model = self.model.to(device)
