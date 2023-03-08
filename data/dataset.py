@@ -80,8 +80,8 @@ class DatasetSimulationData(Dataset):
         
         self.data_paths, self.runs = self.make_dataset(self)
         logging.info(f"Dataset {self.dataset_name} in mode {self.mode} has {len(self.data_paths)} runs, named {self.runs}")
-        # self.time_first =     "   0 Time  0.00000E+00 y"
-        self.time_first =    "   1 Time  1.00000E-01 y"
+        self.time_first =     "   0 Time  0.00000E+00 y"
+        # self.time_first =    "   1 Time  1.00000E-01 y"
         # self.time_final =    "   2 Time  5.00000E+00 y"
         self.time_final =    "   3 Time  5.00000E+00 y"
         # self.time_first = self.time_final
