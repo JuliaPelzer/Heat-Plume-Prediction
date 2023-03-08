@@ -27,11 +27,8 @@ def run_experiment(n_epochs: int = 1000, lr: float = 5e-3,
     overfit = overfit
     sdf = True
     # init data
-    datasets, dataloaders = init_data(
-        dataset_name=dataset_name, path_to_datasets=path_to_datasets,
-        batch_size=100, sdf=sdf,
-        reduce_to_2D=reduce_to_2D, reduce_to_2D_xy=reduce_to_2D_xy,
-        inputs=inputs, labels="t", overfit=overfit)
+    datasets, dataloaders = init_data(dataset_name=dataset_name, path_to_datasets=path_to_datasets,
+        batch_size=100, sdf=sdf, reduce_to_2D=reduce_to_2D, reduce_to_2D_xy=reduce_to_2D_xy, inputs=inputs, labels="t", overfit=overfit)
 
     # model choice
     in_channels = len(inputs) + 1
@@ -68,12 +65,12 @@ def run_experiment(n_epochs: int = 1000, lr: float = 5e-3,
         
     # visualization
     if overfit:
-        error, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination,
+        _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination,
             plot_name=name_folder_destination + "/plot_train_sample_applied",)
     else:
-        error, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination,
+        _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination,
             plot_name=name_folder_destination + "/plot_train_sample_applied", amount_plots=3,)
-        error, error_mean, final_max_error = plot_sample(model, dataloaders["val"], device, name_folder_destination,
+        _, error_mean, final_max_error = plot_sample(model, dataloaders["val"], device, name_folder_destination,
             plot_name=name_folder_destination + "/plot_val_sample_applied", amount_plots=3,)
 
     # save model
@@ -85,19 +82,7 @@ def run_experiment(n_epochs: int = 1000, lr: float = 5e-3,
     print(f"Time needed for experiment: {duration}")
 
     # logging
-    results = {
-        "timestamp": time_begin,
-        "model": model_choice,
-        "dataset": dataset_name,
-        "overfit": overfit,
-        "inputs": inputs,
-        "n_epochs": n_epochs,
-        "lr": lr,
-        "error_mean": error_mean[-1],
-        "error_max": final_max_error,
-        "duration": duration,
-        "name_destination_folder": name_folder_destination,
-    }
+    results = {"timestamp": time_begin, "model": model_choice, "dataset": dataset_name, "overfit": overfit, "inputs": inputs, "n_epochs": n_epochs, "lr": lr, "error_mean": error_mean[-1], "error_max": final_max_error, "duration": duration, "name_destination_folder": name_folder_destination,}
     append_results_to_csv(results, "runs/collected_results_rough_idea.csv")
 
     model.to("cpu")
