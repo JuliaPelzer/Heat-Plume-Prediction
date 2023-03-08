@@ -37,6 +37,26 @@ class InfinityLoss(nn.Module):
 def normalize(x, mean, std):
     return (x - mean) / std
 
+def create_loss_fn(loss_fn_str:str, dataloaders:dict=None):
+    if loss_fn_str == "ExcludeNotChangedTemp":
+        ignore_temp = 10.6
+        temp_mean, temp_std = (
+            dataloaders["train"].dataset.mean_labels["Temperature [C]"],
+            dataloaders["train"].dataset.std_labels["Temperature [C]"],
+        )
+        normalized_ignore_temp = normalize(ignore_temp, temp_mean, temp_std)
+        print(temp_std, temp_mean, normalized_ignore_temp)
+        loss_fn = MSELossExcludeNotChangedTemp(ignore_temp=normalized_ignore_temp)
+    elif loss_fn_str == "MSE":
+        loss_fn = MSELoss()
+    elif loss_fn_str == "ExcludeYBoundary":
+        loss_fn = MSELossExcludeYBoundary()
+    elif loss_fn_str == "Infinity":
+        loss_fn = InfinityLoss()
+    else:
+        raise ValueError(f"loss_fn_str: {loss_fn_str} not implemented")
+    return loss_fn
+
 if __name__ == "__main__":
     tensor1 = torch.tensor([[10.6, 12], [12, 10.6]])
     tensor2 = torch.tensor([[10.6, 12], [10.6, 12]])
