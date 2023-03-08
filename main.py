@@ -55,6 +55,7 @@ def run_experiment(n_epochs: int = 1000, lr: float = 5e-3,
         else:
             solver = Solver(model,dataloaders["train"],dataloaders["val"],learning_rate=lr,loss_func=loss_fn,)
         try:
+            solver.load_lr_schedule(os.path.join(os.getcwd(), "runs", name_folder_destination, "learning_rate_history.csv"))
             solver.train(device, n_epochs=n_epochs, name_folder=name_folder_destination)
         except KeyboardInterrupt:
             print("KeyboardInterrupt")
@@ -62,20 +63,19 @@ def run_experiment(n_epochs: int = 1000, lr: float = 5e-3,
         # load model
         model = load_model({"model_choice":model_choice, "in_channels":in_channels}, os.path.join(os.getcwd(), "runs", name_folder_destination), f"{model_choice}_{inputs}")
         model.to(device)
+
+    # save model
+    if train:
+        save(model.state_dict(), os.path.join(os.getcwd(), "runs", name_folder_destination, "model.pt"))
+        solver.save_lr_schedule(os.path.join(os.getcwd(), "runs", name_folder_destination, "learning_rate_history.csv"))
         
     # visualization
     if overfit:
         _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination,
             plot_name=name_folder_destination + "/plot_train_sample_applied",)
     else:
-        _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination,
-            plot_name=name_folder_destination + "/plot_train_sample_applied", amount_plots=3,)
-        _, error_mean, final_max_error = plot_sample(model, dataloaders["val"], device, name_folder_destination,
-            plot_name=name_folder_destination + "/plot_val_sample_applied", amount_plots=3,)
-
-    # save model
-    if train:
-        save(model.state_dict(), os.path.join(os.getcwd(),"runs",name_folder_destination, f"{model_choice}_{inputs}.pt"))
+        _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_train_sample_applied", amount_plots=3,)
+        _, error_mean, final_max_error = plot_sample(model, dataloaders["val"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_val_sample_applied", amount_plots=3,)
 
     time_end = dt.datetime.now()
     duration = f"{(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds"
