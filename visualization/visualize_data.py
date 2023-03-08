@@ -40,7 +40,6 @@ def plot_datapoint(dataset : DatasetSimulationData, run_id : int, view="top", pl
     -------
         None
     """
-
     plot_data_inner(data=dataset[run_id], property_names_in=dataset.get_input_properties(), property_names_out=dataset.get_output_properties(), run_id=run_id, view=view, plot_streamlines=plot_streamlines, oriented=oriented)
 
 
@@ -113,6 +112,13 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
             error_current = y-y_out
             temp_max = max(y.max(), y_out.max())
             temp_min = min(y.min(), y_out.min())
+
+            cut_of_boundaries = False
+            if cut_of_boundaries:
+                y = y[:, :, 1:-2, :]
+                y_out = y_out[:, :, 1:-2, :]
+                error_current = error_current[:, :, 1:-2, :]
+                
             list_to_plot = [
                 _make_dict_batchbased(y.detach().cpu(), "temperature true", 0),# vmax=temp_max, vmin=temp_min),
                 _make_dict_batchbased(y_out.detach().cpu(), "temperature out", 0),# vmax=temp_max, vmin=temp_min),
