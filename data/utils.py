@@ -1,10 +1,8 @@
-import pickle
-import os
 from typing import List, Dict, Tuple
 import numpy as np
+import yaml
 from torch import Tensor, DoubleTensor, equal, mean, std
 from dataclasses import dataclass, field
-import yaml
 
 class PhysicalVariable:
     def __init__(self, name: str, value: DoubleTensor = None):  # TODO ? default value + type
@@ -119,23 +117,6 @@ class Batch():
     
     def __len__(self):
         return Tensor.size(self.inputs)[0]
-
-### utils functions
-def save_pickle(data_dict, file_name):
-    """Save given data dict to pickle file file_name in models/
-
-    Parameters
-    ----------
-    data_dict : e.g. {"dataset": dataset,
-        "cifar_mean": cifar_mean,
-        "cifar_std": cifar_std}
-    file_name : str
-        Name of the file to be saved, ends with .p
-    """
-    directory = 'models'
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    pickle.dump(data_dict, open(os.path.join(directory, file_name), 'wb', 5))
 
 def separate_property_unit(property_in: str) -> List[str]:
     """Separate property and unit in input string"""
