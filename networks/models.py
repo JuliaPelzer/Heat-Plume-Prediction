@@ -10,7 +10,7 @@ from networks.dummy_network import DummyNet, DummyCNN
 def create_model(model_choice: str, in_channels: int, datasets_2D: dict=None, reduce_to_2D: bool=True):
     """ takes model_choice-string and returns model """
     if model_choice == "unet":
-        model = UNet(in_channels=in_channels, out_channels=1, depth=4).float()
+        model = UNet(in_channels=in_channels, out_channels=1, depth=3).float()
     elif model_choice == "fc":
         size_domain_2D = datasets_2D["train"].dimensions_of_datapoint
         if reduce_to_2D:

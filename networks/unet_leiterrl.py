@@ -47,17 +47,18 @@ class UNet(nn.Module):
             nn.Conv2d(
                 in_channels=in_channels,
                 out_channels=features,
-                kernel_size=3,
+                kernel_size=4,
                 padding="same",
-                bias=False,
+                bias=True,
             ),
+            # nn.BatchNorm2d(num_features=features),
             nn.ReLU(inplace=True),      
             nn.Conv2d(
                 in_channels=features,
                 out_channels=features,
-                kernel_size=3,
+                kernel_size=4,
                 padding="same",
-                bias=False,
+                bias=True,
             ),        
             nn.ReLU(inplace=True),
         )
