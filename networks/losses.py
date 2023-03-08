@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch
+from torch.nn import MSELoss
 
 class MSELossExcludeNotChangedTemp(nn.MSELoss):
     def __init__(self, size_average=None, reduction: str = 'mean', ignore_temp:float=0.0) -> None:
@@ -14,11 +15,22 @@ class MSELossExcludeNotChangedTemp(nn.MSELoss):
         out = torch.mean((inputs[mask]-targets[mask])**2)
         return out
     
+class MSELossExcludeYBoundary(nn.MSELoss):
+    """ loss specifically excludes a little of the y-boundary because there are some artifacts there (from the simulation)"""
+    def __init__(self, **kwargs) -> None:
+        super(nn.MSELoss, self).__init__(**kwargs)
+
+    def forward(self, inputs:torch.tensor, targets:torch.tensor):
+        # expects input in shape (batch, channels, height, width)
+        assert len(inputs.shape) == 4, f"inputs.shape: {inputs.shape}, expects (batch, channels, height, width)"
+        out = torch.mean((inputs[:,:,1:-2,:]-targets[:,:,1:-2,:])**2)
+        return out
+    
 class InfinityLoss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, inputs, targets):
+    def forward(self, inputs:torch.tensor, targets:torch.tensor):
         out = torch.max(torch.abs(inputs-targets))
         return out
 
