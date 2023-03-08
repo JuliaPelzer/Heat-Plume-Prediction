@@ -1,33 +1,46 @@
 from data.dataset_loading import init_data
 from data.utils import load_settings, save_settings
+import os
+import argparse
 from solver import Solver
 from networks.unet_leiterrl import TurbNetG, UNet
 from networks.dummy_network import DummyNet, DummyCNN
 from visualization.visualize_data import plot_sample
 from torch.nn import MSELoss
 from networks.losses import MSELossExcludeNotChangedTemp, InfinityLoss, normalize
-from torch import cuda, device
+from torch import cuda
 from utils.utils_networks import count_parameters, append_results_to_csv
 import datetime as dt
 import sys
 import logging
 import numpy as np
 
-def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choice="unet", name_folder_destination:str="default", dataset_name:str="small_dataset_test", 
-    path_to_datasets = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets", overfit=True):
-    
+
+def run_experiment(n_epochs: int = 1000, lr: float = 5e-3,
+    inputs: str = "pk", model_choice: str="unet",
+    name_folder_destination: str = "default", dataset_name: str = "small_dataset_test",
+    path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets",
+    overfit: bool = True, device: str = None):
     time_begin = dt.datetime.now()
-    
+
     # parameters of data
-    reduce_to_2D=True
-    reduce_to_2D_xy=True
-    overfit=overfit
+    reduce_to_2D = True
+    reduce_to_2D_xy = True
+    overfit = overfit
     # init data
-    datasets_2D, dataloaders_2D = init_data(dataset_name=dataset_name, path_to_datasets=path_to_datasets, batch_size=100,
-        reduce_to_2D=reduce_to_2D, reduce_to_2D_xy=reduce_to_2D_xy, inputs=inputs, labels="t", overfit=overfit)
+    datasets_2D, dataloaders_2D = init_data(
+        dataset_name=dataset_name,
+        path_to_datasets=path_to_datasets,
+        batch_size=100,
+        reduce_to_2D=reduce_to_2D,
+        reduce_to_2D_xy=reduce_to_2D_xy,
+        inputs=inputs,
+        labels="t",
+        overfit=overfit,
+    )
 
     # model choice
-    in_channels = len(inputs)+1
+    in_channels = len(inputs) + 1
     if model_choice == "unet":
         model = UNet(in_channels=in_channels, out_channels=1).float()
     elif model_choice == "fc":
@@ -43,15 +56,14 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
     elif model_choice == "turbnet":
         model = TurbNetG(channelExponent=4, in_channels=in_channels, out_channels=1).float()
     else:
-        print("model choice not recognized")
+        logging.error("model choice not recognized")
         sys.exit()
     # print(model)
-    logging.warning(f"Number of parameters in model {count_parameters(model)}")
 
-    device_used = device('cuda' if cuda.is_available() else 'cpu')
-    if not device_used == 'cuda':
-        logging.warning(f"Using {device_used} device")
-    model.to(device_used)
+    if device is None:
+        device = "cuda" if cuda.is_available() else "cpu"
+    logging.warning(f"Using {device} device")
+    model.to(device)
 
     number_parameter = count_parameters(model)
     logging.info(f"Model {model_choice} with number of parameters: {number_parameter}")
@@ -60,7 +72,10 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
     loss_fn_str = "MSE"
     if loss_fn_str == "ExcludeNotChangedTemp":
         ignore_temp = 10.6
-        temp_mean, temp_std = dataloaders_2D["train"].dataset.mean_labels["Temperature [C]"], dataloaders_2D["train"].dataset.std_labels["Temperature [C]"]
+        temp_mean, temp_std = (
+            dataloaders_2D["train"].dataset.mean_labels["Temperature [C]"],
+            dataloaders_2D["train"].dataset.std_labels["Temperature [C]"],
+        )
         normalized_ignore_temp = normalize(ignore_temp, temp_mean, temp_std)
         print(temp_std, temp_mean, normalized_ignore_temp)
         loss_fn = MSELossExcludeNotChangedTemp(ignore_temp=normalized_ignore_temp)
@@ -72,7 +87,7 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
     n_epochs = n_epochs
     lr = float(lr)
 
-    # train model
+    # training
     if overfit:
         solver = Solver(
             model,
@@ -128,21 +143,11 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
     # save(model, os.path.join(name_folder, dataset_name, str(inputs)+ ".pt"))
     # save_pickle({model_choice: model}, str(name_folder)+"_"+str(dataset_name)+"_"+str(inputs)+".p")
 
-    # TODO overfit until not possible anymore (dummynet, then unet)
-    # therefor: try to exclude connections from unet until it overfits properly (loss=0)
-    # TODO go over input properties (delete some, some from other simulation with no hps?)
-    # TODO: add 3D data
-    # TODO : data augmentation,
-    # train model
-    # lp.train_model(model, dataloaders_2D, loss_fn, n_epochs, lr)
-    # visualize results, pic in folder visualization/pics under plot_y_exemplary
-    # current date and time
-    # vis.plot_exemplary_learned_result(model, dataloaders_2D, name_pic=f"plot_y_exemplary_{now}")
-
     time_end = dt.datetime.now()
     duration = f"{(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds"
     print(f"Time needed for experiment: {duration}")
 
+    # logging
     results = {
         "timestamp": time_begin,
         "model": model_choice,
