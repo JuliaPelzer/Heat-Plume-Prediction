@@ -5,7 +5,8 @@ Definition of problem-specific transform classes
 import logging
 import numpy as np
 from torchvision.transforms import Normalize
-from torch import Tensor, squeeze, unsqueeze, round, from_numpy
+from torch import Tensor, squeeze, unsqueeze, round, from_numpy, linalg, nonzero
+import torch
 from data.utils import PhysicalVariables
 from typing import Dict, Union, Tuple
 
@@ -70,7 +71,7 @@ class NormalizeTransform:
             then normalize each image channel separately
     """
 
-    def __init__(self):
+    def __init__(self, sdf_bool:bool=True):
         """
         :param mean: mean of data to be normalized
             can be a single value, or a numpy array of size C
@@ -78,56 +79,140 @@ class NormalizeTransform:
              can be a single value or a numpy array of size C
         """
         self.names_material = ["Material_ID", "Material ID"]
+        self.sdf_bool:bool= sdf_bool
 
     def __call__(self, data: PhysicalVariables, mean_val:Dict, std_val:Dict):
         logging.info("Start normalization")
-        # index shift for material ID
-        for name_material in self.names_material:
-            if name_material in data.keys():
-                data[name_material].value -= 1
-                mask = data[name_material].value == 2
-                data[name_material].value[mask] = -1
-                data[name_material].value = data[name_material].value.double() # casting from int to double
+        if not self.sdf_bool:
+            # index shift for material ID
+            for name_material in self.names_material:
+                if name_material in data.keys():
+                    data[name_material].value -= 1
+                    mask = data[name_material].value == 2
+                    data[name_material].value[mask] = -1
+                    data[name_material].value = data[name_material].value.double() # casting from int to double
 
         # normalize data to mean and std
         for prop in data.keys():
-            Normalize(mean_val[prop], std_val[prop], inplace=True)(data[prop].value)
-            # TODO next lines necessary?
+            if not self.sdf_bool:
+                Normalize(mean_val[prop], std_val[prop], inplace=True)(data[prop].value)
+            else:
+                if prop not in self.names_material:
+                    Normalize(mean_val[prop], std_val[prop], inplace=True)(data[prop].value)
             # # squeeze in case of reduced_to_2D_wrong necessary because unsqueezed before for Normalize to work
             data[prop].value = squeeze(data[prop].value)
         logging.info("Data normalized")
         return data
 
     def init_mean_std(self, data: PhysicalVariables):
-        for name_material in self.names_material:
-            if name_material in data.keys():
-                data[name_material].value -= 1
-                mask = data[name_material].value == 2
-                data[name_material].value[mask] = -1
+        if not self.sdf_bool:
+            for name_material in self.names_material:
+                if name_material in data.keys():
+                    data[name_material].value -= 1
+                    mask = data[name_material].value == 2
+                    data[name_material].value[mask] = -1
 
         for prop in data.keys():
-            # calc mean, std per channel
-            data[prop].calc_mean()  # dim=(1, 2, 3), keepdim=True)
-            data[prop].calc_std()  # dim=(1, 2, 3), keepdim=True)
+            if not self.sdf_bool:
+                # calc mean, std per channel
+                data[prop].calc_mean()  # dim=(1, 2, 3), keepdim=True)
+                data[prop].calc_std()  # dim=(1, 2, 3), keepdim=True)
+            else:
+                if prop not in self.names_material:
+                    # calc mean, std per channel
+                    data[prop].calc_mean()  # dim=(1, 2, 3), keepdim=True)
+                    data[prop].calc_std()  # dim=(1, 2, 3), keepdim=True)
 
         return data
 
     def reverse(self, data:PhysicalVariables, mean_val:Dict, std_val:Dict):
         # reverse normalization
-        for prop in data.keys():
-            data[prop].value = data[prop].value * std_val[prop] + mean_val[prop]
+        if not self.sdf_bool:
+            for prop in data.keys():
+                data[prop].value = data[prop].value * std_val[prop] + mean_val[prop]
+        else:
+            for prop in data.keys():
+                if prop not in self.names_material:
+                    data[prop].value = data[prop].value * std_val[prop] + mean_val[prop]
 
-        for name_material in self.names_material:
-            if name_material in data.keys():
-                mask = data[name_material].value == -1
-                data[name_material].value[mask] = 2  # only required, if extraction well (with ID=3) exists
-                data[name_material].value += 1
+        if not self.sdf_bool:
+            for name_material in self.names_material:
+                if name_material in data.keys():
+                    mask = data[name_material].value == -1
+                    data[name_material].value[mask] = 2  # only required, if extraction well (with ID=3) exists
+                    data[name_material].value += 1
         return data
 
     def reverse_tensor(self, data:Tensor, mean_val, std_val) -> Tensor:
         # reverse normalization
         data = data * std_val + mean_val
+        # TODO exclude Material ID???
         return data
+
+class SignedDistanceTransform:
+    """
+    Transform class to calculate signed distance transform
+    """
+
+    def __init__(self):
+        self.names_material = ["Material_ID", "Material ID"]
+
+    def __call__(self, data: PhysicalVariables):
+        logging.info("Start SignedDistanceTransform")
+
+        # check if material ID is in data (inputs vs. labels)
+        material_id_in_data = False
+        for name_material in self.names_material:
+            if name_material in data.keys():
+                material_id_in_data = True
+        if not material_id_in_data:
+            logging.info("No material ID in data, no SignedDistanceTransform")
+            return data
+
+        def get_loc_hp():
+            for name_material in self.names_material:
+                if name_material in data.keys():
+                    loc_hp = nonzero(data[name_material].value==torch.max(data[name_material].value)).squeeze()
+                    return loc_hp, name_material
+        loc_hp, name_material = get_loc_hp()
+        data[name_material].value = data[name_material].value.float()
+        for index_x in range(data[name_material].value.shape[0]):
+            for index_y in range(data[name_material].value.shape[1]):
+                for index_z in range(data[name_material].value.shape[2]):
+                    data[name_material].value[index_x, index_y, index_z] = linalg.norm(
+                        torch.tensor([index_x, index_y, index_z]).float() - loc_hp.float())#, ord=float("inf"))
+
+        data[name_material].value = data[name_material].value / torch.max(data[name_material].value)
+
+        # file = open("distance_transform.txt", "a")
+        # for index in range(data[name_material].value.shape[0]):
+        #     file.write(str(data[name_material].value[index, :, :].squeeze())+"\n")
+        return data
+    
+    ## NOT TESTED AND NOT CALLED
+    # def reverse(self, data: PhysicalVariables):
+    #     logging.info("Start reverse SignedDistanceTransform")
+    #     # check if material ID is in data (inputs vs. labels)
+    #     material_id_in_data = False
+    #     for name_material in self.names_material:
+    #         if name_material in data.keys():
+    #             material_id_in_data = True
+    #     if not material_id_in_data:
+    #         logging.info("No material ID in data, no reverse SignedDistanceTransform")
+    #         return data
+
+    #     def get_loc_hp():
+    #         for name_material in self.names_material:
+    #             if name_material in data.keys():
+    #                 loc_hp = nonzero(data[name_material].value==torch.min(data[name_material].value)).squeeze()
+    #                 return loc_hp, name_material
+    #     loc_hp, name_material = get_loc_hp()
+
+    #     # zeros tensor of size of data[name_material].value
+    #     data[name_material].value = torch.zeros(data[name_material].value.shape)
+    #     data[name_material].value[loc_hp[0], loc_hp[1], loc_hp[2]] = 1
+
+    #     return data
 
 class PowerOfTwoTransform:  # CutOffEdgesTransform:
     """
@@ -173,7 +258,7 @@ class ReduceTo2DTransform:
         else:
             self.slice_dimension = 0 # x
         loc_hp = np.array([2,9,2])
-        self.loc_hp_slice = int(loc_hp[self.slice_dimension]) 
+        self.loc_hp_slice = int(loc_hp[self.slice_dimension])
 
     def __call__(self, data: PhysicalVariables, loc_hp: Tuple=None):
         logging.info("Start ReduceTo2DTransform")
@@ -199,10 +284,11 @@ class ReduceTo2DTransform:
             for prop in data.keys():
                 assert self.loc_hp_slice <= data[prop].value.shape[0], "ReduceTo2DTransform: x is larger than data dimension 0"
                 data[prop].value = data[prop].value[self.loc_hp_slice, :, :]
-                data[prop].value = unsqueeze(data[prop].value, 0) # TODO necessary? 
-        
+                data[prop].value = unsqueeze(data[prop].value, 0) # TODO necessary?
+
         logging.info("Reduced data to 2D, but still has dummy dimension 0 for Normalization to work")
         return data
+
 
 class ToTensorTransform:
     """Transform class to convert np.array-data to torch.Tensor"""
@@ -216,7 +302,7 @@ class ToTensorTransform:
             data[prop].value = from_numpy(data[prop].value)
         logging.info("Converted data to torch.Tensor")
         return data
-    
+
     ##TODO include when change back to cpu?
     # def reverse(self, data: PhysicalVariables, **normalize_kwargs):
     #     for prop in data.keys():
@@ -224,7 +310,7 @@ class ToTensorTransform:
     #     return data
 
     def reverse_tensor(self, data: Tensor, **normalize_kwargs) -> np.ndarray:
-        return data.detach() #.numpy() 
+        return data.detach() #.numpy()
 
 
 class ComposeTransform:
@@ -256,7 +342,7 @@ class ComposeTransform:
             except AttributeError as e:
                 pass
         return data
-    
+
     def reverse_tensor_input(self, data: Tensor, **normalize_kwargs):
         for transform in reversed(self.transforms):
             try:

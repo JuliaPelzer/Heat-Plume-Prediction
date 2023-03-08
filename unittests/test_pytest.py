@@ -23,6 +23,18 @@ def test_compute_data_max_and_min():
     # does not test keepdim part - necessary?
     # float numbers? expected_vlaue = pytest.approx(value, abs=0.001)
 
+def test_sdf_transform():
+    # Fixture
+    testor = Tensor(np.array([[[1,2,3],[100,5,6]]]))
+    data = utils.PhysicalVariables(time="now", properties=["Material ID"])
+    data["Material ID"] = testor
+    # Expected result
+    sdf = Tensor(np.array([[[1,1.4142,2.2361],[0,1,2]]]))
+    # Actual result
+    sdf_transform = trans.SignedDistanceTransform()
+    actual_result = sdf_transform(data)
+    # Test
+    assert eq(actual_result["Material ID"].value, sdf).flatten
 
 def test_normalize_transform():
     data = utils.PhysicalVariables(time="now", properties=["test"])
@@ -198,8 +210,8 @@ def test_mselossexcludenotchangedtemp():
 
 
 if __name__ == "__main__":
-    test_data_init()
-    test_combinations()
-    test_dataloader_iter()
-    
-    test_normalize_transform()
+    # test_data_init()
+    # test_combinations()
+    # test_dataloader_iter()
+    # test_normalize_transform()
+    test_sdf_transform()
