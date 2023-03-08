@@ -126,10 +126,10 @@ class Solver(object):
             try:
                 # Iterate over all training samples
                 train_epoch_loss = 0.0
-                for batch_idx, data_values in enumerate(self.train_dataloader):
+                for x, y in self.train_dataloader:
                     # Unpack data
-                    X = data_values.inputs.float().to(device)
-                    y = data_values.labels.float().to(device)
+                    X = x.to(device)
+                    y = y.to(device)
 
                     # Train step + update model parameters
                     validate = epoch == 0
@@ -139,10 +139,10 @@ class Solver(object):
                 train_epoch_loss /= len(self.train_dataloader)
                 # Iterate over all validation samples
                 val_epoch_loss = 0.0
-                for batch_idx, data_values in enumerate(self.val_dataloader):
+                for x, y in self.val_dataloader:
                     # Unpack data
-                    X = data_values.inputs.float().to(device)
-                    y = data_values.labels.float().to(device)
+                    X = x.to(device)
+                    y = y.to(device)
                     # Compute Loss - no param update at validation time!
                     val_loss, y_pred_val = self._step(X, y, device, validation=True) #
                     # self.val_batch_loss.append(val_loss)

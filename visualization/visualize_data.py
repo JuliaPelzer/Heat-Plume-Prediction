@@ -91,12 +91,12 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
     if amount_plots is None:
         amount_plots = len(dataloader.dataset)
 
-    for batch_id, data_values in enumerate(dataloader):
-        len_batch = data_values.inputs.shape[0]
+    for batch_id, (inputs,labels) in enumerate(dataloader):
+        len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
-            x = data_values.inputs[datapoint_id].float().to(device)
+            x = inputs[datapoint_id].to(device)
             x = torch.unsqueeze(x,0)
-            y = data_values.labels[datapoint_id].float().to(device)
+            y = labels[datapoint_id].to(device)
             y = torch.unsqueeze(y,0)
             y_out = model(x).to(device)
 

@@ -49,12 +49,12 @@ class DataLoader:
             next_datapoint = _datapoint_to_tensor_including_channel(self.dataset[index])
             _append_batch_by_datapoint(next_datapoint, batch)
             if len(batch) == self.batch_size:
-                yield batch
+                yield batch.inputs, batch.labels
                 batch_id += 1
                 batch = Batch(batch_id=batch_id)
             
         if len(batch) > 0 and not self.drop_last:
-            yield batch
+            yield batch.inputs.float(), batch.labels.float()
     
     def reverse_transform(self, datapoint:Tensor=None):
         """
