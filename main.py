@@ -1,19 +1,18 @@
-from data.dataset_loading import init_data
-from data.utils import load_settings, save_settings
-import os
-import argparse
-from solver import Solver
-from networks.unet_leiterrl import TurbNetG, UNet
-from networks.dummy_network import DummyNet, DummyCNN
-from visualization.visualize_data import plot_sample
-from torch.nn import MSELoss
-from networks.losses import MSELossExcludeNotChangedTemp, InfinityLoss, normalize
-from torch import cuda
-from utils.utils_networks import count_parameters, append_results_to_csv
 import datetime as dt
 import sys
 import logging
 import numpy as np
+import os
+import argparse
+from torch.nn import MSELoss
+from networks.models import create_model
+from networks.losses import MSELossExcludeNotChangedTemp, InfinityLoss, normalize
+from torch import cuda, save
+from data.dataset_loading import init_data
+from data.utils import load_settings, save_settings
+from solver import Solver
+from visualization.visualize_data import plot_sample
+from utils.utils_networks import count_parameters, append_results_to_csv
 
 
 def run_experiment(n_epochs: int = 1000, lr: float = 5e-3,
@@ -41,24 +40,7 @@ def run_experiment(n_epochs: int = 1000, lr: float = 5e-3,
 
     # model choice
     in_channels = len(inputs) + 1
-    if model_choice == "unet":
-        model = UNet(in_channels=in_channels, out_channels=1, depth=4).float()
-    elif model_choice == "fc":
-        size_domain_2D = datasets_2D["train"].dimensions_of_datapoint
-        if reduce_to_2D:
-            # TODO order here or in dummy_network(size) messed up
-            size_domain_2D = size_domain_2D[1:]
-        # transform to PowerOfTwo
-        size_domain_2D = [2 ** int(np.log2(dimension)) for dimension in size_domain_2D]
-        model = DummyNet(in_channels=in_channels, out_channels=1, size=size_domain_2D).float()
-    elif model_choice == "cnn":
-        model = DummyCNN(in_channels=in_channels, out_channels=1).float()
-    elif model_choice == "turbnet":
-        model = TurbNetG(channelExponent=4, in_channels=in_channels, out_channels=1).float()
-    else:
-        logging.error("model choice not recognized")
-        sys.exit()
-    # print(model)
+    model = create_model(model_choice, in_channels, datasets_2D, reduce_to_2D)
 
     if device is None:
         device = "cuda" if cuda.is_available() else "cpu"
@@ -139,9 +121,8 @@ def run_experiment(n_epochs: int = 1000, lr: float = 5e-3,
             amount_plots=3,
         )
 
-    # save model - TODO : both options currently not working
-    # save(model, os.path.join(name_folder, dataset_name, str(inputs)+ ".pt"))
-    # save_pickle({model_choice: model}, str(name_folder)+"_"+str(dataset_name)+"_"+str(inputs)+".p")
+    # save model
+    save(model.state_dict(), os.path.join(os.getcwd(),"runs",name_folder_destination, f"{model_choice}_{inputs}.pt"))
 
     time_end = dt.datetime.now()
     duration = f"{(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds"
@@ -166,7 +147,6 @@ def run_experiment(n_epochs: int = 1000, lr: float = 5e-3,
     model.to("cpu")
     # del model
     return model
-
 
 if __name__ == "__main__":
     
