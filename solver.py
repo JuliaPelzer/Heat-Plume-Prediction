@@ -5,7 +5,7 @@ from torch.nn import MSELoss, Module
 from torch.utils.tensorboard import SummaryWriter
 
 from data.dataloader import DataLoader
-from networks.unet_leiterrl import weights_init
+from networks.unet import weights_init
 
 
 class Solver(object):

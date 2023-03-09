@@ -4,7 +4,7 @@ import numpy as np
 from typing import Dict
 import torch.nn as nn
 import torch
-from networks.unet_leiterrl import TurbNetG, UNet
+from networks.unet import TurbNetG, UNet
 from networks.dummy_network import DummyNet, DummyCNN
 
 def create_model(model_choice: str, in_channels: int, datasets_2D: dict=None, reduce_to_2D: bool=True):

@@ -9,7 +9,7 @@ from data.dataset import DatasetSimulationData
 from data.utils import separate_property_unit
 # from torch.utils.tensorboard import SummaryWriter
 from data.dataloader import DataLoader
-from networks.unet_leiterrl import UNet
+from networks.unet import UNet
 from data.utils import PhysicalVariables
 from torch.nn import MSELoss
 
@@ -97,12 +97,13 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
             x = torch.unsqueeze(x,0)
             y = labels[datapoint_id].to(device)
             y = torch.unsqueeze(y,0)
+            model.eval()
             y_out = model(x).to(device)
 
             # reverse transform for plotting real values
-            x = dataloader.reverse_transform(x)
-            y = dataloader.reverse_transform_temperature(y)
-            y_out = dataloader.reverse_transform_temperature(y_out)
+            x = dataloader.dataset.reverse_transform(x)
+            y = dataloader.dataset.reverse_transform_temperature(y)
+            y_out = dataloader.dataset.reverse_transform_temperature(y_out)
 
             try:
                 physical_vars = dataloader.dataset.datapoints[datapoint_id].inputs.keys()
@@ -122,7 +123,7 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
             list_to_plot = [
                 _make_dict_batchbased(y.detach().cpu(), "temperature true", 0),# vmax=temp_max, vmin=temp_min),
                 _make_dict_batchbased(y_out.detach().cpu(), "temperature out", 0),# vmax=temp_max, vmin=temp_min),
-                _make_dict_batchbased(error_current.detach().cpu(), "error", 0),
+                _make_dict_batchbased(np.abs(error_current.detach().cpu()), "error", 0),
             ]
 
             for index, physical_var in enumerate(physical_vars):
