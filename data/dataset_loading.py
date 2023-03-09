@@ -1,13 +1,14 @@
 from data.dataset import DatasetSimulationData
 from data.dataloader import DataLoader
-from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, PowerOfTwoTransform, ToTensorTransform
+from torch.utils.data import DataLoader as TorchDataLoader
+from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, PowerOfTwoTransform, ToTensorTransform, SignedDistanceTransform
 import os
 from shutil import copyfile
 import logging
 from typing import List
 import numpy as np
 
-def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit: bool = False, normalize: bool = True, 
+def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit: bool = False, normalize: bool = True, sdf:bool = True,
               just_plotting: bool = False, batch_size: int = 1000, inputs: str = "xyzpt", labels: str = "txyz",
               dataset_name: str = "perm_pressure1D_10dp", 
               path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets"):
@@ -39,8 +40,10 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
     transforms_list = [ToTensorTransform(), PowerOfTwoTransform(oriented="left")]
     if reduce_to_2D:
         transforms_list.append(ReduceTo2DTransform(reduce_to_2D_xy=reduce_to_2D_xy))
+    if sdf:
+        transforms_list.append(SignedDistanceTransform())
     if normalize:
-        transforms_list.append(NormalizeTransform())
+        transforms_list.append(NormalizeTransform(sdf))
 
     logging.info(f"transforms_list: {transforms_list}")
 
@@ -72,7 +75,7 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
             dataset_name=dataset_name_temp, dataset_path=path_to_datasets,
             transform=transforms, input_vars_names=input_vars,
             output_vars_names=output_vars,
-            mode=mode, split=split, normalize_bool=normalize,
+            mode=mode, split=split, normalize=normalize, sdf=sdf,
             means_stds_train_tuple=means_stds_train_tuple
         )
         if mode == "train" and normalize:    
@@ -82,6 +85,11 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
     # Create a dataloader for each split.
     dataloaders = {}
     for mode in modes:
+        # temp_dataloader = TorchDataLoader(
+        #     dataset=datasets[mode], 
+        #     batch_size=batch_size, 
+        #     shuffle=True, 
+        #     drop_last=False)
         temp_dataloader = DataLoader(
             dataset=datasets[mode],
             batch_size=batch_size,

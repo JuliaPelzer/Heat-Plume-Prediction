@@ -83,7 +83,7 @@ def ellipse_1_percent(inj_point, alpha_L, alpha_T):
     width = 40 * alpha_L
     return Ellipse(inj_point, width, height, fill=False, color="red")
 
-def plot_temperature_lahm(data:Dict, x_grid, y_grid, title=""):
+def plot_temperature_lahm(data:Dict, x_grid, y_grid, filename=""):
     """
     Plot the temperature field.
     """
@@ -92,15 +92,15 @@ def plot_temperature_lahm(data:Dict, x_grid, y_grid, title=""):
     
     for index, (key, value) in enumerate(data.items()):
         plt.sca(axes[index])
-        plt.title(f"{title}\n{key}")
+        plt.title(f"{key}")
         levels = np.arange(10, 15.0, 0.25)
         plt.contourf(x_grid, y_grid, value, levels=levels, cmap='RdBu_r', extent=(0,1280,100,0))
         plt.ylabel("x [m]")
-        _aligned_colorbar(label=title)
+        _aligned_colorbar(label="Temperature [°C]")
 
     plt.xlabel("y [m]")
     # plt.show()
-    plt.savefig(f"{title}.png")
+    plt.savefig(f"{filename}.png")
 
 def plot_different_versions_of_temperature_lahm(data, x_grid, y_grid, title="", ellipses=None):
     """
@@ -195,4 +195,4 @@ if __name__ == "__main__":
 
     ellipse_10 = ellipse_10_percent(injection_point, parameters["alpha_L"], parameters["alpha_T"])
     # ellipse_1 = ellipse_1_percent(injection_point, parameters["alpha_L"], parameters["alpha_T"])
-    plot_temperature_lahm(delta_T_grid+parameters["T_gwf"], x_grid, y_grid, title="Temperature [C]", ellipses=[ellipse_10])
+    plot_temperature_lahm({"10 years": delta_T_grid+parameters["T_gwf"]}, x_grid, y_grid, filename="test_temperature_plot") #, ellipses=[ellipse_10])

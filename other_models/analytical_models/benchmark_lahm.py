@@ -19,10 +19,11 @@ def calc_and_plot(domain, parameters):
     for t in parameters["time_sim"]:
         delta_T_grid = lahm.delta_T(domain.x_grid-domain.injection_point[0], domain.y_grid-domain.injection_point[1], t, parameters["q_inj"], parameters)
         print("T diff", delta_T_grid[int(domain.injection_point[1]/domain.cell_size), int(domain.injection_point[0]/domain.cell_size)])
-        results[f"{np.multiply(1/factor_year_to_seconds, t)} years"] = delta_T_grid+parameters["T_gwf"]
+        results[f"{np.round(np.multiply(1/factor_year_to_seconds, t), 2)} years"] = delta_T_grid+parameters["T_gwf"]
 
     # ellipse_10 = lahm.ellipse_10_percent(domain.injection_point, parameters["alpha_L"], parameters["alpha_T"])
-    lahm.plot_temperature_lahm(results, domain.x_grid, domain.y_grid, title=parameters["name"]) #, ellipses=[ellipse_10])
+    # lahm.plot_different_versions_of_temperature_lahm(results["4.8 years"], domain.x_grid, domain.y_grid, title=parameters["name"]) #, ellipses=[ellipse_10])
+    lahm.plot_temperature_lahm(results, domain.x_grid, domain.y_grid, filename=parameters["name"]) #, ellipses=[ellipse_10])
 
 def run_willibald(domain, parameters:dict):
     T_isoline = 12

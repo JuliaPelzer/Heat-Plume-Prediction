@@ -5,114 +5,62 @@ import torch
 import torch.nn as nn
 
 class UNet(nn.Module):
-    def __init__(self, in_channels=2, out_channels=1, init_features=32):
+    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=4):
         super().__init__()
-
         features = init_features
-        self.encoder1 = UNet._block(in_channels, features, name="enc1")
-        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.encoder2 = UNet._block(features, features * 2, name="enc2")
-        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.encoder3 = UNet._block(features * 2, features * 4, name="enc3")
-        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.encoder4 = UNet._block(features * 4, features * 8, name="enc4")
-        self.pool4 = nn.MaxPool2d(kernel_size=2, stride=2) #TODO test with stride 1?
+        self.encoders = nn.ModuleList()
+        self.pools = nn.ModuleList()
+        for i in range(depth):
+            self.encoders.append(UNet._block(in_channels, features))
+            self.pools.append(nn.MaxPool2d(kernel_size=2, stride=2))
+            in_channels = features
+            features *= 2
+        self.encoders.append(UNet._block(in_channels, features))
 
-        self.bottleneck = UNet._block(features * 8, features * 16, name="bottleneck")
-        #self.bottleneck = UNet._block(features, features * 2, name="bottleneck") # if forward_small
-
-        self.upconv4 = nn.ConvTranspose2d(features * 16, features * 8, kernel_size=2, stride=2)
-        self.decoder4 = UNet._block((features * 8) * 2, features * 8, name="dec4")
-        self.upconv3 = nn.ConvTranspose2d(features * 8, features * 4, kernel_size=2, stride=2)
-        self.decoder3 = UNet._block((features * 4) * 2, features * 4, name="dec3")
-        self.upconv2 = nn.ConvTranspose2d(features * 4, features * 2, kernel_size=2, stride=2)
-        self.decoder2 = UNet._block((features * 2) * 2, features * 2, name="dec2")
-        self.upconv1 = nn.ConvTranspose2d(features * 2, features, kernel_size=2, stride=2)
-        self.decoder1 = UNet._block(features * 2, features, name="dec1")
+        self.upconvs = nn.ModuleList()
+        self.decoders = nn.ModuleList()
+        for i in range(depth):
+            self.upconvs.append(nn.ConvTranspose2d(features, features // 2, kernel_size=2, stride=2))
+            self.decoders.append(UNet._block(features, features//2))
+            features = features // 2
 
         self.conv = nn.Conv2d(in_channels=features, out_channels=out_channels, kernel_size=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        enc1 = self.encoder1(x)
-        enc2 = self.encoder2(self.pool1(enc1))
-        enc3 = self.encoder3(self.pool2(enc2))
-        enc4 = self.encoder4(self.pool3(enc3))
-        try:
-            bottleneck = self.bottleneck(self.pool4(enc4))
-            dec4 = self.upconv4(bottleneck)
-            dec4 = torch.cat((dec4, enc4), dim=1)
-            dec4 = self.decoder4(dec4)
-        except:
-            logging.debug("Reduced network size")
-            dec4 = enc4
-            
-        dec3 = self.upconv3(dec4)
-        dec3 = torch.cat((dec3, enc3), dim=1)
-        dec3 = self.decoder3(dec3)
-        dec2 = self.upconv2(dec3)
-        dec2 = torch.cat((dec2, enc2), dim=1)
-        dec2 = self.decoder2(dec2)
-        dec1 = self.upconv1(dec2)
-        dec1 = torch.cat((dec1, enc1), dim=1)
-        dec1 = self.decoder1(dec1)
+        encodings = []
+        for encoder, pool in zip(self.encoders, self.pools):
+            x = encoder(x)
+            encodings.append(x)
+            x = pool(x)
+        x = self.encoders[-1](x)
 
-        return self.conv(dec1)
+        for upconv, decoder, encoding in zip(self.upconvs, self.decoders, reversed(encodings)):
+            x = upconv(x)
+            x = torch.cat((x, encoding), dim=1)
+            x = decoder(x)
 
-    def forward_small(self, x):
-        enc1 = self.encoder1(x)
-        #enc2 = self.encoder2(self.pool1(enc1))
-        # enc3 = self.encoder3(self.pool2(enc2))
-        # enc4 = self.encoder4(self.pool3(enc3))
-
-        #bottleneck = self.bottleneck(self.pool4(enc4))
-        bottleneck = self.bottleneck(self.pool1(enc1))
-        # dec4 = self.upconv4(bottleneck)
-        # dec4 = torch.cat((dec4, enc4), dim=1)
-        # dec4 = self.decoder4(dec4)
-        # dec3 = self.upconv3(dec4) /# dec3 = self.upconv3(bottleneck)
-        # dec3 = torch.cat((dec3, enc3), dim=1)
-        # dec3 = self.decoder3(dec3)
-        #dec2 = self.upconv2(bottleneck) #/  dec2 = self.upconv2(dec3)
-        #dec2 = torch.cat((dec2, enc2), dim=1)
-        #dec2 = self.decoder2(dec2)
-        dec1 = self.upconv1(bottleneck) #/ dec1 = self.upconv1(dec2)
-        dec1 = torch.cat((dec1, enc1), dim=1)
-        dec1 = self.decoder1(dec1)
-
-        return self.conv(dec1)
+        return self.conv(x)
 
     @staticmethod
-    def _block(in_channels, features, name):
-        #print("unet-block ", name, ": ", in_channels, features)
+    def _block(in_channels, features):
         return nn.Sequential(
-            OrderedDict(
-                [
-                    (
-                        name + "conv1",
-                        nn.Conv2d(
-                            in_channels=in_channels,
-                            out_channels=features,
-                            kernel_size=3,
-                            padding=1,
-                            bias=False,
-                        ),
-                    ),
-                    (name + "norm1", nn.BatchNorm2d(num_features=features)),
-                    (name + "relu1", nn.ReLU(inplace=True)),
-                    (
-                        name + "conv2",
-                        nn.Conv2d(
-                            in_channels=features,
-                            out_channels=features,
-                            kernel_size=3,
-                            padding=1,
-                            bias=False,
-                        ),
-                    ),
-                    (name + "norm2", nn.BatchNorm2d(num_features=features)),
-                    (name + "relu2", nn.ReLU(inplace=True)),
-                ]
-            )
+            nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=features,
+                kernel_size=5,
+                padding="same",
+                bias=True,
+            ),
+            nn.BatchNorm2d(num_features=features),
+            nn.ReLU(inplace=True),      
+            nn.Conv2d(
+                in_channels=features,
+                out_channels=features,
+                kernel_size=5,
+                padding="same",
+                bias=True,
+            ),        
+            nn.ReLU(inplace=True),
         )
 
 
@@ -120,10 +68,8 @@ def weights_init(m):
     classname = m.__class__.__name__
     if classname.find("Conv") != -1:
         m.weight.data.normal_(0.0, 0.02) #01) # 0.02
-        # m.weight.data.zero_()
     elif classname.find("BatchNorm") != -1:
         m.weight.data.normal_(1.0, 0.02) #01) # 0.02
-        # m.weight.data.fill_(1)
         m.bias.data.zero_()
 
 def blockUNet(in_c, out_c, name, transposed=False, bn=True, relu=True, size=4, pad=1, dropout=0.0):
@@ -315,26 +261,3 @@ class TurbNetG(nn.Module):
         dout2_out1 = torch.cat([dout2, out1], 1)
         dout1 = self.dlayer1(dout2_out1)
         return dout1
-
-    # def forward_simple(self, x):
-    #     out1 = self.layer1(x)
-    #     out2 = self.layer2(out1)
-    #     # out2b = self.layer2b(out2)
-    #     out3 = self.layer3(out2)
-    #     out4 = self.layer4(out3)
-    #     out5 = self.layer5(out4)
-    #     out6 = self.layer6(out5)
-    #     dout6 = self.dlayer6(out6)
-    #     dout6_out5 = torch.cat([dout6, out5], 1)
-    #     dout5 = self.dlayer5(dout6_out5)
-    #     dout5_out4 = torch.cat([dout5, out4], 1)
-    #     dout4 = self.dlayer4(dout5_out4)
-    #     dout4_out3 = torch.cat([dout4, out3], 1)
-    #     dout3 = self.dlayer3(dout4_out3)
-    #     dout3_out2 = torch.cat([dout3, out2], 1)
-    #     # dout2b = self.dlayer2b(dout3_out2b)
-    #     # dout2b_out2 = torch.cat([dout2b, out2], 1)
-    #     dout2 = self.dlayer2(dout3_out2)
-    #     dout2_out1 = torch.cat([dout2, out1], 1)
-    #     dout1 = self.dlayer1(dout2_out1)
-    #     return dout1
