@@ -12,6 +12,8 @@ import os, sys
 import numpy as np
 import h5py
 from torch import Tensor, square, mean, sqrt, zeros
+from torch.utils.data import Dataset as TorchDataset
+
 
 @dataclass
 class Dataset(ABC):
@@ -46,7 +48,7 @@ class Dataset(ABC):
             raise ValueError(f"Dataset {self.dataset_name} is empty")
         return dataset_path_full
 
-class DatasetSimulationData(Dataset):
+class DatasetSimulationData(TorchDataset, Dataset):
     """Groundwaterflow and heatpumps dataset class dataset has dimensions of NxCxHxWxD,
     where N is the number of runs/data points, C is the number of channels, HxWxD are the spatial dimensions
 
@@ -66,7 +68,7 @@ class DatasetSimulationData(Dataset):
                  means_stds_train_tuple:Tuple[Dict, Dict, Dict, Dict]=None,
                  **kwargs)-> Dataset:
 
-        super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
+        Dataset.__init__(self, dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         assert mode in ["train", "val", "test"], "wrong mode for dataset given"
 
         self.mode = mode
@@ -76,13 +78,13 @@ class DatasetSimulationData(Dataset):
         split_values = [v for k,v in split.items()]
         assert np.round(sum(split_values)) == 1.0
 
-        self.dataset_path = super().check_for_dataset()
+        self.dataset_path = self.check_for_dataset()
         
         self.data_paths, self.runs = self.make_dataset(self)
         logging.info(f"Dataset {self.dataset_name} in mode {self.mode} has {len(self.data_paths)} runs, named {self.runs}")
         self.time_first =     "   0 Time  0.00000E+00 y"
         # self.time_first =    "   1 Time  1.00000E-01 y"
-        # self.time_final =    "   2 Time  5.00000E+00 y"
+        # self.time_final =    "   2 Time  5.00000E+00 y" # other dataset
         self.time_final =    "   3 Time  5.00000E+00 y"
         # self.time_first = self.time_final
         
@@ -145,7 +147,7 @@ class DatasetSimulationData(Dataset):
     def get_output_properties(self) -> List[str]:
         return list(self.output_vars_empty_value.keys)
         
-    def __getitem__(self, index:int) -> Dict[int, DataPoint]:
+    def __getitem__(self, index:int) -> Dict[int, DataPoint]: 
         """
         Get a data point as a dict at a given run id (index) in the dataset
         If the datapoint was loaded before, it is called only, if not: it is initialized with calling transform etc.

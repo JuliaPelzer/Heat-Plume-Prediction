@@ -1,5 +1,6 @@
 from data.dataset import DatasetSimulationData
 from data.dataloader import DataLoader
+from torch.utils.data import DataLoader as TorchDataLoader
 from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, PowerOfTwoTransform, ToTensorTransform, SignedDistanceTransform
 import os
 from shutil import copyfile
@@ -84,6 +85,11 @@ def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit:
     # Create a dataloader for each split.
     dataloaders = {}
     for mode in modes:
+        # temp_dataloader = TorchDataLoader(
+        #     dataset=datasets[mode], 
+        #     batch_size=batch_size, 
+        #     shuffle=True, 
+        #     drop_last=False)
         temp_dataloader = DataLoader(
             dataset=datasets[mode],
             batch_size=batch_size,
