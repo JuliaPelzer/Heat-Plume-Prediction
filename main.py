@@ -73,8 +73,8 @@ def run_experiment(n_epochs: int = 1000, lr: float = 5e-3,
     if overfit:
         _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_train_sample_applied",)
     else:
-        _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_train_sample_applied", amount_plots=3,)
-        _, error_mean, final_max_error = plot_sample(model, dataloaders["val"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_val_sample_applied", amount_plots=3,)
+        _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_train_sample_applied", amount_plots=2,)
+        _, error_mean, final_max_error = plot_sample(model, dataloaders["val"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_val_sample_applied", amount_plots=5,)
 
     time_end = dt.datetime.now()
     duration = f"{(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds"
