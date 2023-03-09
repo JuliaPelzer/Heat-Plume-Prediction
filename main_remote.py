@@ -28,12 +28,12 @@ if __name__ == "__main__":
         overfit_str = "overfit_"
     else:
         overfit_str = ""
-    input_combis = ["pk", "t", "px", "py", "xy"]
-    for model in ["unet"]: #, "fc"]:
+    input_combis = ["pk"] #, "xy", "pky"] 
+    for model in ["unet", "fc"]:
         kwargs["model_choice"] = model
         for input in input_combis:
             kwargs["inputs"] = input
-            kwargs["name_folder_destination"] = "try" #f"{kwargs['model_choice']}_{overfit_str}epochs_{kwargs['n_epochs']}_inputs_{kwargs['inputs']}_{kwargs['dataset_name']}_timestep0"
+            kwargs["name_folder_destination"] = f"current_{kwargs['model_choice']}_{kwargs['dataset_name']}_inputs_{kwargs['inputs']}"
             try:
                 os.mkdir(os.path.join(os.getcwd(), "runs", kwargs["name_folder_destination"]))
             except FileExistsError:
