@@ -87,7 +87,7 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
     error_mean = []
     reverse_done = False
 
-    if amount_plots is None:
+    if amount_plots is None or amount_plots > len(dataloader.dataset):
         amount_plots = len(dataloader.dataset)
 
     for batch_id, (inputs,labels) in enumerate(dataloader):
