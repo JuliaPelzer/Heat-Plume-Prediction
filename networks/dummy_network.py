@@ -2,7 +2,7 @@ from math import prod
 import torch.nn as nn
 
 class DummyNet(nn.Module):
-    def __init__(self, in_channels=5, out_channels=1, size=(128,16)):
+    def __init__(self, in_channels=5, out_channels=1, size=(256,16)):
         super().__init__()
         self.net = nn.Sequential(
             nn.Flatten(),
