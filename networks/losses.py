@@ -56,10 +56,3 @@ def create_loss_fn(loss_fn_str:str, dataloaders:dict=None):
     else:
         raise ValueError(f"loss_fn_str: {loss_fn_str} not implemented")
     return loss_fn
-
-if __name__ == "__main__":
-    tensor1 = torch.tensor([[10.6, 12], [12, 10.6]])
-    tensor2 = torch.tensor([[10.6, 12], [10.6, 12]])
-    loss_fn = MSELossExcludeNotChangedTemp(ignore_temp=10.6)
-    loss_value = loss_fn(tensor1, tensor2)
-    print(loss_value)
