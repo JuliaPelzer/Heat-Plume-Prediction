@@ -8,9 +8,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from data.transforms import ComposeTransform
 from data.utils import PhysicalVariables, DataPoint, _assertion_error_2d, get_dimensions
-import os, sys
+import os
 import numpy as np
 import h5py
+import yaml
 from torch import Tensor, square, mean, sqrt, zeros
 from torch.utils.data import Dataset as TorchDataset
 
@@ -66,6 +67,7 @@ class DatasetSimulationData(TorchDataset, Dataset):
                  output_vars_names:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"], 
                  normalize:bool=True, sdf:bool=True,
                  means_stds_train_tuple:Tuple[Dict, Dict, Dict, Dict]=None,
+                 name_folder_destination:str=None,
                  **kwargs)-> Dataset:
 
         Dataset.__init__(self, dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
@@ -83,10 +85,11 @@ class DatasetSimulationData(TorchDataset, Dataset):
         self.data_paths, self.runs = self.make_dataset(self)
         logging.info(f"Dataset {self.dataset_name} in mode {self.mode} has {len(self.data_paths)} runs, named {self.runs}")
         self.time_first =     "   0 Time  0.00000E+00 y"
-        # self.time_first =    "   1 Time  1.00000E-01 y"
-        # self.time_final =    "   2 Time  5.00000E+00 y" # other dataset
-        self.time_final =    "   3 Time  5.00000E+00 y"
-        # self.time_first = self.time_final
+        old_dataset=True
+        if old_dataset:
+            self.time_final =    "   2 Time  5.00000E+00 y" # other dataset
+        else:
+            self.time_final =    "   3 Time  5.00000E+00 y"
         
         self.datapoints = {}
         self.keep_datapoints_in_memory = True
@@ -101,8 +104,13 @@ class DatasetSimulationData(TorchDataset, Dataset):
             self.has_to_calc_mean_std = True
             if mode=="train":
                 self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = self._calc_mean_std_dataset()   # calc mean, std for all dataset runs
-            else:
+                self.save_mean_std_dataset(self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels, os.path.join(os.getcwd(), "runs", name_folder_destination))
+            elif means_stds_train_tuple is not None:
                 self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = means_stds_train_tuple
+            elif mode=="test":
+                self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = self.load_mean_std_dataset(os.path.join(os.getcwd(), "runs", name_folder_destination))
+            else:
+                raise ValueError("problem with means_stds_train_tuple(must be given for mode val)")
             self.has_to_calc_mean_std = False
     def __len__(self):
         # Return the length of the dataset (number of runs), but fill them only on their first call
@@ -204,9 +212,6 @@ class DatasetSimulationData(TorchDataset, Dataset):
         else:
             datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp)
             datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp)
-
-        #except Exception as e:
-        #    print("no transforms applied: ", e)
 
         _assertion_error_2d(datapoint)
         return datapoint
@@ -336,3 +341,27 @@ class DatasetSimulationData(TorchDataset, Dataset):
 
         self.datapoints = {}    # del all datapoints created in this process to free space
         return mean_in, std_in, mean_labels, std_labels
+
+    def save_mean_std_dataset(self, mean_in, std_in, mean_labels, std_labels, path_mean_std:str):
+        """
+        Save mean and std of the dataset.
+        """
+        name_file = "means_stds_train_dataset.yaml"
+        for prop in mean_in.keys():
+            mean_in[prop] = mean_in[prop].numpy().tolist()
+            std_in[prop] = std_in[prop].numpy().tolist()
+        for prop in mean_labels.keys():
+            mean_labels[prop] = mean_labels[prop].numpy().tolist()
+            std_labels[prop] = std_labels[prop].numpy().tolist()
+
+        with open(os.path.join(path_mean_std, name_file), 'w') as f:
+            yaml.dump({"mean_inputs": mean_in, "std_inputs": std_in, "mean_labels": mean_labels, "std_labels": std_labels}, f, default_flow_style=False)
+
+    def load_mean_std_dataset(self, path_mean_std:str):
+        """
+        Load mean and std of the dataset.
+        """
+        name_file = "means_stds_train_dataset.yaml"
+        with open(os.path.join(path_mean_std, name_file), 'r') as f:
+            means_stds = yaml.safe_load(f)
+        return means_stds["mean_inputs"], means_stds["std_inputs"], means_stds["mean_labels"], means_stds["std_labels"]
