@@ -1,6 +1,5 @@
 from data.dataset import DatasetSimulationData
 from data.dataloader import DataLoader
-from torch.utils.data import DataLoader as TorchDataLoader
 from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, PowerOfTwoTransform, ToTensorTransform, SignedDistanceTransform
 import os
 from shutil import copyfile
@@ -9,103 +8,90 @@ from typing import List
 import numpy as np
 
 def init_data(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = False, overfit: bool = False, normalize: bool = True, sdf:bool = True,
-              just_plotting: bool = False, batch_size: int = 1000, inputs: str = "xyzpt", labels: str = "txyz",
-              dataset_name: str = "perm_pressure1D_10dp", 
+              batch_size: int = 1000, inputs: str = "xyzpt", labels: str = "txyz",
+              dataset_name: str = "perm_pressure1D_10dp", name_folder_destination: str = None,
               path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets"):
-    """
-    Initialize dataset and dataloader for training.
+    """Initialize dataset and dataloader for training."""
+    _do_assertions(reduce_to_2D, reduce_to_2D_xy, overfit, normalize, batch_size, dataset_name, path_to_datasets)
 
-    Parameters
-    ----------
-    reduce_to_2D : If true, reduce the dataset to 2D instead of 3D
-    overfit : If true, only use a small subset of the dataset for training, achieved by cheating: changing the split ratio
-    normalize : If true, normalize the dataset, usually the case; not true for testing input data magnitudes etc 
-    dataset_name : Name of the dataset to use (has to be the same as in the folder)
-    batch_size : Size of the batch to use for training
-
-    Returns
-    -------
-    datasets : dict
-        Dictionary of datasets, with keys "train", "val", "test"
-    dataloaders : dict
-        Dictionary of dataloaders, with keys "train", "val", "test"
-    """
-    assert isinstance(reduce_to_2D, bool) and isinstance(reduce_to_2D_xy, bool) and isinstance(overfit, bool) and isinstance(normalize, bool) and isinstance(
-        just_plotting, bool), "input parameters reduce_to_2D, reduce_to_2D_wrong, overfit, normalize, just_plotting have to be bool"
-    assert isinstance(
-        batch_size, int), "input parameter batch_size has to be int"
-    assert isinstance(dataset_name, str) and isinstance(
-        path_to_datasets, str), "input parameters dataset_name, path_to_datasets have to be str"
-
-    transforms_list = [ToTensorTransform(), PowerOfTwoTransform(oriented="left")]
-    if reduce_to_2D:
-        transforms_list.append(ReduceTo2DTransform(reduce_to_2D_xy=reduce_to_2D_xy))
-    if sdf:
-        transforms_list.append(SignedDistanceTransform())
-    if normalize:
-        transforms_list.append(NormalizeTransform(sdf))
-
-    logging.info(f"transforms_list: {transforms_list}")
-
-    transforms = ComposeTransform(transforms_list)
+    # Prepare variables
     if not overfit:
         split = {'train': 0.7, 'val': 0.2, 'test': 0.1}
     else:
         split = {'train': 1, 'val': 0, 'test': 0}
 
-    # just plotting (for Marius)
-    if just_plotting:
-        split = {'train': 1, 'val': 0, 'test': 0}
-        transforms = None
-    
     modes = ['train', 'val', 'test'] if split["test"] != 0 else ['train', 'val']
     split = _split_test_data_extra_folder(split, path_to_datasets, dataset_name)
+    transforms = _build_transforms(reduce_to_2D, reduce_to_2D_xy, normalize, sdf)
+    input_vars = _build_property_list(inputs, add_material_id=True) 
+    output_vars = _build_property_list(labels, add_material_id=False)
 
-    input_vars = _build_property_list(inputs)
-    input_vars.append("Material_ID") # if structured grid
-    input_vars.append("Material ID") # if unstructured grid
-    output_vars = _build_property_list(labels)
-
+    # Init datasets
     datasets = {}
     means_stds_train_tuple=None
     for mode in modes:
-        dataset_name_temp = dataset_name+"_TEST" if mode=="test" else dataset_name
+        if mode == "test":
+            dataset_name_temp = dataset_name+"_TEST"
+        else:
+            dataset_name_temp = dataset_name
 
-        temp_dataset = DatasetSimulationData(
-            dataset_name=dataset_name_temp, dataset_path=path_to_datasets,
-            transform=transforms, input_vars_names=input_vars,
-            output_vars_names=output_vars,
-            mode=mode, split=split, normalize=normalize, sdf=sdf,
-            means_stds_train_tuple=means_stds_train_tuple
-        )
+        temp_dataset = DatasetSimulationData(dataset_name=dataset_name_temp, dataset_path=path_to_datasets, transform=transforms, input_vars_names=input_vars, output_vars_names=output_vars, mode=mode, split=split, normalize=normalize, sdf=sdf, means_stds_train_tuple=means_stds_train_tuple, name_folder_destination=name_folder_destination)
+        
         if mode == "train" and normalize:    
             means_stds_train_tuple = temp_dataset.mean_inputs, temp_dataset.std_inputs, temp_dataset.mean_labels, temp_dataset.std_labels
         datasets[mode] = temp_dataset
 
-    # Create a dataloader for each split.
+    # Init dataloaders
     dataloaders = {}
     for mode in modes:
-        # temp_dataloader = TorchDataLoader(
-        #     dataset=datasets[mode], 
-        #     batch_size=batch_size, 
-        #     shuffle=True, 
-        #     drop_last=False)
-        temp_dataloader = DataLoader(
-            dataset=datasets[mode],
-            batch_size=batch_size,
-            shuffle=True,
-            drop_last=False,
-        )
+        temp_dataloader = DataLoader(dataset=datasets[mode], batch_size=batch_size, shuffle=True, drop_last=False,)
         dataloaders[mode] = temp_dataloader
 
+    # Logging
     len_datasets = ""
     for mode in modes:
         len_datasets += f"{mode}: {len(datasets[mode])} "
-    print(f'init done [total number of datapoints/runs: {np.sum([len(datasets[mode]) for mode in modes])}], with {len_datasets}')
+    logging.warning(f'init done [total number of datapoints/runs: {np.sum([len(datasets[mode]) for mode in modes])}], with {len_datasets}')
     return datasets, dataloaders
 
+def make_dataset_for_test(inputs: str, dataset_name: str, path_to_datasets: str, name_folder_destination: str):
+    """Initialize dataset and dataloader for testing."""
 
-def _build_property_list(properties:str) -> List:
+    mode = "test"
+    split = {'train': 0, 'val': 0, 'test': 1}
+    labels="t"
+
+    transforms = _build_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, normalize=True, sdf=True)
+    input_vars = _build_property_list(inputs, add_material_id=True) 
+    output_vars = _build_property_list(labels, add_material_id=False)
+    
+    dataset = DatasetSimulationData(dataset_name=dataset_name, dataset_path=path_to_datasets, transform=transforms, input_vars_names=input_vars, output_vars_names=output_vars, mode=mode, split=split, normalize=True, sdf=True, name_folder_destination=name_folder_destination)
+    dataloader = DataLoader(dataset=dataset, batch_size=100, shuffle=True, drop_last=False,)
+    logging.warning(f'init done [total number of datapoints: {len(dataset)}]')
+    return dataset, dataloader
+
+
+def _do_assertions(reduce_to_2D: bool, reduce_to_2D_xy: bool, overfit: bool, normalize: bool, batch_size: int, dataset_name: str, path_to_datasets: str):
+    assert isinstance(reduce_to_2D, bool) and isinstance(reduce_to_2D_xy, bool) and isinstance(overfit, bool) and isinstance(normalize, bool), "input parameters reduce_to_2D, reduce_to_2D_wrong, overfit, normalize have to be bool"
+    assert isinstance(
+        batch_size, int), "input parameter batch_size has to be int"
+    assert isinstance(dataset_name, str) and isinstance(
+        path_to_datasets, str), "input parameters dataset_name, path_to_datasets have to be str"
+
+def _build_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, normalize: bool, sdf: bool):
+    transforms_list = [ToTensorTransform(), PowerOfTwoTransform(oriented="left")]
+
+    if reduce_to_2D: 
+        transforms_list.append(ReduceTo2DTransform(reduce_to_2D_xy=reduce_to_2D_xy))
+    if sdf: 
+        transforms_list.append(SignedDistanceTransform())
+    if normalize: 
+        transforms_list.append(NormalizeTransform(sdf))
+
+    transforms = ComposeTransform(transforms_list)
+    return transforms
+
+def _build_property_list(properties:str, add_material_id:bool=False) -> List:
     vars_list = [properties[i] for i in range(len(properties))]
     for i in vars_list:
         assert i in ["x", "y", "z", "p", "t", "k"], "input parameters have to be a string of characters, each of which is either x, y, z, p, t, k"
@@ -118,13 +104,14 @@ def _build_property_list(properties:str) -> List:
     if 'z' in vars_list:
         vars.append("Liquid Z-Velocity [m_per_y]")
     if 'p' in vars_list:
-        vars.append("Liquid_Pressure [Pa]") # if structured grid
-        vars.append("Liquid Pressure [Pa]") # if unstructured grid
+        vars.append("Liquid Pressure [Pa]") # unstructured grid, else Liquid_Pressure [Pa]
     if 't' in vars_list:
         vars.append("Temperature [C]")
     if 'k' in vars_list:
         vars.append("Permeability X [m^2]")
 
+    if add_material_id:
+        vars.append("Material ID") # structured grid, else Material_ID
     return vars
 
 def _split_test_data_extra_folder(split:dict, path_to_datasets:str, dataset_name:str):
