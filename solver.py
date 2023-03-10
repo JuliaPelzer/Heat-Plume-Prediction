@@ -38,7 +38,7 @@ class Solver(object):
         """
         self.model: Module = model
         self.loss_func = loss_func
-        self.opt = optimizer(self.model.parameters(), learning_rate)
+        self.opt = optimizer(self.model.parameters(), learning_rate, weight_decay=1e-4)
 
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
