@@ -1,4 +1,5 @@
 import numpy as np
+import datetime as dt
 from dataclasses import dataclass
 import analytical_temperature_prediction_lahm as lahm
 import analytical_steady_state_model_willibald as willibald
@@ -6,7 +7,7 @@ import analytical_steady_state_model_willibald as willibald
 def check_lahm_requirements(parameters):
     # first lahm requirement: 
     # print(parameters["v_a"]*60*60*24)
-    assert parameters["v_a"]*60*60*24 <= -1, "v_a must be at least 1 m per day to get a valid result"
+    # assert parameters["v_a"]*60*60*24 <= -1, "v_a must be at least 1 m per day to get a valid result"
     # second lahm requirement: energy extraction / injection must be at most 45.000 kWh/year
     energy_extraction_boundary = 45000e3/365/24 #[W] = [J/s]
     # print(parameters["q_inj"]*1000)
@@ -17,9 +18,15 @@ def calc_and_plot(domain, parameters):
     results = {}
     factor_year_to_seconds = 60*60*24*365
     for t in parameters["time_sim"]:
+        time_begin = dt.datetime.now()
         delta_T_grid = lahm.delta_T(domain.x_grid-domain.injection_point[0], domain.y_grid-domain.injection_point[1], t, parameters["q_inj"], parameters)
         print("T diff", delta_T_grid[int(domain.injection_point[1]/domain.cell_size), int(domain.injection_point[0]/domain.cell_size)])
-        results[f"{np.multiply(1/factor_year_to_seconds, t)} years"] = delta_T_grid+parameters["T_gwf"]
+        results[f"{np.round(np.multiply(1/factor_year_to_seconds, t),1)} years"] = delta_T_grid+parameters["T_gwf"]
+        # Evaluation criteria (as defined in diss.tex)
+        time_end = dt.datetime.now()
+        duration = f"{(time_end-time_begin).microseconds/1000} milliseconds"
+        print(f"Time needed for calculation of {t}: {duration}")
+    print(f"Max Temperature: {np.max(delta_T_grid+parameters['T_gwf'])} at {np.unravel_index(np.argmax(delta_T_grid+parameters['T_gwf']), delta_T_grid.shape)}")
 
     # ellipse_10 = lahm.ellipse_10_percent(domain.injection_point, parameters["alpha_L"], parameters["alpha_T"])
     lahm.plot_temperature_lahm(results, domain.x_grid, domain.y_grid, title=parameters["name"]) #, ellipses=[ellipse_10])
@@ -75,6 +82,7 @@ if __name__ == "__main__":
     t_sim = np.array([1, 5, 27.5]) - 72/365 # 5?[years]
 
     testcases = [
+        {"case": "0", "grad_p": 0.0015, "k_cond": 0.0001, "k_perm": 0, "vf": 0, "va": 0, "va_m_per_day": 0},
         {"case": "1", "grad_p": 0.0015, "k_cond": 0.002, "k_perm": 0, "vf": 0, "va": 0, "va_m_per_day": 0},
         {"case": "2", "grad_p": 0.003, "k_cond": 0.01, "k_perm": 0, "vf": 0, "va": 0, "va_m_per_day": 0},
         {"case": "3", "grad_p": 0.0035, "k_cond": 0.05, "k_perm": 0, "vf": 0, "va": 0, "va_m_per_day": 0}

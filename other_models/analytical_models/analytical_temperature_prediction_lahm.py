@@ -88,19 +88,40 @@ def plot_temperature_lahm(data:Dict, x_grid, y_grid, title=""):
     Plot the temperature field.
     """
     n_subplots = len(data.keys())
+    # make overall title
     _, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(20,3*(n_subplots)))
     
     for index, (key, value) in enumerate(data.items()):
         plt.sca(axes[index])
-        plt.title(f"{title}\n{key}")
-        levels = np.arange(10, 15.0, 0.25)
-        plt.contourf(x_grid, y_grid, value, levels=levels, cmap='RdBu_r', extent=(0,1280,100,0))
+        levels = np.arange(10.6, 15.6, 0.25)
+        contours = plt.contourf(x_grid, y_grid, value, levels=levels, cmap='RdBu_r', extent=(0,1280,100,0))
         plt.ylabel("x [m]")
-        _aligned_colorbar(label=title)
+        plt.xlabel("y [m]")
+        _aligned_colorbar(label=key)
 
-    plt.xlabel("y [m]")
     # plt.show()
+    plt.suptitle(f"Temperature field: {title.replace('_', ' ')}")
+    plt.savefig(f"{title}.svg")
     plt.savefig(f"{title}.png")
+
+
+    for index, (key, value) in enumerate(data.items()):
+        levels = np.arange(10.6, 15.6, 1)
+        contours = plt.contourf(x_grid, y_grid, value, levels=levels, cmap='RdBu_r', extent=(0,1280,100,0))
+
+    path = contours.collections[0].get_paths()[0]
+    vertices = path.vertices
+    # remove boundary values from vertices
+    vertices = vertices[vertices[:,0] != 0]
+    vertices = vertices[vertices[:,1] != 0]
+    vertices = vertices[vertices[:,0] != 1280]
+    vertices = vertices[vertices[:,1] != 100]
+
+    print("\n", key)
+    print("max. width plume", np.round((np.max(vertices[:,1])-np.min(vertices[:,1])), 2), np.max(vertices[:,1]), np.min(vertices[:,1]))
+    plume_len = np.round((np.max(vertices[:,0])-np.min(vertices[:,0])), 2)
+    print("length plume", plume_len, np.max(vertices[:,0]), np.min(vertices[:,0]))
+    print("\n")
 
 def plot_different_versions_of_temperature_lahm(data, x_grid, y_grid, title="", ellipses=None):
     """
