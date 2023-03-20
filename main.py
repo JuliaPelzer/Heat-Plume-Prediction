@@ -13,7 +13,7 @@ from visualization.visualize_data import plot_sample
 from utils.utils_networks import count_parameters, append_results_to_csv
 
 def run_training(n_epochs: int = 1000, lr: float = 5e-3, inputs: str = "pk", model_choice: str="unet", name_folder_destination: str = "default", dataset_name: str = "small_dataset_test",
-    path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets", overfit: bool = True, device: str = None):
+    path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets", device: str = None):
     time_begin = dt.datetime.now()
 
     # parameters of data
@@ -21,8 +21,8 @@ def run_training(n_epochs: int = 1000, lr: float = 5e-3, inputs: str = "pk", mod
     reduce_to_2D_xy = True
     sdf = False
     # init data
-    datasets, dataloaders = init_data(dataset_name=dataset_name, path_to_datasets=path_to_datasets,
-        batch_size=10, sdf=sdf, reduce_to_2D=reduce_to_2D, reduce_to_2D_xy=reduce_to_2D_xy, inputs=inputs, labels="t", overfit=overfit, name_folder_destination=name_folder_destination,)
+    _, dataloaders = init_data(dataset_name=dataset_name, path_to_datasets=path_to_datasets,
+        batch_size=1, sdf=sdf, reduce_to_2D=reduce_to_2D, reduce_to_2D_xy=reduce_to_2D_xy, inputs=inputs, labels="t", name_folder_destination=name_folder_destination,)
 
     if device is None:
         device = "cuda" if cuda.is_available() else "cpu"
@@ -44,10 +44,7 @@ def run_training(n_epochs: int = 1000, lr: float = 5e-3, inputs: str = "pk", mod
         n_epochs = n_epochs
         lr = float(lr)
         # training
-        if overfit:
-            solver = Solver(model,dataloaders["train"],dataloaders["train"],learning_rate=lr,loss_func=loss_fn,)
-        else:
-            solver = Solver(model,dataloaders["train"],dataloaders["val"],learning_rate=lr,loss_func=loss_fn,)
+        solver = Solver(model,dataloaders["train"],dataloaders["val"],learning_rate=lr,loss_func=loss_fn,)
         try:
             solver.load_lr_schedule(os.path.join(os.getcwd(), "runs", name_folder_destination, "learning_rate_history.csv"))
             solver.train(device, n_epochs=n_epochs, name_folder=name_folder_destination)
@@ -64,11 +61,8 @@ def run_training(n_epochs: int = 1000, lr: float = 5e-3, inputs: str = "pk", mod
         
     # visualization
     if True:
-        if overfit:
-            _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_train_sample",)
-        else:
-            _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_train_sample", amount_plots=2,)
-            _, error_mean, final_max_error = plot_sample(model, dataloaders["val"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_val_sample", amount_plots=10,)
+        _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_train_sample", amount_plots=2,)
+        _, error_mean, final_max_error = plot_sample(model, dataloaders["val"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_val_sample", amount_plots=10,)
 
     time_end = dt.datetime.now()
     duration = f"{(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds"
