@@ -1,3 +1,4 @@
+import os
 import logging
 from tqdm.auto import tqdm
 from torch.optim import Adam
@@ -128,8 +129,13 @@ class Solver(object):
                         
     def load_lr_schedule(self, path:str):
         """ read lr-schedule from csv file"""
+        # check if path contains lr-schedule
+        if not os.path.exists(path):
+            path = os.path.join(os.getcwd(),"default_lr_schedule.csv")
+            logging.warning(f"Could not find lr-schedule at {path}. Using default lr-schedule instead.")
+
         with open(path, "r") as f:
-            logging.warning(f"Loading learning rate schedule from {path}.")
+            logging.info(f"Loading learning rate schedule from {path}.")
             for line in f:
                 epoch, lr = line.split(",")
                 self.lr_schedule[int(epoch)] = float(lr)
