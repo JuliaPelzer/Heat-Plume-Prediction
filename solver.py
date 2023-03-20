@@ -131,8 +131,8 @@ class Solver(object):
         """ read lr-schedule from csv file"""
         # check if path contains lr-schedule
         if not os.path.exists(path):
-            path = os.path.join(os.getcwd(),"default_lr_schedule.csv")
             logging.warning(f"Could not find lr-schedule at {path}. Using default lr-schedule instead.")
+            path = os.path.join(os.getcwd(),"default_lr_schedule.csv")
 
         with open(path, "r") as f:
             logging.info(f"Loading learning rate schedule from {path}.")
