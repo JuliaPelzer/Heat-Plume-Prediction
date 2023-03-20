@@ -5,6 +5,7 @@ import argparse
 from networks.models import create_model, load_model
 from networks.losses import create_loss_fn
 from torch import cuda, save
+from torch.utils.tensorboard import SummaryWriter
 from data.dataset_loading import init_data, make_dataset_for_test
 from data.utils import load_settings, save_settings
 from solver import Solver
@@ -18,10 +19,10 @@ def run_training(n_epochs: int = 1000, lr: float = 5e-3, inputs: str = "pk", mod
     # parameters of data
     reduce_to_2D = True
     reduce_to_2D_xy = True
-    sdf = True
+    sdf = False
     # init data
     datasets, dataloaders = init_data(dataset_name=dataset_name, path_to_datasets=path_to_datasets,
-        batch_size=100, sdf=sdf, reduce_to_2D=reduce_to_2D, reduce_to_2D_xy=reduce_to_2D_xy, inputs=inputs, labels="t", overfit=overfit, name_folder_destination=name_folder_destination,)
+        batch_size=10, sdf=sdf, reduce_to_2D=reduce_to_2D, reduce_to_2D_xy=reduce_to_2D_xy, inputs=inputs, labels="t", overfit=overfit, name_folder_destination=name_folder_destination,)
 
     if device is None:
         device = "cuda" if cuda.is_available() else "cpu"
@@ -29,7 +30,7 @@ def run_training(n_epochs: int = 1000, lr: float = 5e-3, inputs: str = "pk", mod
 
     # model choice
     in_channels = len(inputs) + 1
-    model = create_model(model_choice, in_channels, datasets, reduce_to_2D)
+    model = create_model(model_choice, in_channels)
     model.to(device)
 
     number_parameter = count_parameters(model)
@@ -67,7 +68,7 @@ def run_training(n_epochs: int = 1000, lr: float = 5e-3, inputs: str = "pk", mod
             _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_train_sample",)
         else:
             _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_train_sample", amount_plots=2,)
-            _, error_mean, final_max_error = plot_sample(model, dataloaders["val"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_val_sample", amount_plots=5,)
+            _, error_mean, final_max_error = plot_sample(model, dataloaders["val"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_val_sample", amount_plots=10,)
 
     time_end = dt.datetime.now()
     duration = f"{(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds"
@@ -101,7 +102,7 @@ def run_tests(inputs: str = "pk", model_choice: str="unet", name_folder_destinat
         
     # visualization
     time_begin = dt.datetime.now()
-    plot_sample(model, dataloader, device, name_folder_destination, plot_name=name_folder_destination + "/plot_TEST_sample",)
+    plot_sample(model, dataloader, device, name_folder_destination, plot_name=name_folder_destination + "/plot_TEST_sample", amount_plots=10,)
 
     time_end = dt.datetime.now()
     duration = f"{(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds"
@@ -117,11 +118,11 @@ if __name__ == "__main__":
     else:
         parser.add_argument("--path_to_datasets", type=str, default="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets")
     
-    parser.add_argument("--dataset_name", type=str, default="dataset3D_100dp_perm_iso") # benchmark_testcases_3 benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
-    parser.add_argument("--device", type=str, default="cuda:0")
+    parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100dp_vary_hp_loc") # benchmark_testcases_3 benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
+    parser.add_argument("--device", type=str, default="cuda:1")
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--overfit", type=bool, default=False)
-    parser.add_argument("--epochs", type=int, default=40000)
+    parser.add_argument("--epochs", type=int, default=16000)
 
     args = parser.parse_args()
     kwargs = load_settings(".", "settings_training")
@@ -137,8 +138,8 @@ if __name__ == "__main__":
         kwargs["model_choice"] = model
         for input in input_combis:
             kwargs["inputs"] = input
-            # kwargs["name_folder_destination"] = "crossVal_benchmark_to_varyPerm"
-            kwargs["name_folder_destination"] = f"current_{kwargs['model_choice']}_{kwargs['dataset_name']}_inputs_{kwargs['inputs']}"
+            kwargs["name_folder_destination"] = "temp"
+            # kwargs["name_folder_destination"] = f"current_{kwargs['model_choice']}_inputs_{kwargs['inputs']}_moreConvPerBlock_noPowerOf2" #{kwargs['dataset_name']}_
             try:
                 os.mkdir(os.path.join(os.getcwd(), "runs", kwargs["name_folder_destination"]))
             except FileExistsError:

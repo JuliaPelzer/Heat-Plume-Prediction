@@ -8,19 +8,12 @@ from networks.unet import UNet
 from networks.turbnet import TurbNetG
 from networks.dummy_network import DummyNet, DummyCNN
 
-def create_model(model_choice: str, in_channels: int, datasets_2D: dict=None, reduce_to_2D: bool=True):
+def create_model(model_choice: str, in_channels: int):
     """ takes model_choice-string and returns model """
     if model_choice == "unet":
-        model = UNet(in_channels=in_channels, out_channels=1, depth=3).float()
+        model = UNet(in_channels=in_channels, out_channels=1, depth=3, kernel_size=5).float()
     elif model_choice == "fc":
-        # size_domain_2D = datasets_2D["train"].dimensions_of_datapoint
-        # if reduce_to_2D:
-        #     # TODO order here or in dummy_network(size) messed up
-        #     size_domain_2D = size_domain_2D[1:]
-        # # transform to PowerOfTwo
-        # size_domain_2D = [2 ** int(np.log2(dimension)) for dimension in size_domain_2D]
-        # print(f"size_domain_2D: {size_domain_2D}")
-        model = DummyNet(in_channels=in_channels, out_channels=1).float() #, size=size_domain_2D
+        model = DummyNet(in_channels=in_channels, out_channels=1, size=(128,40)).float()
     elif model_choice == "cnn":
         model = DummyCNN(in_channels=in_channels, out_channels=1).float()
     elif model_choice == "turbnet":
