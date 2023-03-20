@@ -19,24 +19,6 @@ class Solver(object):
         learning_rate=1e-3,
         optimizer=Adam,
     ):
-        """
-        Construct a new Solver instance.
-
-        Required arguments:
-        - model: A model object conforming to the API described above
-
-        - train_dataloader: A generator object returning training data
-        - val_dataloader: A generator object returning validation data
-
-        - loss_func: Loss function object.
-        - learning_rate: Float, learning rate used for gradient descent.
-
-        - optimizer: The optimizer specifying the update rule
-
-        Optional arguments:
-        - debug_output: Boolean; if set to false then no output will be printed during
-          training.
-        """
         self.model: Module = model
         self.loss_func = loss_func
         self.opt = optimizer(self.model.parameters(), learning_rate, weight_decay=1e-4)
@@ -47,9 +29,7 @@ class Solver(object):
         self._reset()
 
     def train(self, device, n_epochs: int = 100, name_folder: str = "default"):
-        """
-        Run optimization to train the model.
-        """
+
         # initialize tensorboard
         writer = SummaryWriter(f"runs/{name_folder}")
         epochs = tqdm(range(n_epochs), desc="epochs",disable=False)
@@ -71,8 +51,8 @@ class Solver(object):
 
                 # Logging
                 writer.add_scalar("train_loss", train_epoch_loss, epoch)
-                writer.add_scalar("learning_rate", self.opt.param_groups[0]["lr"], epoch)
                 writer.add_scalar("val_loss", val_epoch_loss, epoch)
+                writer.add_scalar("learning_rate", self.opt.param_groups[0]["lr"], epoch)
                 epochs.set_postfix_str(f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
 
             except KeyboardInterrupt:
@@ -90,8 +70,20 @@ class Solver(object):
         for x, y in dataloader:
             x = x.to(device)
             y = y.to(device)
-            loss = self._step(x, y)
-            epoch_loss += loss
+
+            if self.model.training:
+                self.opt.zero_grad()
+
+            y_pred = self.model(x)
+
+            loss = None
+            loss = self.loss_func(y_pred, y)
+
+            if self.model.training:
+                loss.backward()
+                self.opt.step()
+
+            epoch_loss += loss.detach().item()
         epoch_loss /= len(dataloader)
         return epoch_loss
 
@@ -102,24 +94,6 @@ class Solver(object):
         self.lr_schedule = {0: self.opt.param_groups[0]["lr"]} # contains the epoch and learning rate, when lr changes
         self.model.apply(weights_init)
 
-    def _step(self, x, y):
-        """
-        Make a single gradient update. This is called by train() and should not
-        be called manually.
-        """
-        loss = None
-        if self.model.training:
-            self.opt.zero_grad()
-
-        y_pred = self.model(x)
-        loss = self.loss_func(y_pred, y)
-
-        if self.model.training:
-            loss.backward()
-            self.opt.step()
-
-        return loss.detach().item()
-    
     def save_lr_schedule(self, path:str):
         """ save learning rate history to csv file"""
         with open(path, "w") as f:
@@ -129,13 +103,12 @@ class Solver(object):
                         
     def load_lr_schedule(self, path:str):
         """ read lr-schedule from csv file"""
-        # check if path contains lr-schedule
+        # check if path contains lr-schedule, else use default one
         if not os.path.exists(path):
             logging.warning(f"Could not find lr-schedule at {path}. Using default lr-schedule instead.")
             path = os.path.join(os.getcwd(),"default_lr_schedule.csv")
 
         with open(path, "r") as f:
-            logging.info(f"Loading learning rate schedule from {path}.")
             for line in f:
                 epoch, lr = line.split(",")
                 self.lr_schedule[int(epoch)] = float(lr)
