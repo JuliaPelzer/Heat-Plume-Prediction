@@ -22,7 +22,7 @@ def run_training(n_epochs: int = 1000, lr: float = 5e-3, inputs: str = "pk", mod
     sdf = False
     # init data
     _, dataloaders = init_data(dataset_name=dataset_name, path_to_datasets=path_to_datasets,
-        batch_size=1, sdf=sdf, reduce_to_2D=reduce_to_2D, reduce_to_2D_xy=reduce_to_2D_xy, inputs=inputs, labels="t", name_folder_destination=name_folder_destination,)
+        batch_size=100, sdf=sdf, reduce_to_2D=reduce_to_2D, reduce_to_2D_xy=reduce_to_2D_xy, inputs=inputs, labels="t", name_folder_destination=name_folder_destination,)
 
     if device is None:
         device = "cuda" if cuda.is_available() else "cpu"
@@ -114,8 +114,7 @@ if __name__ == "__main__":
     
     parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100dp_vary_hp_loc") # benchmark_testcases_3 benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
     parser.add_argument("--device", type=str, default="cuda:1")
-    parser.add_argument("--lr", type=float, default=1e-4)
-    parser.add_argument("--overfit", type=bool, default=False)
+    parser.add_argument("--lr", type=float, default=1e-5)
     parser.add_argument("--epochs", type=int, default=16000)
 
     args = parser.parse_args()
@@ -125,7 +124,6 @@ if __name__ == "__main__":
     kwargs["dataset_name"] = args.dataset_name
     kwargs["device"] = args.device
     kwargs["lr"]=args.lr
-    kwargs["overfit"] = args.overfit
     kwargs["n_epochs"] = args.epochs
     input_combis = ["pk"] #, "xy", "pky"] 
     for model in ["unet"]: #, "fc"]:
