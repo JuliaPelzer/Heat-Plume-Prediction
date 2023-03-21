@@ -77,7 +77,7 @@ def run_training(n_epochs: int = 1000, lr: float = 5e-3, inputs: str = "pk", mod
 
 def run_tests(inputs: str = "pk", model_choice: str="unet", name_folder_destination: str = "default", dataset_name: str = "small_dataset_test",
     path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets", device: str = None,
-    n_epochs: int = 1000, lr: float = 5e-3):
+    n_epochs: int = 0, lr: float = 0, finetune: bool = False, path_to_model: str = None,):
 
     # init data
     _, dataloader = make_dataset_for_test(dataset_name=dataset_name, path_to_datasets=path_to_datasets, inputs=inputs, name_folder_destination=name_folder_destination,)
@@ -141,7 +141,7 @@ if __name__ == "__main__":
             except FileExistsError:
                 pass
             save_settings(kwargs, os.path.join(os.getcwd(), "runs", kwargs["name_folder_destination"]), "settings_training")
-            run_training(**kwargs)
+            # run_training(**kwargs)
             # run_tests(**kwargs)
     
     #tensorboard --logdir runs/
