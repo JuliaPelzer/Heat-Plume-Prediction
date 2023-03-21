@@ -85,7 +85,7 @@ class DatasetSimulationData(TorchDataset, Dataset):
         self.data_paths, self.runs = self.make_dataset(self)
         logging.info(f"Dataset {self.dataset_name} in mode {self.mode} has {len(self.data_paths)} runs, named {self.runs}")
         self.time_first =     "   0 Time  0.00000E+00 y"
-        old_dataset=True
+        old_dataset=False
         if old_dataset:
             self.time_final =    "   2 Time  5.00000E+00 y" # other dataset
         else:
