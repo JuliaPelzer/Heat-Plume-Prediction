@@ -121,8 +121,8 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
                 error_current = error_current[:, :, 1:-2, :]
                 
             list_to_plot = [
-                _make_dict_batchbased(y.detach().cpu(), "temperature true", 0),# vmax=temp_max, vmin=temp_min),
-                _make_dict_batchbased(y_out.detach().cpu(), "temperature out", 0),# vmax=temp_max, vmin=temp_min),
+                _make_dict_batchbased(y.detach().cpu(), "temperature true", 0, vmax=temp_max, vmin=temp_min),
+                _make_dict_batchbased(y_out.detach().cpu(), "temperature out", 0, vmax=temp_max, vmin=temp_min),
                 _make_dict_batchbased(np.abs(error_current.detach().cpu()), "error", 0),
             ]
 
@@ -131,6 +131,7 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
 
             current_id = datapoint_id + batch_id*len_batch
             _plot_y(list_to_plot, title=name_folder, name_pic=plot_name+"_"+str(current_id))
+            # _plot_isolines(list_to_plot, name_pic=plot_name+"_"+str(current_id))
 
             error.append(abs(error_current.detach()))
             error_mean.append(np.mean(error_current.cpu().numpy()).item())
@@ -142,6 +143,26 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, name_folder:str,
     print("Maximum error: ", max_error)
         # writer.close()
     return error, error_mean, max_error
+
+def _plot_isolines(data, name_pic:str):
+    # helper function to plot the data
+    _, axis = plt.subplots(1,1,sharex=True,figsize=(20,3))
+    
+    for data_point in data:
+        if data_point["property"] == "temperature out":
+            plt.sca(axis)
+            levels = np.arange(10.58, 15.6, 0.25)
+            plt.contourf(data_point["data"][:,:].T, levels=levels, cmap='RdBu_r') #,  extent=(0, 1280, 80, 0)) # TODO extent is hardcoded
+            plt.gca().invert_yaxis()
+            plt.xlabel("y [m]")
+            plt.ylabel("x [m]")
+            # plottable_time = float(data_point["time"].split(" ")[-2])
+            # _aligned_colorbar() #label=f"{plottable_time} years")
+    
+    pic_file_name = f"runs/{name_pic}_isolines"
+    plt.suptitle(f"Isolines of Temperature [°C]")
+    plt.savefig(f"{pic_file_name}.svg")
+    plt.savefig(f"{pic_file_name}.png")
 
 ## helper functions for plotting
 def _plot_properties(data : np.ndarray, index_overall:int, view: View, axes, property_names : List[str], prefix:str = "") -> int:
