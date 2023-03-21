@@ -112,10 +112,12 @@ if __name__ == "__main__":
     else:
         parser.add_argument("--path_to_datasets", type=str, default="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets")
     
-    parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100dp_vary_hp_loc") # benchmark_testcases_3 benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
+    parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100dp_vary_hp_loc") # benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
     parser.add_argument("--device", type=str, default="cuda:1")
     parser.add_argument("--lr", type=float, default=1e-5)
-    parser.add_argument("--epochs", type=int, default=16000)
+    parser.add_argument("--epochs", type=int, default=12000)
+    parser.add_argument("--finetune", type=bool, default=False)
+    parser.add_argument("--path_to_model", type=str, default="APPLY_unet_benchmark_conv5_depth3_inputs_pk_batchnorm_to_3testcases")
 
     args = parser.parse_args()
     kwargs = load_settings(".", "settings_training")
@@ -125,6 +127,8 @@ if __name__ == "__main__":
     kwargs["device"] = args.device
     kwargs["lr"]=args.lr
     kwargs["n_epochs"] = args.epochs
+    kwargs["finetune"] = args.finetune
+    kwargs["path_to_model"] = args.path_to_model
     input_combis = ["pk"] #, "xy", "pky"] 
     for model in ["unet"]: #, "fc"]:
         kwargs["model_choice"] = model
