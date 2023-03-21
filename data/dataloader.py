@@ -14,7 +14,7 @@ class DataLoader:
     Defines an iterable batch-sampler over a given dataset
     """
     dataset:DatasetSimulationData  #where to load the data from
-    batch_size:int=10       #how many samples per batch to load
+    batch_size:int=100       #how many samples per batch to load
     shuffle:bool=False      #set to True to have the data reshuffled at every epoch
     drop_last:bool=False    #set to True to drop the last incomplete batch, if the dataset size is not divisible by the batch size. If False and the size of dataset is not divisible by the batch size, then the last batch will be smaller.
 
@@ -49,20 +49,24 @@ class DataLoader:
             next_datapoint = _datapoint_to_tensor_including_channel(self.dataset[index])
             _append_batch_by_datapoint(next_datapoint, batch)
             if len(batch) == self.batch_size:
-                yield batch
+                yield batch.inputs.float(), batch.labels.float()
                 batch_id += 1
                 batch = Batch(batch_id=batch_id)
             
         if len(batch) > 0 and not self.drop_last:
-            yield batch
+            yield batch.inputs.float(), batch.labels.float()
     
-    def reverse_transform(self):
+    def reverse_transform(self, datapoint:Tensor=None):
         """
         Reverses the transformation of the datapoints, i.e. each datapoint is scaled back to the original
         physical values
         """
-        for data in self.dataset:
-            data = self.dataset.reverse_transform(data)
+        if datapoint is not None:
+            datapoint = self.dataset.reverse_transform(datapoint)
+            return datapoint
+        else:
+            for data in self.dataset:
+                data = self.dataset.reverse_transform(data)
 
     def reverse_transform_temperature(self, temperature:Tensor) -> Tensor:
         """

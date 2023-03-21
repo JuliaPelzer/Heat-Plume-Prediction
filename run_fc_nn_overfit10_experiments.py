@@ -1,4 +1,4 @@
-from main import run_experiment
+from main import run_training
 from data.utils import load_settings
 # import tensorboard
 
@@ -13,4 +13,4 @@ kwargs["n_epochs"] = 10000
 for input in input_combis:
     kwargs["inputs"] = input
     kwargs["name_folder_destination"] = f"{kwargs['model_choice']}_overfit_{kwargs['overfit']}_epochs_{kwargs['n_epochs']}_inputs_{kwargs['inputs']}_perm_iso_10dp"
-    run_experiment(**kwargs) #, normalize=False)
+    run_training(**kwargs) #, normalize=False)
