@@ -69,7 +69,7 @@ def run_training(n_epochs: int = 1000, lr: float = 5e-3, inputs: str = "pk", mod
     print(f"Time needed for experiment: {duration}")
 
     # logging
-    results = {"timestamp": time_begin, "model": model_choice, "dataset": dataset_name, "overfit": overfit, "inputs": inputs, "n_epochs": n_epochs, "lr": lr, "error_mean": error_mean[-1], "error_max": final_max_error, "duration": duration, "name_destination_folder": name_folder_destination,}
+    results = {"timestamp": time_begin, "model": model_choice, "dataset": dataset_name, "inputs": inputs, "n_epochs": n_epochs, "lr": lr, "error_mean": error_mean[-1], "error_max": final_max_error, "duration": duration, "name_destination_folder": name_folder_destination,}
     append_results_to_csv(results, "runs/collected_results_rough_idea.csv")
 
     model.to("cpu")
@@ -77,7 +77,7 @@ def run_training(n_epochs: int = 1000, lr: float = 5e-3, inputs: str = "pk", mod
 
 def run_tests(inputs: str = "pk", model_choice: str="unet", name_folder_destination: str = "default", dataset_name: str = "small_dataset_test",
     path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets", device: str = None,
-    n_epochs: int = 1000, lr: float = 5e-3, overfit: bool = True,):
+    n_epochs: int = 1000, lr: float = 5e-3):
 
     # init data
     _, dataloader = make_dataset_for_test(dataset_name=dataset_name, path_to_datasets=path_to_datasets, inputs=inputs, name_folder_destination=name_folder_destination,)
@@ -130,8 +130,8 @@ if __name__ == "__main__":
         kwargs["model_choice"] = model
         for input in input_combis:
             kwargs["inputs"] = input
-            kwargs["name_folder_destination"] = "temp"
-            # kwargs["name_folder_destination"] = f"current_{kwargs['model_choice']}_inputs_{kwargs['inputs']}_moreConvPerBlock_noPowerOf2" #{kwargs['dataset_name']}_
+            # kwargs["name_folder_destination"] = "temp"
+            kwargs["name_folder_destination"] = f"current_{kwargs['model_choice']}_inputs_{kwargs['inputs']}_moreConvPerBlock_noPowerOf2" #{kwargs['dataset_name']}_
             try:
                 os.mkdir(os.path.join(os.getcwd(), "runs", kwargs["name_folder_destination"]))
             except FileExistsError:
