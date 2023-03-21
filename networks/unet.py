@@ -2,23 +2,23 @@ import torch
 import torch.nn as nn
 
 class UNet(nn.Module):
-    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=4):
+    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=4, kernel_size=5):
         super().__init__()
         features = init_features
         self.encoders = nn.ModuleList()
         self.pools = nn.ModuleList()
         for i in range(depth):
-            self.encoders.append(UNet._block(in_channels, features))
+            self.encoders.append(UNet._block(in_channels, features, kernel_size=kernel_size))
             self.pools.append(nn.MaxPool2d(kernel_size=2, stride=2))
             in_channels = features
             features *= 2
-        self.encoders.append(UNet._block(in_channels, features))
+        self.encoders.append(UNet._block(in_channels, features, kernel_size=kernel_size))
 
         self.upconvs = nn.ModuleList()
         self.decoders = nn.ModuleList()
         for i in range(depth):
             self.upconvs.append(nn.ConvTranspose2d(features, features // 2, kernel_size=2, stride=2))
-            self.decoders.append(UNet._block(features, features//2))
+            self.decoders.append(UNet._block(features, features//2, kernel_size=kernel_size))
             features = features // 2
 
         self.conv = nn.Conv2d(in_channels=features, out_channels=out_channels, kernel_size=1)
@@ -39,12 +39,19 @@ class UNet(nn.Module):
         return self.conv(x)
 
     @staticmethod
-    def _block(in_channels, features):
+    def _block(in_channels, features, kernel_size=5):
         return nn.Sequential(
             nn.Conv2d(
                 in_channels=in_channels,
                 out_channels=features,
-                kernel_size=5,
+                kernel_size=kernel_size,
+                padding="same",
+                bias=True,
+            ),
+            nn.Conv2d(
+                in_channels=features,
+                out_channels=features,
+                kernel_size=kernel_size,
                 padding="same",
                 bias=True,
             ),
@@ -53,7 +60,7 @@ class UNet(nn.Module):
             nn.Conv2d(
                 in_channels=features,
                 out_channels=features,
-                kernel_size=5,
+                kernel_size=kernel_size,
                 padding="same",
                 bias=True,
             ),        
