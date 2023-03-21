@@ -79,7 +79,7 @@ def _do_assertions(reduce_to_2D: bool, reduce_to_2D_xy: bool, overfit: bool, nor
         path_to_datasets, str), "input parameters dataset_name, path_to_datasets have to be str"
 
 def _build_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, normalize: bool, sdf: bool):
-    transforms_list = [ToTensorTransform(), PowerOfTwoTransform(oriented="left")]
+    transforms_list = [ToTensorTransform()] #, PowerOfTwoTransform(oriented="left")]
 
     if reduce_to_2D: 
         transforms_list.append(ReduceTo2DTransform(reduce_to_2D_xy=reduce_to_2D_xy))
