@@ -59,9 +59,10 @@ def make_dataset_for_test(inputs: str, dataset_name: str, path_to_datasets: str,
 
     mode = "test"
     split = {'train': 0, 'val': 0, 'test': 1}
-    labels="t"
+    labels = "t"
+    sdf = False
 
-    transforms = _build_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, normalize=True, sdf=True)
+    transforms = _build_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, normalize=True, sdf=sdf)
     input_vars = _build_property_list(inputs, add_material_id=True) 
     output_vars = _build_property_list(labels, add_material_id=False)
     
