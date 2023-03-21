@@ -3,7 +3,7 @@ Dataset Class
 """
 
 import logging
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Union
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from data.transforms import ComposeTransform
@@ -11,7 +11,9 @@ from data.utils import PhysicalVariables, DataPoint, _assertion_error_2d, get_di
 import os, sys
 import numpy as np
 import h5py
-from torch import Tensor, square, mean, sqrt
+from torch import Tensor, square, mean, sqrt, zeros
+from torch.utils.data import Dataset as TorchDataset
+
 
 @dataclass
 class Dataset(ABC):
@@ -46,7 +48,7 @@ class Dataset(ABC):
             raise ValueError(f"Dataset {self.dataset_name} is empty")
         return dataset_path_full
 
-class DatasetSimulationData(Dataset):
+class DatasetSimulationData(TorchDataset, Dataset):
     """Groundwaterflow and heatpumps dataset class dataset has dimensions of NxCxHxWxD,
     where N is the number of runs/data points, C is the number of channels, HxWxD are the spatial dimensions
 
@@ -62,11 +64,11 @@ class DatasetSimulationData(Dataset):
                  input_vars_names:List[str]=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
                  "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"], # "hp_power"
                  output_vars_names:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"], 
-                 normalize_bool:bool=True,
+                 normalize:bool=True, sdf:bool=True,
                  means_stds_train_tuple:Tuple[Dict, Dict, Dict, Dict]=None,
                  **kwargs)-> Dataset:
 
-        super().__init__(dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
+        Dataset.__init__(self, dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
         assert mode in ["train", "val", "test"], "wrong mode for dataset given"
 
         self.mode = mode
@@ -76,14 +78,15 @@ class DatasetSimulationData(Dataset):
         split_values = [v for k,v in split.items()]
         assert np.round(sum(split_values)) == 1.0
 
-        self.dataset_path = super().check_for_dataset()
+        self.dataset_path = self.check_for_dataset()
         
         self.data_paths, self.runs = self.make_dataset(self)
         logging.info(f"Dataset {self.dataset_name} in mode {self.mode} has {len(self.data_paths)} runs, named {self.runs}")
-        # self.time_init =     "Time:  0.00000E+00 y"
-        self.time_first =    "   1 Time  1.00000E-01 y"
-        # self.time_final =    "   2 Time  5.00000E+00 y"
+        self.time_first =     "   0 Time  0.00000E+00 y"
+        # self.time_first =    "   1 Time  1.00000E-01 y"
+        # self.time_final =    "   2 Time  5.00000E+00 y" # other dataset
         self.time_final =    "   3 Time  5.00000E+00 y"
+        # self.time_first = self.time_final
         
         self.datapoints = {}
         self.keep_datapoints_in_memory = True
@@ -91,14 +94,16 @@ class DatasetSimulationData(Dataset):
         # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
         self.input_vars_empty_value = PhysicalVariables(self.time_first, input_vars_names) # collection of overall information but not std, mean
         self.output_vars_empty_value = PhysicalVariables(self.time_final, output_vars_names)
-        if normalize_bool:
+
+        self.normalize = normalize
+        self.sdf = sdf
+        if self.normalize:
             self.has_to_calc_mean_std = True
             if mode=="train":
                 self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = self._calc_mean_std_dataset()   # calc mean, std for all dataset runs
             else:
                 self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = means_stds_train_tuple
             self.has_to_calc_mean_std = False
-        
     def __len__(self):
         # Return the length of the dataset (number of runs), but fill them only on their first call
         return len(self.runs)
@@ -142,7 +147,7 @@ class DatasetSimulationData(Dataset):
     def get_output_properties(self) -> List[str]:
         return list(self.output_vars_empty_value.keys)
         
-    def __getitem__(self, index:int) -> Dict[int, DataPoint]:
+    def __getitem__(self, index:int) -> Dict[int, DataPoint]: 
         """
         Get a data point as a dict at a given run id (index) in the dataset
         If the datapoint was loaded before, it is called only, if not: it is initialized with calling transform etc.
@@ -172,7 +177,6 @@ class DatasetSimulationData(Dataset):
         if self.keep_datapoints_in_memory:
             if index not in self.datapoints.keys():
                 self.datapoints[index] = self.load_datapoint(index)
-                # print("created datapoint at index", index)
             return self.datapoints[index]
         else:
             return self.load_datapoint(index)
@@ -189,26 +193,43 @@ class DatasetSimulationData(Dataset):
         datapoint.labels = self._load_data_as_numpy(self.data_paths[index], self.output_vars_empty_value)
         #try:
         loc_hp = datapoint.get_loc_hp()
-        if self.has_to_calc_mean_std:
-            # mean, std first have to be calculated for later use
+        if self.normalize:
+            if self.has_to_calc_mean_std:
+                # mean, std first have to be calculated for later use
+                datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp)
+                datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp)
+            else:
+                datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp, mean_val=self.mean_inputs, std_val=self.std_inputs)
+                datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp, mean_val=self.mean_labels, std_val=self.std_labels)
+        else:
             datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp)
             datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp)
-        else:
-            datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp, mean_val=self.mean_inputs, std_val=self.std_inputs)
-            datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp, mean_val=self.mean_labels, std_val=self.std_labels)
+
         #except Exception as e:
         #    print("no transforms applied: ", e)
 
         _assertion_error_2d(datapoint)
         return datapoint
 
-    def reverse_transform(self, datapoint:DataPoint): #index:int, x_mean=None, x_std=None, y_mean=None, y_std=None):
+    def reverse_transform(self, datapoint:Union[DataPoint, Tensor]):
         """
         Reverse the transformation of the data.
         """
 
-        datapoint.inputs = self.transform.reverse(datapoint.inputs, mean_val=self.mean_inputs, std_val=self.std_inputs)
-        datapoint.labels = self.transform.reverse(datapoint.labels, mean_val=self.mean_labels, std_val=self.std_labels)
+        if self.sdf:
+            props_to_exclude_from_norm = ["Material ID", "Material_ID"]
+        else:
+            props_to_exclude_from_norm = []
+
+        if isinstance(datapoint, Tensor):
+            for id, property in enumerate(self.mean_inputs.keys()):
+                if property not in props_to_exclude_from_norm:
+                    datapoint[:,id] = self.transform.reverse_tensor_input(datapoint[:,id], mean_val=self.mean_inputs[property], std_val=self.std_inputs[property])
+            return datapoint
+        else:
+            # MaterialID is excluded later (in transform-normalize)
+            datapoint.inputs = self.transform.reverse(datapoint.inputs, mean_val=self.mean_inputs, std_val=self.std_inputs)
+            datapoint.labels = self.transform.reverse(datapoint.labels, mean_val=self.mean_labels, std_val=self.std_labels)
 
         _assertion_error_2d(datapoint)
 
@@ -277,10 +298,18 @@ class DatasetSimulationData(Dataset):
         mean_labels = {}
         number_datapoints = len(self)
 
+        if self.sdf:
+            props_to_exclude_from_norm = ["Material ID", "Material_ID"]
+        else:
+            props_to_exclude_from_norm = []
         # load all dataset + calc mean
         for run in range(len(self)):
             for key, value in self[run].inputs.items():
-                mean_in[key] = mean_in[key]+value.mean_orig if key in mean_in.keys() else value.mean_orig
+                if key not in props_to_exclude_from_norm:
+                    mean_in[key] = mean_in[key]+value.mean_orig if key in mean_in.keys() else value.mean_orig
+                else: 
+                    # for MaterialID because later needed in dataset:reverse_transform for order between other properties
+                    mean_in[key] = zeros(1)
             for key, value in self[run].labels.items():
                 mean_labels[key] = mean_labels[key]+value.mean_orig if key in mean_labels.keys() else value.mean_orig
 
@@ -294,7 +323,11 @@ class DatasetSimulationData(Dataset):
         squaresum_mean_labels = {}
         for run in range(len(self)):
             for key, value in self[run].inputs.items():
-                squaresum_mean_in[key] = squaresum_mean_in[key] + square(value.value-mean_in[key]) if key in std_in.keys() else square(value.value-mean_in[key])
+                if key not in props_to_exclude_from_norm:
+                    squaresum_mean_in[key] = squaresum_mean_in[key] + square(value.value-mean_in[key]) if key in std_in.keys() else square(value.value-mean_in[key])
+                else: 
+                    # for MaterialID because later needed in dataset:reverse_transform for order between other properties
+                    squaresum_mean_in[key] = zeros(1)
             for key, value in self[run].labels.items():
                 squaresum_mean_labels[key] = squaresum_mean_labels[key] + square(value.value-mean_labels[key]) if key in std_labels.keys() else square(value.value-mean_labels[key])
         
@@ -303,35 +336,3 @@ class DatasetSimulationData(Dataset):
 
         self.datapoints = {}    # del all datapoints created in this process to free space
         return mean_in, std_in, mean_labels, std_labels
-
-
-'''NICHT ÜBERARBEITET
-class MemoryImageFolderDataset(ImageFolderDataset):
-    def __init__(self, root, *args,
-                 transform=None,
-                 download_url="https://i2dl.dvl.in.tum.de/downloads/cifar10memory.zip",
-                 **kwargs):
-        # Fix the root directory automatically
-        if not root.endswith('memory'):
-            root += 'memory'
-
-        super().__init__(
-            root, *args, download_url=download_url, **kwargs)
-        
-        with open(os.path.join(
-            self.root_path, 'cifar10.pckl'
-            ), 'rb') as f:
-            save_dict = pickle.load(f)
-
-        self.images = save_dict['images']
-        self.labels = save_dict['labels']
-        self.class_to_idx = save_dict['class_to_idx']
-        self.classes = save_dict['classes']
-
-        self.transform = transform
-
-    def load_data_as_numpy(self, image_path):
-        """Here we already have everything in memory,
-        so we can just return the image"""
-        return image_path
-'''

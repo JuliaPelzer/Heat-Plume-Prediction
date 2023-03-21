@@ -1,6 +1,7 @@
 # exclude for now in testing phase
 models/
 fully_convolutional_network/
+runs/
 
 # exclude testing notebook files and other random files
 *.ipynb

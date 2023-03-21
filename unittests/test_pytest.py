@@ -1,7 +1,10 @@
+import pytest
+
 import data.transforms as trans    # The code to test
 import data.dataloader as dataloader
 import data.dataset_loading as lp
 import data.utils as utils
+import networks.losses
 
 # additional libraries
 import numpy as np
@@ -20,6 +23,18 @@ def test_compute_data_max_and_min():
     # does not test keepdim part - necessary?
     # float numbers? expected_vlaue = pytest.approx(value, abs=0.001)
 
+def test_sdf_transform():
+    # Fixture
+    testor = Tensor(np.array([[[1,2,3],[100,5,6]]]))
+    data = utils.PhysicalVariables(time="now", properties=["Material ID"])
+    data["Material ID"] = testor
+    # Expected result
+    sdf = Tensor(np.array([[[1,1.4142,2.2361],[0,1,2]]]))
+    # Actual result
+    sdf_transform = trans.SignedDistanceTransform()
+    actual_result = sdf_transform(data)
+    # Test
+    assert eq(actual_result["Material ID"].value, sdf).flatten
 
 def test_normalize_transform():
     data = utils.PhysicalVariables(time="now", properties=["test"])
@@ -181,9 +196,22 @@ def test_reverse_transform():
         for data in dataloaders_2D["train"].dataset:
             dataloaders_2D["train"].dataset.reverse_transform(data)
 
+def test_mselossexcludenotchangedtemp():
+    import torch
+    # Fixture
+    tensor1 = torch.tensor([[10.6, 12], [12, 10.6]])
+    tensor2 = torch.tensor([[10.6, 12], [10.6, 12]])
+    # Expected result
+    expected_value = torch.tensor(1.30666667)
+    # Actual result
+    value = networks.losses.MSELossExcludeNotChangedTemp(ignore_temp=10.6)(tensor1, tensor2)
+    # Test
+    assert expected_value == pytest.approx(value)
+
+
 if __name__ == "__main__":
-    test_data_init()
-    test_combinations()
-    test_dataloader_iter()
-    
-    test_normalize_transform()
+    # test_data_init()
+    # test_combinations()
+    # test_dataloader_iter()
+    # test_normalize_transform()
+    test_sdf_transform()

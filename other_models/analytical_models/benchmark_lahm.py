@@ -29,7 +29,8 @@ def calc_and_plot(domain, parameters):
     print(f"Max Temperature: {np.max(delta_T_grid+parameters['T_gwf'])} at {np.unravel_index(np.argmax(delta_T_grid+parameters['T_gwf']), delta_T_grid.shape)}")
 
     # ellipse_10 = lahm.ellipse_10_percent(domain.injection_point, parameters["alpha_L"], parameters["alpha_T"])
-    lahm.plot_temperature_lahm(results, domain.x_grid, domain.y_grid, title=parameters["name"]) #, ellipses=[ellipse_10])
+    # lahm.plot_different_versions_of_temperature_lahm(results["4.8 years"], domain.x_grid, domain.y_grid, title=parameters["name"]) #, ellipses=[ellipse_10])
+    lahm.plot_temperature_lahm(results, domain.x_grid, domain.y_grid, filename=parameters["name"]) #, ellipses=[ellipse_10])
 
 def run_willibald(domain, parameters:dict):
     T_isoline = 12
