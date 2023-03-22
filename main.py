@@ -9,7 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from data.dataset_loading import init_data, make_dataset_for_test
 from data.utils import load_settings, save_settings
 from solver import Solver
-from visualization.visualize_data import plot_sample
+from utils.visualize_data import plot_sample
 from utils.utils_networks import count_parameters, append_results_to_csv
 
 def run_training(n_epochs: int = 1000, lr: float = 5e-3, inputs: str = "pk", model_choice: str="unet", name_folder_destination: str = "default", dataset_name: str = "small_dataset_test",
@@ -61,8 +61,8 @@ def run_training(n_epochs: int = 1000, lr: float = 5e-3, inputs: str = "pk", mod
         
     # visualization
     if True:
-        _, error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_train_sample", amount_plots=2,)
-        _, error_mean, final_max_error = plot_sample(model, dataloaders["val"], device, name_folder_destination, plot_name=name_folder_destination + "/plot_val_sample", amount_plots=10,)
+        error_mean, final_max_error = plot_sample(model, dataloaders["train"], device, plot_name=name_folder_destination + "/plot_train_sample", amount_plots=2,)
+        error_mean, final_max_error = plot_sample(model, dataloaders["val"], device, plot_name=name_folder_destination + "/plot_val_sample", amount_plots=10,)
 
     time_end = dt.datetime.now()
     duration = f"{(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds"
@@ -96,7 +96,7 @@ def run_tests(inputs: str = "pk", model_choice: str="unet", name_folder_destinat
         
     # visualization
     time_begin = dt.datetime.now()
-    plot_sample(model, dataloader, device, name_folder_destination, plot_name=name_folder_destination + "/plot_TEST_sample", amount_plots=10,)
+    plot_sample(model, dataloader, device, plot_name=name_folder_destination + "/plot_TEST_sample", amount_plots=10,)
 
     time_end = dt.datetime.now()
     duration = f"{(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds"
@@ -112,12 +112,12 @@ if __name__ == "__main__":
     else:
         parser.add_argument("--path_to_datasets", type=str, default="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets")
     
-    parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100dp_vary_hp_loc") # benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
+    parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_20dp_2hps") # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
     parser.add_argument("--device", type=str, default="cuda:1")
     parser.add_argument("--lr", type=float, default=1e-5)
-    parser.add_argument("--epochs", type=int, default=12000)
+    parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--finetune", type=bool, default=False)
-    parser.add_argument("--path_to_model", type=str, default="APPLY_unet_benchmark_conv5_depth3_inputs_pk_batchnorm_to_3testcases")
+    parser.add_argument("--path_to_model", type=str, default="current_unet_inputs_pk_moreConvPerBlock_noPowerOf2")
 
     args = parser.parse_args()
     kwargs = load_settings(".", "settings_training")
@@ -141,7 +141,7 @@ if __name__ == "__main__":
             except FileExistsError:
                 pass
             save_settings(kwargs, os.path.join(os.getcwd(), "runs", kwargs["name_folder_destination"]), "settings_training")
-            # run_training(**kwargs)
+            run_training(**kwargs)
             # run_tests(**kwargs)
     
     #tensorboard --logdir runs/

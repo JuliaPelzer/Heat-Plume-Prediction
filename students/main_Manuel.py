@@ -1,7 +1,7 @@
 from data.dataset_loading import init_data
 from solver import Solver
 from networks.dummy_network import DummyNet
-from visualization.visualize_data import plot_sample
+from utils.visualize_data import plot_sample
 from torch.nn import MSELoss
 from torch import cuda, device
 from utils.utils_networks import count_parameters
@@ -65,9 +65,9 @@ def run_experiment(n_epochs:int=1000, lr:float=5e-3, inputs:str="pk", model_choi
 
     # visualization
     if overfit:
-        error, error_mean, final_max_error = plot_sample(model, dataloaders_2D["train"], device_used, name_folder_destination, plot_name="plot_learned_test_sample")
+        error_mean, final_max_error = plot_sample(model, dataloaders_2D["train"], device_used, plot_name="plot_learned_test_sample")
     else:
-        error, error_mean, final_max_error = plot_sample(model, dataloaders_2D["test"], device_used, name_folder_destination, plot_name="plot_learned_test_sample", plot_one_bool=False)
+        error_mean, final_max_error = plot_sample(model, dataloaders_2D["test"], device_used, plot_name="plot_learned_test_sample", plot_one_bool=False)
     
     # save model - TODO : both options currently not working
     # @Manuel: Wenn du mich dran erinnerst, schicke ich dir hierzu ein Update, wenn es läuft
