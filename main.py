@@ -13,7 +13,8 @@ from utils.visualize_data import plot_sample
 from utils.utils_networks import count_parameters, append_results_to_csv
 
 def run_training(n_epochs: int = 1000, lr: float = 5e-3, inputs: str = "pk", model_choice: str="unet", name_folder_destination: str = "default", dataset_name: str = "small_dataset_test",
-    path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets", device: str = None):
+    path_to_datasets: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets", device: str = None,
+    finetune: bool = False, path_to_model:str = ""):
     time_begin = dt.datetime.now()
 
     # parameters of data
@@ -30,7 +31,10 @@ def run_training(n_epochs: int = 1000, lr: float = 5e-3, inputs: str = "pk", mod
 
     # model choice
     in_channels = len(inputs) + 1
-    model = create_model(model_choice, in_channels)
+    if not finetune:
+        model = create_model(model_choice, in_channels)
+    else:
+        model = load_model({"model_choice":model_choice, "in_channels":in_channels}, path_to_model)
     model.to(device)
 
     number_parameter = count_parameters(model)
@@ -128,14 +132,14 @@ if __name__ == "__main__":
     kwargs["lr"]=args.lr
     kwargs["n_epochs"] = args.epochs
     kwargs["finetune"] = args.finetune
-    kwargs["path_to_model"] = args.path_to_model
+    kwargs["path_to_model"] = os.path.join("runs", args.path_to_model)
     input_combis = ["pk"] #, "xy", "pky"] 
     for model in ["unet"]: #, "fc"]:
         kwargs["model_choice"] = model
         for input in input_combis:
             kwargs["inputs"] = input
-            # kwargs["name_folder_destination"] = "temp"
-            kwargs["name_folder_destination"] = f"current_{kwargs['model_choice']}_inputs_{kwargs['inputs']}_moreConvPerBlock_noPowerOf2" #{kwargs['dataset_name']}_
+            kwargs["name_folder_destination"] = "testitest"
+            # kwargs["name_folder_destination"] = f"current_{kwargs['model_choice']}_inputs_{kwargs['inputs']}_finetune" #{kwargs['dataset_name']}_
             try:
                 os.mkdir(os.path.join(os.getcwd(), "runs", kwargs["name_folder_destination"]))
             except FileExistsError:
