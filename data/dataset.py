@@ -21,8 +21,8 @@ class SettingsDataset:
     dataset_name: str
     mode: str
     split: Dict[str, float]
-    input_vars_names: List = field(default_factory=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"])
-    output_vars_names: List = field(default_factory=["Liquid_Pressure [Pa]", "Temperature [C]"])
+    input_vars_names: List = field(default_factory=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", "Liquid Pressure [Pa]", "Material ID", "Temperature [C]"])
+    output_vars_names: List = field(default_factory=["Temperature [C]"])
     sdf: bool = True
 
     def __post_init__(self):
@@ -216,7 +216,7 @@ class DatasetSimulationData(TorchDataset, Dataset):
         """
 
         if self.settings_dataset.sdf:
-            props_to_exclude_from_norm = ["Material ID", "Material_ID"]
+            props_to_exclude_from_norm = ["Material ID"]
         else:
             props_to_exclude_from_norm = []
 
@@ -297,7 +297,7 @@ class DatasetSimulationData(TorchDataset, Dataset):
         number_datapoints = len(self)
 
         if self.settings_dataset.sdf:
-            props_to_exclude_from_norm = ["Material ID", "Material_ID"]
+            props_to_exclude_from_norm = ["Material ID"]
         else:
             props_to_exclude_from_norm = []
         # load all dataset + calc mean

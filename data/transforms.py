@@ -78,26 +78,25 @@ class NormalizeTransform:
         :param std: standard deviation of data to be normalized
              can be a single value or a numpy array of size C
         """
-        self.names_material = ["Material_ID", "Material ID"]
+        self.name_material = "Material ID"
         self.sdf_bool:bool= sdf_bool
 
     def __call__(self, data: PhysicalVariables, mean_val:Dict, std_val:Dict):
         logging.info("Start normalization")
         if not self.sdf_bool:
             # index shift for material ID
-            for name_material in self.names_material:
-                if name_material in data.keys():
-                    data[name_material].value -= 1
-                    mask = data[name_material].value == 2
-                    data[name_material].value[mask] = -1
-                    data[name_material].value = data[name_material].value.double() # casting from int to double
+            if self.name_material in data.keys():
+                data[self.name_material].value -= 1
+                mask = data[self.name_material].value == 2
+                data[self.name_material].value[mask] = -1
+                data[self.name_material].value = data[self.name_material].value.double() # casting from int to double
 
         # normalize data to mean and std
         for prop in data.keys():
             if not self.sdf_bool:
                 Normalize(mean_val[prop], std_val[prop], inplace=True)(data[prop].value)
             else:
-                if prop not in self.names_material:
+                if prop != self.name_material:
                     Normalize(mean_val[prop], std_val[prop], inplace=True)(data[prop].value)
             # # squeeze in case of reduced_to_2D_wrong necessary because unsqueezed before for Normalize to work
             data[prop].value = squeeze(data[prop].value)
@@ -106,11 +105,10 @@ class NormalizeTransform:
 
     def init_mean_std(self, data: PhysicalVariables):
         if not self.sdf_bool:
-            for name_material in self.names_material:
-                if name_material in data.keys():
-                    data[name_material].value -= 1
-                    mask = data[name_material].value == 2
-                    data[name_material].value[mask] = -1
+            if self.name_material in data.keys():
+                data[self.name_material].value -= 1
+                mask = data[self.name_material].value == 2
+                data[self.name_material].value[mask] = -1
 
         for prop in data.keys():
             if not self.sdf_bool:
@@ -118,7 +116,7 @@ class NormalizeTransform:
                 data[prop].calc_mean()  # dim=(1, 2, 3), keepdim=True)
                 data[prop].calc_std()  # dim=(1, 2, 3), keepdim=True)
             else:
-                if prop not in self.names_material:
+                if prop != self.name_material:
                     # calc mean, std per channel
                     data[prop].calc_mean()  # dim=(1, 2, 3), keepdim=True)
                     data[prop].calc_std()  # dim=(1, 2, 3), keepdim=True)
@@ -132,11 +130,11 @@ class NormalizeTransform:
                 data[prop].value = data[prop].value * std_val[prop] + mean_val[prop]
         else:
             for prop in data.keys():
-                if prop not in self.names_material:
+                if prop not in self.name_material:
                     data[prop].value = data[prop].value * std_val[prop] + mean_val[prop]
 
         if not self.sdf_bool:
-            for name_material in self.names_material:
+            for name_material in self.name_material:
                 if name_material in data.keys():
                     mask = data[name_material].value == -1
                     data[name_material].value[mask] = 2  # only required, if extraction well (with ID=3) exists
@@ -155,38 +153,34 @@ class SignedDistanceTransform:
     """
 
     def __init__(self):
-        self.names_material = ["Material_ID", "Material ID"]
+        self.name_material = "Material ID"
 
     def __call__(self, data: PhysicalVariables):
         logging.info("Start SignedDistanceTransform")
 
         # check if material ID is in data (inputs vs. labels)
         material_id_in_data = False
-        for name_material in self.names_material:
-            if name_material in data.keys():
-                material_id_in_data = True
+        if self.name_material in data.keys():
+            material_id_in_data = True
         if not material_id_in_data:
             logging.info("No material ID in data, no SignedDistanceTransform")
             return data
 
         def get_loc_hp():
-            for name_material in self.names_material:
-                if name_material in data.keys():
-                    loc_hp = nonzero(data[name_material].value==torch.max(data[name_material].value)).squeeze()
-                    return loc_hp, name_material
-        loc_hp, name_material = get_loc_hp()
-        data[name_material].value = data[name_material].value.float()
-        for index_x in range(data[name_material].value.shape[0]):
-            for index_y in range(data[name_material].value.shape[1]):
-                for index_z in range(data[name_material].value.shape[2]):
-                    data[name_material].value[index_x, index_y, index_z] = linalg.norm(
-                        torch.tensor([index_x, index_y, index_z]).float() - loc_hp.float())#, ord=float("inf"))
+            if self.name_material in data.keys():
+                loc_hp = nonzero(data[self.name_material].value==torch.max(data[self.name_material].value)).squeeze()
+                return loc_hp
+            
+        loc_hp = get_loc_hp()
+        data[self.name_material].value = data[self.name_material].value.float()
+        for index_x in range(data[self.name_material].value.shape[0]):
+            for index_y in range(data[self.name_material].value.shape[1]):
+                for index_z in range(data[self.name_material].value.shape[2]):
+                    data[self.name_material].value[index_x, index_y, index_z] = linalg.norm(
+                        torch.tensor([index_x, index_y, index_z]).float() - loc_hp.float())
 
-        data[name_material].value = data[name_material].value / torch.max(data[name_material].value)
+        data[self.name_material].value = data[self.name_material].value / torch.max(data[self.name_material].value)
 
-        # file = open("distance_transform.txt", "a")
-        # for index in range(data[name_material].value.shape[0]):
-        #     file.write(str(data[name_material].value[index, :, :].squeeze())+"\n")
         return data
     
     ## NOT TESTED AND NOT CALLED

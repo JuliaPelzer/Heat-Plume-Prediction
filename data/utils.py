@@ -97,11 +97,7 @@ class DataPoint():
         return self.labels.get_number_of_variables()
 
     def get_loc_hp(self):
-        try:
-            ids = self.inputs["Material ID"].value
-        except:
-            ids = self.inputs["Material_ID"].value
-            
+        ids = self.inputs["Material ID"].value
         max_id = ids.max()
         loc_hp = np.array(np.where(ids == max_id)).squeeze()
         return loc_hp
