@@ -8,7 +8,7 @@ from typing import List
 import numpy as np
 from data.utils import SettingsTraining
 
-def init_data(settings: SettingsTraining, sdf:bool = True, batch_size: int = 1000, labels: str = "txyz",):
+def init_data(settings: SettingsTraining, batch_size: int = 1000, labels: str = "txyz",):
     """Initialize dataset and dataloader for training."""
     
     reduce_to_2D: bool = True
@@ -24,9 +24,9 @@ def init_data(settings: SettingsTraining, sdf:bool = True, batch_size: int = 100
 
     modes = ['train', 'val', 'test'] if split["test"] != 0 else ['train', 'val']
     split = _split_test_data_extra_folder(split, settings.path_to_datasets, settings.dataset_name)
-    transforms = _build_transforms(reduce_to_2D, reduce_to_2D_xy, sdf)
-    input_vars = _build_property_list(settings.inputs, add_material_id=True) 
-    output_vars = _build_property_list(labels, add_material_id=False)
+    transforms = _build_transforms(reduce_to_2D, reduce_to_2D_xy)
+    input_vars = _build_property_list(settings.inputs) 
+    output_vars = _build_property_list(labels)
 
     # Init datasets
     datasets = {}
@@ -36,7 +36,7 @@ def init_data(settings: SettingsTraining, sdf:bool = True, batch_size: int = 100
             dataset_name_temp = settings.dataset_name+"_TEST"
         else:
             dataset_name_temp = settings.dataset_name
-        settings_dataset_temp = SettingsDataset(dataset_name=dataset_name_temp, input_vars_names=input_vars, output_vars_names=output_vars, mode=mode, split=split, sdf=sdf)
+        settings_dataset_temp = SettingsDataset(dataset_name=dataset_name_temp, input_vars_names=input_vars, output_vars_names=output_vars, mode=mode, split=split)
         temp_dataset = DatasetSimulationData(settings, settings_dataset_temp, transforms, means_stds_train_tuple,)
         
         if mode == "train":    
@@ -62,13 +62,12 @@ def make_dataset_for_test(settings: SettingsTraining):
     mode = "test"
     split = {'train': 0, 'val': 0, 'test': 1}
     labels = "t"
-    sdf = False
 
-    transforms = _build_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, sdf=sdf)
-    input_vars = _build_property_list(settings.inputs, add_material_id=True) 
-    output_vars = _build_property_list(labels, add_material_id=False)
+    transforms = _build_transforms(reduce_to_2D=True, reduce_to_2D_xy=True)
+    input_vars = _build_property_list(settings.inputs) 
+    output_vars = _build_property_list(labels)
     
-    settings_dataset_temp = SettingsDataset(dataset_name=settings.dataset_name, input_vars_names=input_vars, output_vars_names=output_vars, mode=mode, split=split, sdf=sdf)
+    settings_dataset_temp = SettingsDataset(dataset_name=settings.dataset_name, input_vars_names=input_vars, output_vars_names=output_vars, mode=mode, split=split)
     dataset = DatasetSimulationData(settings, settings_dataset_temp, transforms)
     dataloader = DataLoader(dataset=dataset, batch_size=100, shuffle=True, drop_last=False,)
     logging.warning(f'init done [total number of datapoints: {len(dataset)}]')
@@ -83,22 +82,21 @@ def _do_assertions(list_of_bools: List[bool], list_of_ints: List[int], list_of_s
     for str_ in list_of_strs:
         assert isinstance(str_, str), f"input parameters have to be str, {str_} is not"
 
-def _build_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, sdf: bool):
+def _build_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool):
     transforms_list = [ToTensorTransform()] #, PowerOfTwoTransform(oriented="left")]
 
     if reduce_to_2D: 
         transforms_list.append(ReduceTo2DTransform(reduce_to_2D_xy=reduce_to_2D_xy))
-    if sdf: 
-        transforms_list.append(SignedDistanceTransform())
-    transforms_list.append(NormalizeTransform(sdf))
+    transforms_list.append(SignedDistanceTransform())
+    transforms_list.append(NormalizeTransform())
 
     transforms = ComposeTransform(transforms_list)
     return transforms
 
-def _build_property_list(properties:str, add_material_id:bool=False) -> List:
+def _build_property_list(properties:str) -> List:
     vars_list = [properties[i] for i in range(len(properties))]
     for i in vars_list:
-        assert i in ["x", "y", "z", "p", "t", "k"], "input parameters have to be a string of characters, each of which is either x, y, z, p, t, k"
+        assert i in ["x", "y", "z", "p", "t", "k", "i", "s"], "input parameters have to be a string of characters, each of which is either x, y, z, p, t, k, i, s"
 
     vars = []
     if 'x' in vars_list:
@@ -113,9 +111,11 @@ def _build_property_list(properties:str, add_material_id:bool=False) -> List:
         vars.append("Temperature [C]")
     if 'k' in vars_list:
         vars.append("Permeability X [m^2]")
+    if 'i' in vars_list:
+        vars.append("Material ID") # unstructured grid, else Material_ID
+    if 's' in vars_list:
+        vars.append("SDF")
 
-    if add_material_id:
-        vars.append("Material ID") # structured grid, else Material_ID
     return vars
 
 def _split_test_data_extra_folder(split:dict, path_to_datasets:str, dataset_name:str):

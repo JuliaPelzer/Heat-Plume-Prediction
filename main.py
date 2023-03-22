@@ -16,17 +16,15 @@ from utils.utils_networks import count_parameters, append_results_to_csv
 def run_training(settings:SettingsTraining):
     time_begin = dt.datetime.now()
 
-    # parameters of data
-    sdf = False
     # init data
-    _, dataloaders = init_data(settings, batch_size=100, sdf=sdf, labels="t")
+    _, dataloaders = init_data(settings, batch_size=100, labels="t")
 
     if settings.device is None:
         settings.device = "cuda" if cuda.is_available() else "cpu"
     logging.warning(f"Using {settings.device} device")
 
     # model choice
-    in_channels = len(settings.inputs) + 1
+    in_channels = len(settings.inputs)
     if not settings.finetune:
         model = create_model(settings.model_choice, in_channels)
     else:
@@ -79,7 +77,7 @@ def run_tests(settings:SettingsTraining):
     _, dataloader = make_dataset_for_test(settings)
 
     # model choice
-    in_channels = len(settings.inputs) + 1
+    in_channels = len(settings.inputs)
     model = create_model(settings.model_choice, in_channels)
     model.to(settings.device)
 
@@ -110,16 +108,16 @@ if __name__ == "__main__":
     
     parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100dp_vary_hp_loc") # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
     parser.add_argument("--device", type=str, default="cuda:1")
-    parser.add_argument("--epochs", type=int, default=1) #0000)
+    parser.add_argument("--epochs", type=int, default=10000)
     parser.add_argument("--finetune", type=bool, default=False)
     parser.add_argument("--path_to_model", type=str, default="current_unet_inputs_pk_moreConvPerBlock_noPowerOf2")
     parser.add_argument("--model_choice", type=str, default="unet")
-    parser.add_argument("--inputs", type=str, default="pk") #sm
+    parser.add_argument("--inputs", type=str, default="pksi")
     parser.add_argument("--name_folder_destination", type=str, default="default")
     args = parser.parse_args()
 
     settings = SettingsTraining(**vars(args))
-    # settings.name_folder_destination = f"current_{settings.model_choice}_inputs_{settings.inputs}" #{kwargs['dataset_name']}_
+    settings.name_folder_destination = f"current_{settings.model_choice}_inputs_{settings.inputs}_{settings.dataset_name}"
     
     try:
         os.mkdir(os.path.join(os.getcwd(), "runs", settings.name_folder_destination))

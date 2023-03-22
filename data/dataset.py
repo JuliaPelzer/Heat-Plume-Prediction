@@ -23,7 +23,6 @@ class SettingsDataset:
     split: Dict[str, float]
     input_vars_names: List = field(default_factory=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", "Liquid Pressure [Pa]", "Material ID", "Temperature [C]"])
     output_vars_names: List = field(default_factory=["Temperature [C]"])
-    sdf: bool = True
 
     def __post_init__(self):
         assert self.mode in ["train", "val", "test"], "wrong mode for dataset given"
@@ -87,7 +86,7 @@ class DatasetSimulationData(TorchDataset, Dataset):
         
         old_dataset=False
         if old_dataset:
-            self.time_final =    "   2 Time  5.00000E+00 y" # other dataset
+            self.time_final =    "   2 Time  5.00000E+00 y"
         else:
             self.time_final =    "   3 Time  5.00000E+00 y"
         
@@ -146,12 +145,6 @@ class DatasetSimulationData(TorchDataset, Dataset):
         assert len(data_paths) == len(runs)
 
         return data_paths, runs
-
-    def get_input_properties(self) -> List[str]:
-        return list(self.input_vars_empty_value.keys)
-
-    def get_output_properties(self) -> List[str]:
-        return list(self.output_vars_empty_value.keys)
         
     def __getitem__(self, index:int) -> Dict[int, DataPoint]: 
         """
@@ -215,11 +208,7 @@ class DatasetSimulationData(TorchDataset, Dataset):
         Reverse the transformation of the data.
         """
 
-        if self.settings_dataset.sdf:
-            props_to_exclude_from_norm = ["Material ID"]
-        else:
-            props_to_exclude_from_norm = []
-
+        props_to_exclude_from_norm = ["Material ID", "SDF"]
         if isinstance(datapoint, Tensor):
             for id, property in enumerate(self.mean_inputs.keys()):
                 if property not in props_to_exclude_from_norm:
@@ -283,9 +272,14 @@ class DatasetSimulationData(TorchDataset, Dataset):
         """
         loaded_datapoint = PhysicalVariables(variables.time)
         with h5py.File(data_path, "r") as file:
-            for key, value in file[variables.time].items():
-                if key in variables.get_ids_list(): # properties
-                    loaded_datapoint[key] = np.array(value).reshape(self.dimensions_of_datapoint, order='F')
+            for key in variables.get_ids_list(): # properties
+                try:
+                    loaded_datapoint[key] = np.array(file[variables.time][key]).reshape(self.dimensions_of_datapoint, order='F')
+                except KeyError:
+                    if key == "SDF":
+                        loaded_datapoint[key] = np.array(file[variables.time]["Material ID"]).reshape(self.dimensions_of_datapoint, order='F')
+                    else:
+                        raise KeyError
         return loaded_datapoint
 
     def _calc_mean_std_dataset(self):
@@ -296,10 +290,7 @@ class DatasetSimulationData(TorchDataset, Dataset):
         mean_labels = {}
         number_datapoints = len(self)
 
-        if self.settings_dataset.sdf:
-            props_to_exclude_from_norm = ["Material ID"]
-        else:
-            props_to_exclude_from_norm = []
+        props_to_exclude_from_norm = ["Material ID", "SDF"]
         # load all dataset + calc mean
         for run in range(len(self)):
             for key, value in self[run].inputs.items():

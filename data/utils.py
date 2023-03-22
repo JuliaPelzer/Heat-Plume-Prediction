@@ -6,11 +6,10 @@ from torch import Tensor, DoubleTensor, equal, mean, std
 from dataclasses import dataclass, field
 
 class PhysicalVariable:
-    def __init__(self, name: str, value: DoubleTensor = None):  # TODO ? default value + type
+    def __init__(self, name: str, value: DoubleTensor = None):
         self.id_name = name
         self.name_without_unit, self.unit = separate_property_unit(name)
         self.value = value
-        # TODO required to put mean, std somewhere else? (other level / class)
         self.mean_orig: float = None
         self.std_orig: float = None
 
@@ -18,16 +17,13 @@ class PhysicalVariable:
         return f"{self.name_without_unit} (in {self.unit}) with {self.shape()} elements"
 
     def dim(self) -> int:
-        # assert np.size(self.value) != 1, "value not set"
         return len(self.value.shape)
 
     def shape(self) -> Tuple[int]:
         try:
             return tuple(self.value.shape)
         except Exception as e:
-            # print("Exception: ", e, "in PhysicalVariable.shape")
             if np.size(self.value) == 1:
-                # print("value not set")
                 return np.size(self.value)
 
     def __eq__(self, o) -> bool:
@@ -97,7 +93,10 @@ class DataPoint():
         return self.labels.get_number_of_variables()
 
     def get_loc_hp(self):
-        ids = self.inputs["Material ID"].value
+        try: #TODO problematic with SDF?
+            ids = self.inputs["Material ID"].value
+        except:
+            ids = self.inputs["SDF"].value
         max_id = ids.max()
         loc_hp = np.array(np.where(ids == max_id)).squeeze()
         return loc_hp
