@@ -16,7 +16,7 @@ class Solver(object):
         train_dataloader: DataLoader,
         val_dataloader: DataLoader,
         loss_func=MSELoss(),
-        learning_rate=1e-3,
+        learning_rate=1e-5,
         optimizer=Adam,
     ):
         self.model: Module = model

@@ -288,7 +288,6 @@ class DatasetSimulationData(TorchDataset, Dataset):
         Sets the values of each PhysicalVariable in variables to the loaded data.
         """
         loaded_datapoint = PhysicalVariables(variables.time)
-        # TODO when go to GPU: directly import as tensor?
         with h5py.File(data_path, "r") as file:
             for key, value in file[variables.time].items():
                 if key in variables.get_ids_list(): # properties
