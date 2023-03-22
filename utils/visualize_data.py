@@ -103,7 +103,7 @@ def _plot_isolines(data: Dict[str,DataToVisualize], name_pic:str):
     plt.sca(axis)
     data_point = data["t_out"]
     plt.contourf(data_point.data[:,:].T, **data_point.contourargs) 
-    # plt.gca().invert_yaxis()
+    plt.gca().invert_yaxis()
     plt.ylabel("x [m]")
     plt.xlabel("y [m]")
     _aligned_colorbar()
