@@ -71,7 +71,7 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, amount_plots:int
             current_id = datapoint_id + batch_id*len_batch
             name_pic = f"runs/{plot_name}_{current_id}"
             _plot_datafields(dict_to_plot, name_pic=name_pic)
-            _plot_isolines(dict_to_plot, name_pic=name_pic)
+            # _plot_isolines(dict_to_plot, name_pic=name_pic)
 
             logging.info(f"Resulting pictures are at runs/{plot_name}_*")
             if current_id == amount_plots-1:
@@ -96,6 +96,7 @@ def _plot_datafields(data: Dict[str,DataToVisualize], name_pic:str):
 
     plt.suptitle("Datafields: Input, Output, Error")
     plt.savefig(f"{name_pic}.png")
+    plt.close()
 
 def _plot_isolines(data: Dict[str,DataToVisualize], name_pic:str):
     # helper function to plot isolines of temperature out
@@ -111,6 +112,7 @@ def _plot_isolines(data: Dict[str,DataToVisualize], name_pic:str):
     plt.suptitle(f"Isolines of Temperature [°C]")
     plt.savefig(f"{name_pic}_isolines.png")
     # plt.savefig(f"{name_pic}.svg")
+    plt.close()
 
 ## helper functions for plotting
 def _aligned_colorbar(*args,**kwargs):
