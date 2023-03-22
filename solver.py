@@ -28,7 +28,7 @@ class Solver(object):
 
         self._reset()
 
-    def train(self, device, n_epochs: int = 100, name_folder: str = "default"):
+    def train(self, device: str, n_epochs: int = 100, name_folder: str = "default"):
 
         # initialize tensorboard
         writer = SummaryWriter(f"runs/{name_folder}")
@@ -65,7 +65,7 @@ class Solver(object):
                         g["lr"] = new_lr
                     self.lr_schedule[epoch] = self.opt.param_groups[0]["lr"]
 
-    def run_epoch(self,dataloader: DataLoader, device):
+    def run_epoch(self, dataloader:DataLoader, device:str):
         epoch_loss = 0.0
         for x, y in dataloader:
             x = x.to(device)
