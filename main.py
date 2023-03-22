@@ -45,7 +45,7 @@ def run_training(settings:SettingsTraining):
         solver = Solver(model,dataloaders["train"], dataloaders["val"], loss_func=loss_fn,)
         try:
             solver.load_lr_schedule(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "learning_rate_history.csv"))
-            solver.train(settings.device, n_epochs=settings.epochs, name_folder=settings.name_folder_destination)
+            solver.train(settings)
         except KeyboardInterrupt:
             logging.warning("KeyboardInterrupt")
     else:
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     settings = SettingsTraining(**vars(args))
-    # settings.name_folder_destination = f"current_{settings.model_choice}_inputs_{settings.inputs}_noReLuConv" #{kwargs['dataset_name']}_
+    # settings.name_folder_destination = f"current_{settings.model_choice}_inputs_{settings.inputs}" #{kwargs['dataset_name']}_
     
     try:
         os.mkdir(os.path.join(os.getcwd(), "runs", settings.name_folder_destination))

@@ -6,6 +6,7 @@ from torch.nn import MSELoss, Module
 from torch.utils.tensorboard import SummaryWriter
 
 from data.dataloader import DataLoader
+from data.utils import SettingsTraining
 from networks.unet import weights_init
 
 
@@ -28,13 +29,13 @@ class Solver(object):
 
         self._reset()
 
-    def train(self, device: str, n_epochs: int = 100, name_folder: str = "default"):
-
+    def train(self, settings:SettingsTraining):
         # initialize tensorboard
-        writer = SummaryWriter(f"runs/{name_folder}")
-        epochs = tqdm(range(n_epochs), desc="epochs",disable=False)
-
+        writer = SummaryWriter(f"runs/{settings.name_folder_destination}")
+        device = settings.device
         self.model = self.model.to(device)
+
+        epochs = tqdm(range(settings.epochs), desc="epochs",disable=False)
         for epoch in epochs:
             try:
                 # Set lr according to schedule

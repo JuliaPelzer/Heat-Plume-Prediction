@@ -1,4 +1,4 @@
-from data.dataset import DatasetSimulationData
+from data.dataset import DatasetSimulationData, SettingsDataset
 from data.dataloader import DataLoader
 from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, PowerOfTwoTransform, ToTensorTransform, SignedDistanceTransform
 import os
@@ -13,10 +13,10 @@ def init_data(settings: SettingsTraining, sdf:bool = True, batch_size: int = 100
     
     reduce_to_2D: bool = True
     reduce_to_2D_xy: bool = True
-    overfit: bool = False
-    _do_assertions([reduce_to_2D, reduce_to_2D_xy, overfit], [batch_size], [settings.dataset_name, settings.path_to_datasets])
+    _do_assertions([reduce_to_2D, reduce_to_2D_xy], [batch_size], [settings.dataset_name, settings.path_to_datasets])
 
     # Prepare variables
+    overfit: bool = False
     if not overfit:
         split = {'train': 0.7, 'val': 0.2, 'test': 0.1}
     else:
@@ -36,8 +36,8 @@ def init_data(settings: SettingsTraining, sdf:bool = True, batch_size: int = 100
             dataset_name_temp = settings.dataset_name+"_TEST"
         else:
             dataset_name_temp = settings.dataset_name
-
-        temp_dataset = DatasetSimulationData(dataset_name=dataset_name_temp, dataset_path=settings.path_to_datasets, transform=transforms, input_vars_names=input_vars, output_vars_names=output_vars, mode=mode, split=split, sdf=sdf, means_stds_train_tuple=means_stds_train_tuple, name_folder_destination=settings.name_folder_destination)
+        settings_dataset_temp = SettingsDataset(dataset_name=dataset_name_temp, input_vars_names=input_vars, output_vars_names=output_vars, mode=mode, split=split, sdf=sdf)
+        temp_dataset = DatasetSimulationData(settings, settings_dataset_temp, transforms, means_stds_train_tuple,)
         
         if mode == "train":    
             means_stds_train_tuple = temp_dataset.mean_inputs, temp_dataset.std_inputs, temp_dataset.mean_labels, temp_dataset.std_labels
@@ -68,7 +68,8 @@ def make_dataset_for_test(settings: SettingsTraining):
     input_vars = _build_property_list(settings.inputs, add_material_id=True) 
     output_vars = _build_property_list(labels, add_material_id=False)
     
-    dataset = DatasetSimulationData(dataset_name=settings.dataset_name, dataset_path=settings.path_to_datasets, transform=transforms, input_vars_names=input_vars, output_vars_names=output_vars, mode=mode, split=split, normalize=True, sdf=True, name_folder_destination=settings.name_folder_destination)
+    settings_dataset_temp = SettingsDataset(dataset_name=settings.dataset_name, input_vars_names=input_vars, output_vars_names=output_vars, mode=mode, split=split, sdf=sdf)
+    dataset = DatasetSimulationData(settings, settings_dataset_temp, transforms)
     dataloader = DataLoader(dataset=dataset, batch_size=100, shuffle=True, drop_last=False,)
     logging.warning(f'init done [total number of datapoints: {len(dataset)}]')
     return dataset, dataloader
