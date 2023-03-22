@@ -98,7 +98,7 @@ class Solver(object):
     def save_lr_schedule(self, path:str):
         """ save learning rate history to csv file"""
         with open(path, "w") as f:
-            print(f"Saving lr-schedule to {path}.")
+            logging.info(f"Saving lr-schedule to {path}.")
             for epoch, lr in self.lr_schedule.items():
                 f.write(f"{epoch},{lr}\n")
                         
