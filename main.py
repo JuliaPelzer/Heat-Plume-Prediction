@@ -2,13 +2,12 @@ import datetime as dt
 import logging
 import os
 import argparse
-from dataclasses import dataclass
 from networks.models import create_model, load_model
 from networks.losses import create_loss_fn
 from torch import cuda, save
 from torch.utils.tensorboard import SummaryWriter
 from data.dataset_loading import init_data, make_dataset_for_test
-from data.utils import load_settings, save_settings, SettingsTraining
+from data.utils import load_settings, SettingsTraining
 from solver import Solver
 from utils.visualize_data import plot_sample
 from utils.utils_networks import count_parameters, append_results_to_csv
@@ -40,7 +39,7 @@ def run_training(settings:SettingsTraining):
         loss_fn_str = "MSE"
         loss_fn = create_loss_fn(loss_fn_str, dataloaders)
         # training
-        solver = Solver(model,dataloaders["train"], dataloaders["val"], loss_func=loss_fn,)
+        solver = Solver(model,dataloaders["train"], dataloaders["val"], loss_func=loss_fn, finetune=settings.finetune)
         try:
             solver.load_lr_schedule(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "learning_rate_history.csv"))
             solver.train(settings)
@@ -108,9 +107,9 @@ if __name__ == "__main__":
     
     parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100dp_vary_hp_loc") # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
     parser.add_argument("--device", type=str, default="cuda:1")
-    parser.add_argument("--epochs", type=int, default=10000)
-    parser.add_argument("--finetune", type=bool, default=False)
-    parser.add_argument("--path_to_model", type=str, default="current_unet_inputs_pk_moreConvPerBlock_noPowerOf2")
+    parser.add_argument("--epochs", type=int, default=40000)
+    parser.add_argument("--finetune", type=bool, default=True)
+    parser.add_argument("--path_to_model", type=str, default="benchmarkPLUSdataset_2d_100dp_vary_hp_loc/unet_inputs_pk_MatID_noPowerOf2")
     parser.add_argument("--model_choice", type=str, default="unet")
     parser.add_argument("--inputs", type=str, default="pksi")
     parser.add_argument("--name_folder_destination", type=str, default="default")
