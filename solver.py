@@ -2,8 +2,8 @@ import os
 from dataclasses import dataclass
 import logging
 from tqdm.auto import tqdm
-from torch.optim import Adam
-from torch.nn import MSELoss, Module
+from torch.optim import Adam, Optimizer
+from torch.nn import MSELoss, Module, modules
 from torch.utils.tensorboard import SummaryWriter
 
 from data.dataloader import DataLoader
@@ -16,9 +16,9 @@ class Solver(object):
     model: Module
     train_dataloader: DataLoader
     val_dataloader: DataLoader
-    loss_func = MSELoss()
-    learning_rate=1e-5
-    opt = Adam
+    loss_func: modules.loss._Loss = MSELoss()
+    learning_rate: float = 1e-5
+    opt: Optimizer = Adam
     finetune: bool = False
 
     def __post_init__(self):
