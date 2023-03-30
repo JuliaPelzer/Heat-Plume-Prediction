@@ -32,7 +32,8 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, amount_plots:int
     if amount_plots > len(dataloader.dataset):
         amount_plots = len(dataloader.dataset)
 
-    for batch_id, (inputs,labels) in enumerate(dataloader):
+    current_id = 0
+    for inputs,labels in dataloader:
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
             # get data
@@ -68,18 +69,19 @@ def plot_sample(model:UNet, dataloader: DataLoader, device:str, amount_plots:int
             for index, physical_var in enumerate(physical_vars):
                 dict_to_plot[physical_var] = DataToVisualize(x.detach().cpu(), physical_var, index)
 
-            current_id = datapoint_id + batch_id*len_batch
             name_pic = f"runs/{plot_name}_{current_id}"
             _plot_datafields(dict_to_plot, name_pic=name_pic)
             # _plot_isolines(dict_to_plot, name_pic=name_pic)
+            current_id += 1
 
             logging.info(f"Resulting pictures are at runs/{plot_name}_*")
-            if current_id == amount_plots-1:
-                break
 
-    max_error = np.max(error[-1].cpu().numpy())
-    logging.info("Maximum error: ", max_error)
-    return error_mean, max_error
+            if current_id >= amount_plots-1:
+                max_error = np.max(error[-1].cpu().numpy())
+                logging.info("Maximum error: ", max_error)
+                return error_mean, max_error
+
+    
 
 def _plot_datafields(data: Dict[str,DataToVisualize], name_pic:str):
     n_subplots = len(data)
