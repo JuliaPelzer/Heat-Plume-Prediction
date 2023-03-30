@@ -11,7 +11,7 @@ from networks.dummy_network import DummyNet, DummyCNN
 def create_model(model_choice: str, in_channels: int):
     """ takes model_choice-string and returns model """
     if model_choice == "unet":
-        model = UNet(in_channels=in_channels, out_channels=1, depth=3, kernel_size=5).float()
+        model = UNet(in_channels=in_channels, out_channels=1, depth=2, kernel_size=5).float()
     elif model_choice == "fc":
         model = DummyNet(in_channels=in_channels, out_channels=1, size=(128,40)).float()
     elif model_choice == "cnn":
