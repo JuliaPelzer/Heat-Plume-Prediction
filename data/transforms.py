@@ -146,7 +146,7 @@ class SignedDistanceTransform:
                         torch.tensor([index_x, index_y, index_z]).float() - loc_hp.float())
 
         data["SDF"].value = data["SDF"].value / torch.max(data["SDF"].value)
-
+        logging.info("SignedDistanceTransform done")
         return data
 
 class PowerOfTwoTransform: 

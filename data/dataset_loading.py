@@ -8,7 +8,7 @@ from typing import List
 import numpy as np
 from data.utils import SettingsTraining
 
-def init_data(settings: SettingsTraining, batch_size: int = 1000, labels: str = "txyz",):
+def init_data(settings: SettingsTraining, batch_size: int = 1000, labels: str = "t",):
     """Initialize dataset and dataloader for training."""
     
     reduce_to_2D: bool = True
