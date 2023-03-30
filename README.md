@@ -9,9 +9,9 @@
 
     if it does not help, you have to reboot
 
-# Python Requirements
-    - pyyaml
-    - torch
-    - h5py
-    - tensorboard
-    - tqdm
+## Python Requirements
+- pyyaml
+- torch
+- h5py
+- tensorboard
+- tqdm
