@@ -9,6 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from data.utils import SettingsTraining
 from networks.unet import weights_init
 from torch.utils.data import DataLoader
+from accelerate import Accelerator
 
 
 @dataclass
@@ -31,10 +32,14 @@ class Solver(object):
             self.model.apply(weights_init)
 
     def train(self, settings: SettingsTraining):
+        self.accelerator = Accelerator()
+        self.model = self.accelerator.prepare(self.model)
+        self.train_dataloader = self.accelerator.prepare(self.train_dataloader)
+        self.val_dataloader = self.accelerator.prepare(self.val_dataloader)
+        self.opt = self.accelerator.prepare(self.opt)
         # initialize tensorboard
         writer = SummaryWriter(f"runs/{settings.name_folder_destination}")
         device = settings.device
-        self.model = self.model.to(device)
 
         epochs = tqdm(range(settings.epochs), desc="epochs", disable=False)
         for epoch in epochs:
@@ -73,8 +78,6 @@ class Solver(object):
     def run_epoch(self, dataloader: DataLoader, device: str):
         epoch_loss = 0.0
         for x, y in dataloader:
-            x = x.to(device)
-            y = y.to(device)
 
             if self.model.training:
                 self.opt.zero_grad()
@@ -85,10 +88,10 @@ class Solver(object):
             loss = self.loss_func(y_pred, y)
 
             if self.model.training:
-                loss.backward()
+                self.accelerator.backward(loss)
                 self.opt.step()
-
             epoch_loss += loss.detach().item()
+
         epoch_loss /= len(dataloader)
         return epoch_loss
 

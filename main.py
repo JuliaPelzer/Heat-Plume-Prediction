@@ -55,7 +55,6 @@ def run_training(settings: SettingsTraining):
     else:
         model = load_model({"model_choice": settings.model_choice,
                            "in_channels": in_channels}, settings.path_to_model)
-    model.to(settings.device)
 
     number_parameter = count_parameters(model)
     logging.warning(
@@ -79,7 +78,6 @@ def run_training(settings: SettingsTraining):
         # load model
         model = load_model({"model_choice": settings.model_choice, "in_channels": in_channels}, os.path.join(
             os.getcwd(), "runs", settings.name_folder_destination), "model")
-        model.to(settings.device)
     # save model
     if train:
         save(model.state_dict(), os.path.join(os.getcwd(), "runs",
@@ -103,7 +101,6 @@ def run_training(settings: SettingsTraining):
                "error_mean": error_mean[-1], "error_max": final_max_error, "duration": duration, "name_destination_folder": settings.name_folder_destination, }
     append_results_to_csv(results, "runs/collected_results_rough_idea.csv")
 
-    model.to("cpu")
     return model
 
 
@@ -115,7 +112,6 @@ def run_tests(settings: SettingsTraining):
     # model choice
     in_channels = dataset.input_channels
     model = create_model(settings.model_choice, in_channels)
-    model.to(settings.device)
 
     number_parameter = count_parameters(model)
     logging.warning(
@@ -124,7 +120,6 @@ def run_tests(settings: SettingsTraining):
     # load model
     model = load_model({"model_choice": settings.model_choice, "in_channels": in_channels}, os.path.join(
         os.getcwd(), "runs", settings.name_folder_destination), "model")
-    model.to(settings.device)
 
     # visualization
     time_begin = dt.datetime.now()
@@ -143,7 +138,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
-    parser.add_argument("--datasets_path", type=str, default="datasets_prepared")
+    parser.add_argument("--datasets_path", type=str,
+                        default="datasets_prepared")
     parser.add_argument("--dataset_name", type=str,
                         default="benchmark_dataset_2d_100dp_vary_perm")
     parser.add_argument("--device", type=str, default="cuda:1")
@@ -166,6 +162,6 @@ if __name__ == "__main__":
         pass
     settings.save()
 
-    # run_training(settings)
-    run_tests(settings)
+    run_training(settings)
+    # run_tests(settings)
     # tensorboard --logdir runs/

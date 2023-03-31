@@ -41,10 +41,10 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
             # get data
-            x = inputs[datapoint_id].to(device)
+            x = inputs[datapoint_id]
             x = torch.unsqueeze(x, 0)
             model.eval()
-            y_out = model(x).to(device)
+            y_out = model(x)
 
             # reverse transform for plotting real values
             y = labels[datapoint_id]
