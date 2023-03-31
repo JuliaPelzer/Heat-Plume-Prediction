@@ -79,8 +79,10 @@ class Testcase:
     def post_init(self, params:Parameters):
         self.k_perm = _calc_perm(self.k_cond, params.eta, params.rho_w, params.g)
         self.v_f = _calc_vf(self.k_cond, self.grad_p)
-        self.v_a = _calc_va(self.v_f, params.n_e)
-        self.v_a_m_per_day = self.v_a*24*60*60
+        self.v_a = np.round(_calc_va(self.v_f, params.n_e), 12)
+        if self.v_a < 0:
+            print("v_a must be positive, I change it to its absolute value")
+            self.v_a = abs(self.v_a)
 
         self.v_a_m_per_day = np.round(self.v_a*24*60*60, 12)
 

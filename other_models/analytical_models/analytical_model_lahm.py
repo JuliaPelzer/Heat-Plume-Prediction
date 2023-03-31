@@ -62,10 +62,6 @@ def delta_T(x, y, time, parameters, testcase):
     q_inj = parameters.q_inj
     v_a = testcase.v_a
 
-    if v_a < 0:
-        print("v_a must be positive, I change it to its absolute value")
-        v_a = abs(v_a)
-
     radial_distance = _radial_distance(x, y, alpha_L, alpha_T)
     term_numerator = q_inj * T_inj_diff
     term_denominator = 4 * n_e * M * v_a * np.sqrt(np.pi * alpha_T)

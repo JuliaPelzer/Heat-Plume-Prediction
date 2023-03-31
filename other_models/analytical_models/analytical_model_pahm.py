@@ -43,10 +43,6 @@ def delta_T(x, y, time, parameters, testcase):
     lambda_m = parameters.lambda_m
     v_a = testcase.v_a
 
-    if v_a < 0:
-        print("v_a must be positive, I change it to its absolute value")
-        v_a = abs(v_a)
-
     ymax = q_inj / (M * v_a * n_e)
     # y0 = q_inj / (2 * M * v_a * n_e)
     d_x = lambda_m / (n_e * Cw) + alpha_L * v_a
