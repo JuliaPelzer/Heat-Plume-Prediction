@@ -76,7 +76,6 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
             name_pic = f"runs/{plot_name}_{current_id}"
             _plot_datafields(dict_to_plot, name_pic=name_pic)
             _plot_isolines(dict_to_plot, name_pic=name_pic)
-            current_id += 1
 
             logging.info(f"Resulting pictures are at runs/{plot_name}_*")
 
@@ -84,6 +83,7 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
                 max_error = np.max(error[-1].cpu().numpy())
                 logging.info("Maximum error: ", max_error)
                 return error_mean, max_error
+            current_id += 1
 
 
 def _plot_datafields(data: Dict[str, DataToVisualize], name_pic: str):
