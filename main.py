@@ -15,12 +15,18 @@ from torch.utils.data import random_split
 import torch
 
 
+def get_splits(n, splits):
+    splits = [int(n * s) for s in splits[::-1]]
+    splits.append(n - sum(splits))
+    return splits
+
+
 def init_data(settings: SettingsTraining, seed=1):
     dataset = SimulationDataset(
         os.path.join(settings.datasets_path, settings.dataset_name))
     generator = torch.Generator().manual_seed(1)
     datasets = random_split(
-        dataset, [0.8, 0.1, 0.1], generator=generator)
+        dataset, get_splits(len(dataset), [0.8, 0.1, 0.1]), generator=generator)
 
     dataloaders = {
         "train": DataLoader(
