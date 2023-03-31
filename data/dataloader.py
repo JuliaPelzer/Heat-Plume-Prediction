@@ -28,7 +28,6 @@ class DataLoader:
             length = len(self.dataset) // self.batch_size
         else:
             length = int(np.ceil(len(self.dataset) / self.batch_size))
-
         assert isinstance(length, int), "length is not an integer"
         return length
 

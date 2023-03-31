@@ -5,9 +5,9 @@ Dataset Class
 import logging
 from typing import List, Dict, Tuple, Union
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from data.transforms import ComposeTransform
-from data.utils import PhysicalVariables, DataPoint, _assertion_error_2d, get_dimensions
+from data.utils import PhysicalVariables, DataPoint, _assertion_error_2d, get_dimensions, SettingsTraining
 import os
 import numpy as np
 import h5py
@@ -15,6 +15,20 @@ import yaml
 from torch import Tensor, square, mean, sqrt, zeros
 from torch.utils.data import Dataset as TorchDataset
 
+
+@dataclass
+class SettingsDataset:
+    dataset_name: str
+    mode: str
+    split: Dict[str, float]
+    input_vars_names: List = field(default_factory=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", "Liquid Pressure [Pa]", "Material ID", "Temperature [C]"])
+    output_vars_names: List = field(default_factory=["Temperature [C]"])
+
+    def __post_init__(self):
+        assert self.mode in ["train", "val", "test"], "wrong mode for dataset given"
+
+        split_values = [value for value in self.split.values()]
+        assert np.round(sum(split_values)) == 1.0, "split values do not sum up to 1"
 
 @dataclass
 class Dataset(ABC):
@@ -57,61 +71,44 @@ class DatasetSimulationData(TorchDataset, Dataset):
     -------
     dataset of size dict(Nx dict(Cx value(HxWxD)))
     """
-    def __init__(self, dataset_name:str="approach2_dataset_generation_simplified/dataset_HDF5_testtest",
-                 dataset_path:str="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth",
-                 transform:ComposeTransform=None,
-                 mode:str="train",
-                 split:Dict[str, float]={'train': 0.6, 'val': 0.2, 'test': 0.2},
-                 input_vars_names:List[str]=["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]", "Liquid Z-Velocity [m_per_y]", 
-                 "Liquid_Pressure [Pa]", "Material_ID", "Temperature [C]"], # "hp_power"
-                 output_vars_names:List[str]=["Liquid_Pressure [Pa]", "Temperature [C]"], 
-                 normalize:bool=True, sdf:bool=True,
-                 means_stds_train_tuple:Tuple[Dict, Dict, Dict, Dict]=None,
-                 name_folder_destination:str=None,
-                 **kwargs)-> Dataset:
+    def __init__(self, settings_general: SettingsTraining, settings_dataset: SettingsDataset, transform: ComposeTransform=None,
+                 means_stds_train_tuple:Tuple[Dict, Dict, Dict, Dict]=None)-> Dataset:
 
-        Dataset.__init__(self, dataset_name=dataset_name, dataset_path=dataset_path, **kwargs)
-        assert mode in ["train", "val", "test"], "wrong mode for dataset given"
-
-        self.mode = mode
-        self.split = split
+        Dataset.__init__(self, dataset_name=settings_dataset.dataset_name, dataset_path=settings_general.path_to_datasets)
+        
+        self.settings_dataset = settings_dataset
         self.transform = transform
-
-        split_values = [v for k,v in split.items()]
-        assert np.round(sum(split_values)) == 1.0
-
         self.dataset_path = self.check_for_dataset()
         
         self.data_paths, self.runs = self.make_dataset(self)
-        logging.info(f"Dataset {self.dataset_name} in mode {self.mode} has {len(self.data_paths)} runs, named {self.runs}")
+        logging.info(f"Dataset {self.dataset_name} in mode {self.settings_dataset.mode} has {len(self.data_paths)} runs, named {self.runs}")
         self.time_first =     "   0 Time  0.00000E+00 y"
+        
         old_dataset=False
         if old_dataset:
-            self.time_final =    "   2 Time  5.00000E+00 y" # other dataset
+            self.time_final =    "   2 Time  5.00000E+00 y"
         else:
             self.time_final =    "   3 Time  5.00000E+00 y"
         
         self.datapoints = {}
         self.keep_datapoints_in_memory = True
-        self.dimensions_of_datapoint:Tuple[int, int, int] = get_dimensions(f"{dataset_path}/{dataset_name}")
+        self.dimensions_of_datapoint:Tuple[int, int, int] = get_dimensions(f"{self.dataset_path}")
         # TODO put selection of input and output variables in a separate transform function (see ex4 - FeatureSelectorAndNormalizationTransform)
-        self.input_vars_empty_value = PhysicalVariables(self.time_first, input_vars_names) # collection of overall information but not std, mean
-        self.output_vars_empty_value = PhysicalVariables(self.time_final, output_vars_names)
+        self.input_vars_empty_value = PhysicalVariables(self.time_first, self.settings_dataset.input_vars_names) # collection of overall information but not std, mean
+        self.output_vars_empty_value = PhysicalVariables(self.time_final, self.settings_dataset.output_vars_names)
 
-        self.normalize = normalize
-        self.sdf = sdf
-        if self.normalize:
-            self.has_to_calc_mean_std = True
-            if mode=="train":
-                self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = self._calc_mean_std_dataset()   # calc mean, std for all dataset runs
-                self.save_mean_std_dataset(self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels, os.path.join(os.getcwd(), "runs", name_folder_destination))
-            elif means_stds_train_tuple is not None:
-                self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = means_stds_train_tuple
-            elif mode=="test":
-                self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = self.load_mean_std_dataset(os.path.join(os.getcwd(), "runs", name_folder_destination))
-            else:
-                raise ValueError("problem with means_stds_train_tuple(must be given for mode val)")
-            self.has_to_calc_mean_std = False
+        self.has_to_calc_mean_std = True
+        if self.settings_dataset.mode=="train":
+            self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = self._calc_mean_std_dataset()   # calc mean, std for all dataset runs
+            self.save_mean_std_dataset(self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels, os.path.join(os.getcwd(), "runs", settings_general.name_folder_destination))
+        elif means_stds_train_tuple is not None:
+            self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = means_stds_train_tuple
+        elif self.settings_dataset.mode=="test":
+            self.mean_inputs, self.std_inputs, self.mean_labels, self.std_labels = self.load_mean_std_dataset(os.path.join(os.getcwd(), "runs", settings_general.name_folder_destination))
+        else:
+            raise ValueError("problem with means_stds_train_tuple(must be given for mode val)")
+        self.has_to_calc_mean_std = False
+        
     def __len__(self):
         # Return the length of the dataset (number of runs), but fill them only on their first call
         return len(self.runs)
@@ -141,19 +138,13 @@ class DatasetSimulationData(TorchDataset, Dataset):
         runs = [data_path[0] for data_path in set_data_paths_runs]
         data_paths = [data_path[1] for data_path in set_data_paths_runs]
         # Split the data and runs into train, val
-        if not self.mode == "test":
+        if not self.settings_dataset.mode == "test":
             data_paths, runs = self._select_split(data_paths, runs)
         if not found_dataset:
             raise ValueError("No dataset found")
         assert len(data_paths) == len(runs)
 
         return data_paths, runs
-
-    def get_input_properties(self) -> List[str]:
-        return list(self.input_vars_empty_value.keys)
-
-    def get_output_properties(self) -> List[str]:
-        return list(self.output_vars_empty_value.keys)
         
     def __getitem__(self, index:int) -> Dict[int, DataPoint]: 
         """
@@ -201,17 +192,13 @@ class DatasetSimulationData(TorchDataset, Dataset):
         datapoint.labels = self._load_data_as_numpy(self.data_paths[index], self.output_vars_empty_value)
         #try:
         loc_hp = datapoint.get_loc_hp()
-        if self.normalize:
-            if self.has_to_calc_mean_std:
-                # mean, std first have to be calculated for later use
-                datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp)
-                datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp)
-            else:
-                datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp, mean_val=self.mean_inputs, std_val=self.std_inputs)
-                datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp, mean_val=self.mean_labels, std_val=self.std_labels)
-        else:
+        if self.has_to_calc_mean_std:
+            # mean, std first have to be calculated for later use
             datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp)
             datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp)
+        else:
+            datapoint.inputs = self.transform(datapoint.inputs, loc_hp=loc_hp, mean_val=self.mean_inputs, std_val=self.std_inputs)
+            datapoint.labels = self.transform(datapoint.labels, loc_hp=loc_hp, mean_val=self.mean_labels, std_val=self.std_labels)
 
         _assertion_error_2d(datapoint)
         return datapoint
@@ -221,11 +208,7 @@ class DatasetSimulationData(TorchDataset, Dataset):
         Reverse the transformation of the data.
         """
 
-        if self.sdf:
-            props_to_exclude_from_norm = ["Material ID", "Material_ID"]
-        else:
-            props_to_exclude_from_norm = []
-
+        props_to_exclude_from_norm = ["Material ID", "SDF"]
         if isinstance(datapoint, Tensor):
             for id, property in enumerate(self.mean_inputs.keys()):
                 if property not in props_to_exclude_from_norm:
@@ -260,8 +243,8 @@ class DatasetSimulationData(TorchDataset, Dataset):
         """
         " !!only done for train and val, not for test!!"
 
-        fraction_train = self.split['train']
-        fraction_val = self.split['val']
+        fraction_train = self.settings_dataset.split['train']
+        fraction_val = self.settings_dataset.split['val']
         num_samples = len(data_paths)
         num_train = int(np.round(num_samples * fraction_train, 0))
         num_valid = int(np.round(num_samples * fraction_val, 0))
@@ -271,9 +254,9 @@ class DatasetSimulationData(TorchDataset, Dataset):
         # TODO check communicate rand_perm with the datasets of all 3 modes?
         rand_perm = np.random.permutation(num_samples)
         
-        if self.mode == 'train':
+        if self.settings_dataset.mode == 'train':
             indices = rand_perm[:num_train]
-        elif self.mode == 'val':
+        elif self.settings_dataset.mode == 'val':
             indices = rand_perm[num_train:num_train+num_valid]
 
         if isinstance(data_paths, list): 
@@ -288,11 +271,15 @@ class DatasetSimulationData(TorchDataset, Dataset):
         Sets the values of each PhysicalVariable in variables to the loaded data.
         """
         loaded_datapoint = PhysicalVariables(variables.time)
-        # TODO when go to GPU: directly import as tensor?
         with h5py.File(data_path, "r") as file:
-            for key, value in file[variables.time].items():
-                if key in variables.get_ids_list(): # properties
-                    loaded_datapoint[key] = np.array(value).reshape(self.dimensions_of_datapoint, order='F')
+            for key in variables.get_ids_list(): # properties
+                try:
+                    loaded_datapoint[key] = np.array(file[variables.time][key]).reshape(self.dimensions_of_datapoint, order='F')
+                except KeyError:
+                    if key == "SDF":
+                        loaded_datapoint[key] = np.array(file[variables.time]["Material ID"]).reshape(self.dimensions_of_datapoint, order='F')
+                    else:
+                        raise KeyError
         return loaded_datapoint
 
     def _calc_mean_std_dataset(self):
@@ -303,10 +290,7 @@ class DatasetSimulationData(TorchDataset, Dataset):
         mean_labels = {}
         number_datapoints = len(self)
 
-        if self.sdf:
-            props_to_exclude_from_norm = ["Material ID", "Material_ID"]
-        else:
-            props_to_exclude_from_norm = []
+        props_to_exclude_from_norm = ["Material ID", "SDF"]
         # load all dataset + calc mean
         for run in range(len(self)):
             for key, value in self[run].inputs.items():

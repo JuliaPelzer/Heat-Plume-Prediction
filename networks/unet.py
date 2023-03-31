@@ -48,6 +48,7 @@ class UNet(nn.Module):
                 padding="same",
                 bias=True,
             ),
+            nn.ReLU(inplace=True),      
             nn.Conv2d(
                 in_channels=features,
                 out_channels=features,

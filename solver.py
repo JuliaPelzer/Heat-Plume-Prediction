@@ -1,40 +1,40 @@
 import os
+from dataclasses import dataclass
 import logging
 from tqdm.auto import tqdm
-from torch.optim import Adam
-from torch.nn import MSELoss, Module
+from torch.optim import Adam, Optimizer
+from torch.nn import MSELoss, Module, modules
 from torch.utils.tensorboard import SummaryWriter
 
 from data.dataloader import DataLoader
+from data.utils import SettingsTraining
 from networks.unet import weights_init
 
 
+@dataclass
 class Solver(object):
-    def __init__(
-        self,
-        model,
-        train_dataloader: DataLoader,
-        val_dataloader: DataLoader,
-        loss_func=MSELoss(),
-        learning_rate=1e-3,
-        optimizer=Adam,
-    ):
-        self.model: Module = model
-        self.loss_func = loss_func
-        self.opt = optimizer(self.model.parameters(), learning_rate, weight_decay=1e-4)
+    model: Module
+    train_dataloader: DataLoader
+    val_dataloader: DataLoader
+    loss_func: modules.loss._Loss = MSELoss()
+    learning_rate: float = 1e-5
+    opt: Optimizer = Adam
+    finetune: bool = False
 
-        self.train_dataloader = train_dataloader
-        self.val_dataloader = val_dataloader
+    def __post_init__(self):
+        self.opt = self.opt(self.model.parameters(), self.learning_rate, weight_decay=1e-4)
+        self.lr_schedule = {0: self.opt.param_groups[0]["lr"]} # contains the epoch and learning rate, when lr changes
 
-        self._reset()
+        if not self.finetune:
+            self.model.apply(weights_init)
 
-    def train(self, device, n_epochs: int = 100, name_folder: str = "default"):
-
+    def train(self, settings:SettingsTraining):
         # initialize tensorboard
-        writer = SummaryWriter(f"runs/{name_folder}")
-        epochs = tqdm(range(n_epochs), desc="epochs",disable=False)
-
+        writer = SummaryWriter(f"runs/{settings.name_folder_destination}")
+        device = settings.device
         self.model = self.model.to(device)
+
+        epochs = tqdm(range(settings.epochs), desc="epochs",disable=False)
         for epoch in epochs:
             try:
                 # Set lr according to schedule
@@ -65,7 +65,7 @@ class Solver(object):
                         g["lr"] = new_lr
                     self.lr_schedule[epoch] = self.opt.param_groups[0]["lr"]
 
-    def run_epoch(self,dataloader: DataLoader, device):
+    def run_epoch(self, dataloader:DataLoader, device:str):
         epoch_loss = 0.0
         for x, y in dataloader:
             x = x.to(device)
@@ -87,17 +87,10 @@ class Solver(object):
         epoch_loss /= len(dataloader)
         return epoch_loss
 
-    def _reset(self):
-        """
-        Don't call this manually.
-        """
-        self.lr_schedule = {0: self.opt.param_groups[0]["lr"]} # contains the epoch and learning rate, when lr changes
-        self.model.apply(weights_init)
-
     def save_lr_schedule(self, path:str):
         """ save learning rate history to csv file"""
         with open(path, "w") as f:
-            print(f"Saving lr-schedule to {path}.")
+            logging.info(f"Saving lr-schedule to {path}.")
             for epoch, lr in self.lr_schedule.items():
                 f.write(f"{epoch},{lr}\n")
                         

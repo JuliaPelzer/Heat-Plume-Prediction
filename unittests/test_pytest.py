@@ -153,7 +153,7 @@ def test_physical_property():
     
 #     _, dataloaders = lp.init_data(reduce_to_2D=False, dataset_name="test_dataset_bm_01", inputs="", name_folder_destination=name_folder_destination)
 #     assert len(dataloaders["train"].dataset[0].inputs) == 1
-#     assert dataloaders["train"].dataset[0].inputs.get_ids_list() == ["Material_ID"] or dataloaders["train"].dataset[0].inputs.get_ids_list() == ["Material ID"]
+#     assert dataloaders["train"].dataset[0].inputs.get_ids_list() == ["Material ID"] or dataloaders["train"].dataset[0].inputs.get_ids_list() == ["Material ID"]
 #     for prop in dataloaders["train"].dataset[0].inputs.values():
 #         assert prop.shape() == (8,128,8)
 #         break
