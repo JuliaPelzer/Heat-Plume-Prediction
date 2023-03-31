@@ -270,8 +270,8 @@ if __name__ == "__main__":
         default_raw_dir = "/home/pelzerja/pelzerja/test_nn/datasets"
     parser = argparse.ArgumentParser()
     parser.add_argument("--raw_dir", type=str, default=default_raw_dir)
-    parser.add_argument("--datasets_dir", type=str)
-    parser.add_argument("--dataset_name", type=str)
+    parser.add_argument("--datasets_dir", type=str, default="datasets_prepared")
+    parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100dp_vary_perm")
     parser.add_argument("--inputs", type=str, default="pksi")
     args = parser.parse_args()
     prepare_dataset(

@@ -18,7 +18,7 @@ import torch
 def init_data(settings: SettingsTraining, seed=1):
     dataset = SimulationDataset(
         os.path.join(settings.datasets_path, settings.dataset_name))
-    generator = torch.Generator().manual_seed(1)
+    generator = torch.Generator().manual_seed(seed)
     datasets = random_split(
         dataset, [0.8, 0.1, 0.1], generator=generator)
 
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
-    parser.add_argument("--datasets_path", type=str)
+    parser.add_argument("--datasets_path", type=str, default="datasets_prepared")
     parser.add_argument("--dataset_name", type=str,
                         default="benchmark_dataset_2d_100dp_vary_perm")
     parser.add_argument("--device", type=str, default="cuda:1")
