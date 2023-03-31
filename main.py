@@ -14,27 +14,17 @@ from torch.utils.data import DataLoader
 from torch.utils.data import random_split
 import torch
 
-
-def get_splits(n, splits):
-    splits = [int(n * s) for s in splits[:-1]]
-    splits.append(n - sum(splits))
-    return splits
-
-
 def init_data(settings: SettingsTraining, seed=1):
     dataset = SimulationDataset(
         os.path.join(settings.datasets_path, settings.dataset_name))
     generator = torch.Generator().manual_seed(seed)
     datasets = random_split(
-        dataset, get_splits(len(dataset), [0.8, 0.1, 0.1]), generator=generator)
+        dataset, _get_splits(len(dataset), [0.7, 0.2, 0.1]), generator=generator)
 
     dataloaders = {
-        "train": DataLoader(
-            datasets[0], batch_size=100, shuffle=True, num_workers=0, pin_memory=True, pin_memory_device=settings.device),
-        "val": DataLoader(
-            datasets[1], batch_size=100, shuffle=True, num_workers=0, pin_memory=True, pin_memory_device=settings.device),
-        "test": DataLoader(
-            datasets[2], batch_size=100, shuffle=True, num_workers=0, pin_memory=True, pin_memory_device=settings.device)
+        "train": DataLoader(datasets[0], batch_size=100, shuffle=True, num_workers=0),
+        "val": DataLoader(datasets[1], batch_size=100, shuffle=True, num_workers=0),
+        "test": DataLoader(datasets[2], batch_size=100, shuffle=True, num_workers=0)
     }
     return dataset, dataloaders
 
@@ -136,17 +126,22 @@ def run_tests(settings: SettingsTraining):
     print(f"Time needed for only inference and plotting: {duration}")
 
 
+def _get_splits(n, splits):
+    splits = [int(n * s) for s in splits[:-1]]
+    splits.append(n - sum(splits))
+    return splits
+
 if __name__ == "__main__":
     # level: DEBUG, INFO, WARNING, ERROR, CRITICAL
     logging.basicConfig(level=logging.WARNING)
 
     parser = argparse.ArgumentParser()
 
-    # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
     parser.add_argument("--datasets_path", type=str, default="datasets_prepared")
     parser.add_argument("--dataset_name", type=str,
                         default="benchmark_dataset_2d_100dp_vary_perm")
-    parser.add_argument("--device", type=str, default="cuda:1")
+    # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
+    parser.add_argument("--device", type=str, default="cuda:3")
     parser.add_argument("--epochs", type=int, default=30000)
     parser.add_argument("--finetune", type=bool, default=False)
     parser.add_argument("--path_to_model", type=str,
