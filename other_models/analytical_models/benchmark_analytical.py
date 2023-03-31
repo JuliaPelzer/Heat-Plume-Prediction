@@ -2,6 +2,7 @@ import numpy as np
 from dataclasses import dataclass
 import analytical_temperature_prediction_lahm as lahm
 import analytical_steady_state_model_willibald as willibald
+
 @dataclass
 class Domain:
     cell_size = 1

@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import special
 import matplotlib.pyplot as plt
-import other_models.analytical_models.benchmark_analyt as bm_lahm
+import benchmark_analytical as bm_lahm
 import analytical_temperature_prediction_lahm as lahm
 
 # # Implementation of LAHM model and application to my dataset
