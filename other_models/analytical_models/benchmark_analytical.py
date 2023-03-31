@@ -45,14 +45,12 @@ class Parameters:
     T_inj_diff : float = 5
     q_inj : float = 0.00024 #[m^3/s]
     time_sim : np.array = np.array([1, 5, 27.5]) - 72/365 # 5?[years]
+    # Umweltministerium BW: für t > 10.000 Tage = 27.4 Jahre kann ein Steady state angenommen werden und das Ergebnis stimmt mit einer stationären Lösung überein
     time_sim_sec : np.array = lahm._time_years_to_seconds(time_sim) # [s]
     
     def __post_init__(self):
-        # check_lahm_requirements
-        # second lahm requirement: energy extraction / injection must be at most 45.000 kWh/year
+        # check second lahm requirement: energy extraction / injection must be at most 45.000 kWh/year
         energy_extraction_boundary = 45000e3/365/24 #[W] = [J/s]
-        # print(self.q_inj*1000)
-        # print(self.q_inj * self.["C_w"] * self.["T_inj_diff"], energy_extraction_boundary)
         assert self.q_inj * self.C_w * self.T_inj_diff <= energy_extraction_boundary, "energy extraction must be at most 45.000 kWh/year"
 
 @dataclass
