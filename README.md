@@ -15,3 +15,4 @@
 - h5py
 - tensorboard
 - tqdm
+- pytest
