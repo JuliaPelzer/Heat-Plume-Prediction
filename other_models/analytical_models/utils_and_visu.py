@@ -1,4 +1,3 @@
-# Implementation of LAHM model and application to my dataset
 import numpy as np
 from scipy import special
 import matplotlib.pyplot as plt

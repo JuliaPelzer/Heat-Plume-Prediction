@@ -2,6 +2,7 @@ import numpy as np
 from dataclasses import dataclass
 import analytical_model_lahm as lahm
 import analytical_model_pahm as pahm
+import analytical_model_rhm as rhm
 import analytical_steady_state_model_willibald as willibald
 import utils_and_visu as utils
 
@@ -13,7 +14,7 @@ class Domain:
     x_grid, y_grid = np.meshgrid(x_lin, y_lin)
     # Umweltministerium BW: für t > 10.000 Tage = 27.4 Jahre kann ein Steady state angenommen werden und das Ergebnis stimmt mit einer stationären Lösung überein
     injection_point = (120, 50)
-    
+
 # helper functions
 def _calc_R(ne, Cw, Cs):
     return ((1-ne)*Cs+ne*Cw)/(ne*Cw)
@@ -47,7 +48,7 @@ class Parameters:
     alpha_L : float = 1 #[1,30]
     alpha_T : float = _calc_alpha_T(alpha_L)
     m_aquifer : float = 5#[5,14]
-    
+
     T_gwf : float = 10.6
     T_inj_diff : float = 5
     q_inj : float = 0.00024 #[m^3/s]
@@ -59,7 +60,7 @@ class Parameters:
     lambda_s : float = 1.0 # [-], source: diss
     lambda_m : float = _approx_prop_of_porous_media(lambda_w, lambda_s, n_e)
 
-    
+
     def __post_init__(self):
         # check second lahm requirement: energy extraction / injection must be at most 45.000 kWh/year
         energy_extraction_boundary = 45000e3/365/24 #[W] = [J/s]
@@ -81,31 +82,44 @@ class Testcase:
         self.v_a = _calc_va(self.v_f, params.n_e)
         self.v_a_m_per_day = self.v_a*24*60*60
 
-        # first lahm requirement: 
+        self.v_a_m_per_day = np.round(self.v_a*24*60*60, 12)
+
+        # first lahm requirement:
         # assert self.v_a_m_per_day <= -1, "v_a must be at least 1 m per day to get a valid result"
-    
+
 def calc_and_plot(domain:Domain, params:Parameters, testcase:Testcase, approach:str = "lahm"):
     results = {}
     for t_idx, time in enumerate(params.time_sim_sec):
         if approach == "lahm":
-            delta_T_grid = lahm.delta_T(domain.x_grid-domain.injection_point[0], domain.y_grid-domain.injection_point[1], time, params, testcase)
-            results[f"{np.round(params.time_sim[t_idx],2)} years"] = delta_T_grid+params.T_gwf
+            delta_T_grid = params.T_gwf + lahm.delta_T(domain.x_grid-domain.injection_point[0], domain.y_grid-domain.injection_point[1], time, params, testcase)
+            results[f"{np.round(params.time_sim[t_idx],2)} years"] = delta_T_grid
 
         elif approach == "pahm":
             delta_T_grid = pahm.delta_T(domain.x_grid, domain.y_grid-domain.injection_point[1], time, params, testcase)
             flow = np.full_like(delta_T_grid, params.T_gwf)
             flow[:,domain.injection_point[0]:] += delta_T_grid[:,0:-domain.injection_point[0]]
             results[f"{np.round(params.time_sim[t_idx],2)} years"] = flow
-        # results[f"{np.round(params.time_sim[t_idx],2)} years"] = delta_T_grid+params.T_gwf
-        print("T diff", delta_T_grid[int(domain.injection_point[1]/domain.cell_size), int(domain.injection_point[0]/domain.cell_size)])
 
-    utils.plot_temperature_field(results, domain.x_grid, domain.y_grid, filename=f"{approach}_{testcase.name}_combined", params=params)
-    utils.plot_temperature_field(results, domain.x_grid, domain.y_grid, filename=f"{approach}_{testcase.name}_isolines")
+        elif approach == "lahm_pahm":
+            delta_T_pahm = pahm.delta_T(domain.x_grid, domain.y_grid-domain.injection_point[1], time, params, testcase)
+            flow = np.full_like(delta_T_pahm, params.T_gwf)
+            flow[:,domain.injection_point[0]:] += delta_T_pahm[:,0:-domain.injection_point[0]]
+            delta_T_lahm = params.T_gwf + lahm.delta_T(domain.x_grid-domain.injection_point[0], domain.y_grid-domain.injection_point[1], time, params, testcase)
+            results[f"{np.round(params.time_sim[t_idx],2)} years"] = (flow+delta_T_lahm)/2
+
+        elif approach == "rhm":
+            delta_T_grid = rhm.delta_T(domain.x_grid-domain.injection_point[0], domain.y_grid-domain.injection_point[1], time, params)
+            results[f"{np.round(params.time_sim[t_idx],2)} years"] = delta_T_grid+params.T_gwf
+
+    print(f"{approach}: max T of {np.round(np.max(results[f'{np.round(params.time_sim[t_idx],2)} years']), 2)}°C after {np.round(params.time_sim[t_idx],2)} years")
+
+    utils.plot_temperature_field(results, domain.x_grid, domain.y_grid, filename=f"{testcase.name}_{approach}_combined", params=params)
+    utils.plot_temperature_field(results, domain.x_grid, domain.y_grid, filename=f"{testcase.name}_{approach}_isolines")
 
 def run_willibald(domain, parameters:dict):
     T_isoline = 12
-    x_isoline, y_isoline, y_minus_isoline = willibald.position_of_isoline(domain.x_lin+1, domain.y_lin+1, parameters["q_inj"], T_isoline, parameters)  
-    # x, y, y_minus = willibald.position_of_isoline(domain.x_grid-domain.injection_point[1], domain.y_grid-domain.injection_point[0], parameters["q_inj"], T_isoline, parameters)  
+    x_isoline, y_isoline, y_minus_isoline = willibald.position_of_isoline(domain.x_lin+1, domain.y_lin+1, parameters["q_inj"], T_isoline, parameters)
+    # x, y, y_minus = willibald.position_of_isoline(domain.x_grid-domain.injection_point[1], domain.y_grid-domain.injection_point[0], parameters["q_inj"], T_isoline, parameters)
     willibald.plot_isoline(domain.x_lin+x_isoline, y_isoline, y_minus_isoline)
 
 if __name__ == "__main__":
@@ -114,6 +128,7 @@ if __name__ == "__main__":
     domain = Domain
 
     testcases = [
+        Testcase(f'benchmark_testcase_-1', grad_p = 0, k_cond = 0.0001),
         Testcase(f'benchmark_testcase_0', grad_p = 0.0015, k_cond = 0.0001),
         Testcase(f'benchmark_testcase_1', grad_p = 0.0015, k_cond = 0.002),
         Testcase(f'benchmark_testcase_2', grad_p = 0.003, k_cond = 0.01),
@@ -121,10 +136,23 @@ if __name__ == "__main__":
     ]
     for testcase in testcases:
         testcase.post_init(params)
-        # print(testcase)
-
-    approach = "lahm"
 
     for testcase in testcases:
-        calc_and_plot(domain, params, testcase, approach)
+        if testcase.v_a_m_per_day == 0:
+            approach = "rhm"
+            print(testcase.name, approach, testcase.v_a_m_per_day)
+            calc_and_plot(domain, params, testcase, approach)
+        else:
+            if np.round(testcase.v_a_m_per_day) <= 10:
+                approach = "pahm"
+                print(testcase.name, approach, testcase.v_a_m_per_day)
+                calc_and_plot(domain, params, testcase, approach)
+            if np.round(testcase.v_a_m_per_day) >= 1 and np.round(testcase.v_a_m_per_day) <= 10:
+                approach = "lahm_pahm"
+                print(testcase.name, approach, testcase.v_a_m_per_day)
+                calc_and_plot(domain, params, testcase, approach)
+            if testcase.v_a_m_per_day >= 1:
+                approach = "lahm"
+                print(testcase.name, approach, testcase.v_a_m_per_day, testcase.v_a)
+                calc_and_plot(domain, params, testcase, approach)
         # x, y, y_minus = run_willibald(domain, parameters)
