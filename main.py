@@ -16,7 +16,7 @@ import torch
 
 
 def get_splits(n, splits):
-    splits = [int(n * s) for s in splits[::-1]]
+    splits = [int(n * s) for s in splits[:-1]]
     splits.append(n - sum(splits))
     return splits
 
@@ -30,11 +30,11 @@ def init_data(settings: SettingsTraining, seed=1):
 
     dataloaders = {
         "train": DataLoader(
-            datasets[0], batch_size=100, shuffle=True, num_workers=0),
+            datasets[0], batch_size=100, shuffle=True, num_workers=0, pin_memory=True, pin_memory_device=settings.device),
         "val": DataLoader(
-            datasets[1], batch_size=100, shuffle=True, num_workers=0),
+            datasets[1], batch_size=100, shuffle=True, num_workers=0, pin_memory=True, pin_memory_device=settings.device),
         "test": DataLoader(
-            datasets[2], batch_size=100, shuffle=True, num_workers=0)
+            datasets[2], batch_size=100, shuffle=True, num_workers=0, pin_memory=True, pin_memory_device=settings.device)
     }
     return dataset, dataloaders
 
@@ -166,6 +166,6 @@ if __name__ == "__main__":
         pass
     settings.save()
 
-    # run_training(settings)
-    run_tests(settings)
+    run_training(settings)
+    # run_tests(settings)
     # tensorboard --logdir runs/
