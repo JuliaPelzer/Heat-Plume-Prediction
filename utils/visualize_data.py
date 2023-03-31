@@ -47,7 +47,6 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
             y_out = model(x).to(device)
 
             # reverse transform for plotting real values
-            # TODO denormalize
             y = labels[datapoint_id]
             x = input_norm.reverse(x.detach().cpu().squeeze())
             y = label_norm.reverse(y.detach().cpu())[0]
