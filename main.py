@@ -5,33 +5,51 @@ import argparse
 from networks.models import create_model, load_model
 from networks.losses import create_loss_fn
 from torch import cuda, save
-from torch.utils.tensorboard import SummaryWriter
-from data.dataset_loading import init_data, make_dataset_for_test
-from data.utils import load_settings, SettingsTraining
+from data.utils import SettingsTraining
 from solver import Solver
 from utils.visualize_data import plot_sample
 from utils.utils_networks import count_parameters, append_results_to_csv
+from data.dataset import SimulationDataset
+from torch.utils.data import DataLoader
+from torch.utils.data import random_split
+import torch
 
-def run_training(settings:SettingsTraining):
+def init_data(settings: SettingsTraining, seed=1):
+    dataset = SimulationDataset(
+        os.path.join(settings.datasets_path, settings.dataset_name))
+    generator = torch.Generator().manual_seed(seed)
+    datasets = random_split(
+        dataset, _get_splits(len(dataset), [0.7, 0.2, 0.1]), generator=generator)
+
+    dataloaders = {
+        "train": DataLoader(datasets[0], batch_size=100, shuffle=True, num_workers=0),
+        "val": DataLoader(datasets[1], batch_size=100, shuffle=True, num_workers=0),
+        "test": DataLoader(datasets[2], batch_size=100, shuffle=True, num_workers=0)
+    }
+    return dataset, dataloaders
+
+
+def run_training(settings: SettingsTraining):
     time_begin = dt.datetime.now()
 
-    # init data
-    _, dataloaders = init_data(settings, batch_size=100, labels="t")
+    dataset, dataloaders = init_data(settings)
 
     if settings.device is None:
         settings.device = "cuda" if cuda.is_available() else "cpu"
     logging.warning(f"Using {settings.device} device")
 
     # model choice
-    in_channels = len(settings.inputs)
+    in_channels = dataset.input_channels
     if not settings.finetune:
         model = create_model(settings.model_choice, in_channels)
     else:
-        model = load_model({"model_choice":settings.model_choice, "in_channels":in_channels}, settings.path_to_model)
+        model = load_model({"model_choice": settings.model_choice,
+                           "in_channels": in_channels}, settings.path_to_model)
     model.to(settings.device)
 
     number_parameter = count_parameters(model)
-    logging.warning(f"Model {settings.model_choice} with number of parameters: {number_parameter}")
+    logging.warning(
+        f"Model {settings.model_choice} with number of parameters: {number_parameter}")
 
     train = True
     if train:
@@ -39,91 +57,110 @@ def run_training(settings:SettingsTraining):
         loss_fn_str = "MSE"
         loss_fn = create_loss_fn(loss_fn_str, dataloaders)
         # training
-        solver = Solver(model,dataloaders["train"], dataloaders["val"], loss_func=loss_fn, finetune=settings.finetune)
+        solver = Solver(model, dataloaders["train"], dataloaders["val"],
+                        loss_func=loss_fn, finetune=settings.finetune)
         try:
-            solver.load_lr_schedule(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "learning_rate_history.csv"))
+            solver.load_lr_schedule(os.path.join(os.getcwd(
+            ), "runs", settings.name_folder_destination, "learning_rate_history.csv"))
             solver.train(settings)
         except KeyboardInterrupt:
-            logging.warning("KeyboardInterrupt")
+            logging.warning("Stopping training early")
     else:
         # load model
-        model = load_model({"model_choice":settings.model_choice, "in_channels":in_channels}, os.path.join(os.getcwd(), "runs", settings.name_folder_destination), "model")
+        model = load_model({"model_choice": settings.model_choice, "in_channels": in_channels}, os.path.join(
+            os.getcwd(), "runs", settings.name_folder_destination), "model")
         model.to(settings.device)
     # save model
     if train:
-        save(model.state_dict(), os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "model.pt"))
-        solver.save_lr_schedule(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "learning_rate_history.csv"))
-        
+        save(model.state_dict(), os.path.join(os.getcwd(), "runs",
+             settings.name_folder_destination, "model.pt"))
+        solver.save_lr_schedule(os.path.join(os.getcwd(
+        ), "runs", settings.name_folder_destination, "learning_rate_history.csv"))
+
     # visualization
     if True:
-        error_mean, final_max_error = plot_sample(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val_sample", amount_plots=10,)
-        error_mean, final_max_error = plot_sample(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train_sample", amount_plots=2,)
+        error_mean, final_max_error = plot_sample(
+            model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val_sample", amount_plots=10,)
+        error_mean, final_max_error = plot_sample(
+            model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train_sample", amount_plots=2,)
 
     time_end = dt.datetime.now()
     duration = f"{(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds"
-    print(f"Time needed for experiment: {duration}")
+    print(f"Experiment took {duration}")
 
     # logging
-    results = {"timestamp": time_begin, "model": settings.model_choice, "dataset": settings.dataset_name, "inputs": settings.inputs, "n_epochs": settings.epochs, "error_mean": error_mean[-1], "error_max": final_max_error, "duration": duration, "name_destination_folder": settings.name_folder_destination,}
+    results = {"timestamp": time_begin, "model": settings.model_choice, "dataset": settings.dataset_name, "n_epochs": settings.epochs,
+               "error_mean": error_mean[-1], "error_max": final_max_error, "duration": duration, "name_destination_folder": settings.name_folder_destination, }
     append_results_to_csv(results, "runs/collected_results_rough_idea.csv")
 
     model.to("cpu")
     return model
 
-def run_tests(settings:SettingsTraining):
+
+def run_tests(settings: SettingsTraining):
 
     # init data
-    _, dataloader = make_dataset_for_test(settings)
+    dataset, dataloaders = init_data(settings)
 
     # model choice
-    in_channels = len(settings.inputs)
+    in_channels = dataset.input_channels
     model = create_model(settings.model_choice, in_channels)
     model.to(settings.device)
 
     number_parameter = count_parameters(model)
-    logging.warning(f"Model {settings.model_choice} with number of parameters: {number_parameter}")
+    logging.warning(
+        f"Model {settings.model_choice} with number of parameters: {number_parameter}")
 
     # load model
-    model = load_model({"model_choice":settings.model_choice, "in_channels":in_channels}, os.path.join(os.getcwd(), "runs", settings.name_folder_destination), "model")
+    model = load_model({"model_choice": settings.model_choice, "in_channels": in_channels}, os.path.join(
+        os.getcwd(), "runs", settings.name_folder_destination), "model")
     model.to(settings.device)
-        
+
     # visualization
     time_begin = dt.datetime.now()
-    plot_sample(model, dataloader, settings.device, plot_name=settings.name_folder_destination + "/plot_TEST_sample", amount_plots=10,)
+    plot_sample(model, dataloaders["test"], settings.device,
+                plot_name=settings.name_folder_destination + "/plot_TEST_sample", amount_plots=10,)
 
     time_end = dt.datetime.now()
     duration = f"{(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds"
     print(f"Time needed for only inference and plotting: {duration}")
 
+
+def _get_splits(n, splits):
+    splits = [int(n * s) for s in splits[:-1]]
+    splits.append(n - sum(splits))
+    return splits
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.WARNING)        # level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-    
-    remote = True
+    # level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+    logging.basicConfig(level=logging.WARNING)
+
     parser = argparse.ArgumentParser()
-    if remote:
-        parser.add_argument("--path_to_datasets", type=str, default="/home/pelzerja/pelzerja/test_nn/datasets")
-    else:
-        parser.add_argument("--path_to_datasets", type=str, default="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets")
-    
-    parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100dp_vary_perm") # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
-    parser.add_argument("--device", type=str, default="cuda:1")
+
+    parser.add_argument("--datasets_path", type=str, default="datasets_prepared")
+    parser.add_argument("--dataset_name", type=str,
+                        default="benchmark_dataset_2d_100dp_vary_perm")
+    # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
+    parser.add_argument("--device", type=str, default="cuda:3")
     parser.add_argument("--epochs", type=int, default=30000)
     parser.add_argument("--finetune", type=bool, default=False)
-    parser.add_argument("--path_to_model", type=str, default="benchmarkPLUSdataset_2d_100dp_vary_hp_loc/unet_inputs_pk_MatID_noPowerOf2")
+    parser.add_argument("--path_to_model", type=str,
+                        default="benchmarkPLUSdataset_2d_100dp_vary_hp_loc/unet_inputs_pk_MatID_noPowerOf2")
     parser.add_argument("--model_choice", type=str, default="unet")
-    parser.add_argument("--inputs", type=str, default="pksi")
-    parser.add_argument("--name_folder_destination", type=str, default="default")
+    parser.add_argument("--name_folder_destination",
+                        type=str, default="default")
     args = parser.parse_args()
 
     settings = SettingsTraining(**vars(args))
-    settings.name_folder_destination = f"current_{settings.model_choice}_inputs_{settings.inputs}_{settings.dataset_name}"
-    
+    settings.name_folder_destination = f"current_{settings.model_choice}_{settings.dataset_name}"
+
     try:
-        os.mkdir(os.path.join(os.getcwd(), "runs", settings.name_folder_destination))
+        os.mkdir(os.path.join(os.getcwd(), "runs",
+                 settings.name_folder_destination))
     except FileExistsError:
         pass
     settings.save()
-    
+
     run_training(settings)
     # run_tests(settings)
-    #tensorboard --logdir runs/
+    # tensorboard --logdir runs/

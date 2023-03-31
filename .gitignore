@@ -1,4 +1,4 @@
-datasets/
+datasets_prepared/
 # exclude for now in testing phase
 models/
 fully_convolutional_network/

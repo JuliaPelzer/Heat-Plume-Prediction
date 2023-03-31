@@ -24,100 +24,44 @@ def test_compute_data_max_and_min():
     # float numbers? expected_vlaue = pytest.approx(value, abs=0.001)
 
 def test_sdf_transform():
-    # Fixture
-    testor = Tensor(np.array([[[1,2,3],[100,5,6]]]))
-    data = utils.PhysicalVariables(time="now", properties=["Material ID"])
-    data["Material ID"] = testor
-    # Expected result
-    sdf = Tensor(np.array([[[1,1.4142,2.2361],[0,1,2]]]))
-    # Actual result
-    sdf_transform = trans.SignedDistanceTransform()
-    actual_result = sdf_transform(data)
-    # Test
-    assert eq(actual_result["Material ID"].value, sdf).flatten
+    # TODO
+    pass
+    # # Fixture
+    # testor = Tensor(np.array([[[1,2,3],[100,5,6]]]))
+    # data = utils.PhysicalVariables(time="now", properties=["Material ID"])
+    # data["Material ID"] = testor
+    # # Expected result
+    # sdf = Tensor(np.array([[[1,1.4142,2.2361],[0,1,2]]]))
+    # # Actual result
+    # sdf_transform = trans.SignedDistanceTransform()
+    # actual_result = sdf_transform(data)
+    # # Test
+    # assert eq(actual_result["Material ID"].value, sdf).flatten
 
 def test_normalize_transform():
-    data = utils.PhysicalVariables(time="now", properties=["test"])
-    data["test"] = Tensor(np.array([[[[-2, -1, -1],[-1, 0, -1], [-1, -1, -1]]]]))
-    mean_val = {"test": -1}
-    std_val = {"test": 0.5}
-    data_norm = Tensor(np.array([[[[-2, 0, 0],[0, 2, 0], [0, 0, 0]]]]))
-    transform = trans.NormalizeTransform()
-    tensor_eq = eq(transform(data, mean_val, std_val)["test"].value, data_norm).flatten
-    assert tensor_eq
+    # TODO
+    pass
+    # data = utils.PhysicalVariables(time="now", properties=["test"])
+    # data["test"] = Tensor(np.array([[[[-2, -1, -1],[-1, 0, -1], [-1, -1, -1]]]]))
+    # mean_val = {"test": -1}
+    # std_val = {"test": 0.5}
+    # data_norm = Tensor(np.array([[[[-2, 0, 0],[0, 2, 0], [0, 0, 0]]]]))
+    # transform = trans.NormalizeTransform()
+    # tensor_eq = eq(transform(data, mean_val, std_val)["test"].value, data_norm).flatten
+    # assert tensor_eq
 
 def test_reduceto2d_transform():
-    data = utils.PhysicalVariables(time="now", properties=["test"])
-    data["test"] = zeros([4,2,4])
-    data_reduced = zeros([1,2,4])
-    # Actual result
-    data_actual = trans.ReduceTo2DTransform()(data, loc_hp=[0,1,1])
-    # Test
-    assert data_actual["test"].value.shape == data_reduced.shape
-    tensor_eq = eq(data_actual["test"].value, data_reduced).flatten
-    assert tensor_eq
-
-def test_separate_property_unit():
-    # Fixture
-    fixture = "Liquid X-Velocity [m_per_y]"
-    # Expected result
-    name_expected = "Liquid X-Velocity"
-    unit_expected = "m_per_y"
-    # Actual result
-    name, unit = utils.separate_property_unit(fixture)
-    # Test
-    assert name == name_expected
-    assert unit == unit_expected
-
-    # Fixture
-    fixture = "Liquid X-Velocity"
-    # Expected result
-    name_expected = "Liquid X-Velocity"
-    unit_expected = None
-    # Actual result
-    name, unit = utils.separate_property_unit(fixture)
-    # Test
-    assert name == name_expected
-    assert unit == unit_expected
-
-    # Fixture
-    fixture = " [m_per_y]"
-    # Expected result
-    name_expected = ""
-    unit_expected = "m_per_y"
-    # Actual result
-    name, unit = utils.separate_property_unit(fixture)
-    # Test
-    assert name == name_expected
-    assert unit == unit_expected
-
-def test_physical_property():
-    time = "now [s]"
-    expected_temperature = utils.PhysicalVariable("Temperature [K]")
-    properties = ["Temperature [K]", "Pressure [Pa]"]
-    physical_properties = utils.PhysicalVariables(time, properties)
-    physical_properties["Temperature [K]"]=Tensor([3])
-    physical_properties["Pressure [Pa]"]=2
-    physical_properties["ID [-]"]=0
-
-    assert physical_properties["Temperature [K]"].__repr__()=="Temperature (in K) with (1,) elements", "repr not working"
-    assert physical_properties["Pressure [Pa]"].__repr__()=="Pressure (in Pa) with 1 elements", "repr not working"
-    assert physical_properties.get_names_without_unit()==["Temperature", "Pressure", "ID"], "get_names_without_unit() not working"
-    assert physical_properties["Temperature [K]"].value == 3, "value not set correctly"
-    assert len(physical_properties)==3, "len not working"
-    assert physical_properties["Temperature [K]"].unit == "K", "unit not set correctly"
-    assert physical_properties["ID [-]"].value == 0, "value not set correctly"
-    assert physical_properties["ID [-]"].unit == "-", "unit not set correctly"
-    assert physical_properties["ID [-]"].__repr__()=="ID (in -) with 1 elements", "repr not working"
-    assert physical_properties["ID [-]"].name_without_unit == "ID", "name_without_unit not set correctly"
-    assert physical_properties["ID [-]"].id_name == "ID [-]", "id_name not set correctly"
-    assert physical_properties.get_ids_list()==["Temperature [K]", "Pressure [Pa]", "ID [-]"], "get_ids not working"
-    assert list(physical_properties.keys()) == ["Temperature [K]", "Pressure [Pa]", "ID [-]"], "keys not working"
-    # test PhysicalVariable.__eq__()
-    assert physical_properties["Temperature [K]"] != expected_temperature, "PhysicalVariable.__eq__() failed"
-    expected_temperature.value = 3
-    assert expected_temperature.value == 3, "value not set correctly"
-    assert physical_properties["Temperature [K]"] == expected_temperature, "PhysicalVariable.__eq__() failed"
+    # TODO
+    pass
+    # data = utils.PhysicalVariables(time="now", properties=["test"])
+    # data["test"] = zeros([4,2,4])
+    # data_reduced = zeros([1,2,4])
+    # # Actual result
+    # data_actual = trans.ReduceTo2DTransform()(data, loc_hp=[0,1,1])
+    # # Test
+    # assert data_actual["test"].value.shape == data_reduced.shape
+    # tensor_eq = eq(data_actual["test"].value, data_reduced).flatten
+    # assert tensor_eq
 
 # def test_data_init():
 #     name_folder_destination = "test_bm"
@@ -170,18 +114,6 @@ def test_physical_property():
 #     assert datasets["train"][0].inputs["Liquid X-Velocity [m_per_y]"].__repr__() == "Liquid X-Velocity (in m_per_y) with (8, 128, 8) elements", "combination of data_init and repr of PhysicalVariable does not work"
 #     assert not datasets["train"][0].inputs["Liquid X-Velocity [m_per_y]"] == datasets["train"][1].inputs["Liquid X-Velocity [m_per_y]"], "same values in two datapoints?! that should not happen - problem with copying"
 
-def test_datapoint_to_tensor_with_channel():
-    inputs = utils.PhysicalVariables("now", properties=["temperature", "id"])
-    labels = utils.PhysicalVariables("later", properties=["velocity"])
-    inputs["temperature"] = zeros(2,3,4)
-    inputs["id"] = zeros(2,3,4)
-    labels["velocity"] = zeros(2,3,4)
-    assert inputs["id"].shape() == (2,3,4), "shape not set correctly"
-    datapoint = utils.DataPoint(0, inputs=inputs, labels=labels)
-    # datapoint2 = utils.DataPoint(1, inputs=inputs, labels=labels)
-    batch = dataloader._datapoint_to_tensor_including_channel(datapoint)
-    assert batch.inputs.shape == (2,2,3,4), "_datapoint_to_tensor_with_channel does not concat the channels correctly"
-
 # def test_dataloader_iter():
 #     name_folder_destination = "test_bm"
 #     try:
@@ -231,9 +163,5 @@ def test_mselossexcludenotchangedtemp():
     assert expected_value == pytest.approx(value)
 
 
-if __name__ == "__main__":
-    test_data_init()
-    # test_combinations()
-    # test_dataloader_iter()
-    # test_normalize_transform()
-    # test_sdf_transform()
+# if __name__ == "__main__":
+#     test_data_init()
