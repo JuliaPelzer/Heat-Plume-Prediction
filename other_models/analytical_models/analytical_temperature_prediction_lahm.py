@@ -48,18 +48,19 @@ from typing import Dict
 # read streamlines
 # coordination transformation
 
-def delta_T(x, y, time, q_inj, parameters):
+def delta_T(x, y, time, parameters, testcase):
     """
     Calculate the temperature difference between the injection well and the point (x, y) at time t.
     """
     
-    n_e = parameters["n_e"]
-    M = parameters["M"]
-    v_a = parameters["v_a"]
-    alpha_L = parameters["alpha_L"]
-    alpha_T = parameters["alpha_T"]
-    R = parameters["R"]
-    T_inj_diff = parameters["T_inj_diff"]
+    n_e = parameters.n_e
+    M = parameters.m_aquifer
+    alpha_L = parameters.alpha_L
+    alpha_T = parameters.alpha_T
+    R = parameters.R
+    T_inj_diff = parameters.T_inj_diff
+    q_inj = parameters.q_inj
+    v_a = testcase.v_a
 
     if v_a < 0:
         print("v_a must be positive, I change it to its absolute value")
@@ -83,18 +84,25 @@ def ellipse_1_percent(inj_point, alpha_L, alpha_T):
     width = 40 * alpha_L
     return Ellipse(inj_point, width, height, fill=False, color="red")
 
-def plot_temperature_lahm(data:Dict, x_grid, y_grid, filename=""):
+def plot_temperature_field(data:Dict, x_grid, y_grid, filename="", params=None):
     """
     Plot the temperature field.
     """
     n_subplots = len(data.keys())
-    _, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(20,3*(n_subplots)))
+    _, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(38.4,3*(n_subplots)))
     
     for index, (key, value) in enumerate(data.items()):
         plt.sca(axes[index])
         plt.title(f"{key}")
-        levels = np.arange(10, 15.0, 0.25)
-        plt.contourf(x_grid, y_grid, value, levels=levels, cmap='RdBu_r', extent=(0,1280,100,0))
+        if params:
+            plt.gca().invert_yaxis()
+            levels = [params.T_gwf, params.T_gwf + 1, params.T_gwf + params.T_inj_diff]
+            CS = plt.contour(x_grid, y_grid, value, levels=levels, cmap='Pastel1', extent=(0,1280,100,0))
+            plt.clabel(CS, inline=1, fontsize=10)
+            plt.imshow(value, cmap="RdBu_r")
+        else:
+            levels = np.arange(10.6, 15.6, 0.25)
+            plt.contourf(x_grid, y_grid, value, levels=levels, cmap='RdBu_r', extent=(0,1280,100,0))
         plt.ylabel("x [m]")
         _aligned_colorbar(label="Temperature [°C]")
 
@@ -195,4 +203,4 @@ if __name__ == "__main__":
 
     ellipse_10 = ellipse_10_percent(injection_point, parameters["alpha_L"], parameters["alpha_T"])
     # ellipse_1 = ellipse_1_percent(injection_point, parameters["alpha_L"], parameters["alpha_T"])
-    plot_temperature_lahm({"10 years": delta_T_grid+parameters["T_gwf"]}, x_grid, y_grid, filename="test_temperature_plot") #, ellipses=[ellipse_10])
+    plot_temperature_field({"10 years": delta_T_grid+parameters["T_gwf"]}, x_grid, y_grid, filename="test_temperature_plot") #, ellipses=[ellipse_10])

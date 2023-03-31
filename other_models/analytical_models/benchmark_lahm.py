@@ -2,35 +2,6 @@ import numpy as np
 from dataclasses import dataclass
 import analytical_temperature_prediction_lahm as lahm
 import analytical_steady_state_model_willibald as willibald
-
-def check_lahm_requirements(parameters):
-    # first lahm requirement: 
-    # print(parameters["v_a"]*60*60*24)
-    assert parameters["v_a"]*60*60*24 <= -1, "v_a must be at least 1 m per day to get a valid result"
-    # second lahm requirement: energy extraction / injection must be at most 45.000 kWh/year
-    energy_extraction_boundary = 45000e3/365/24 #[W] = [J/s]
-    # print(parameters["q_inj"]*1000)
-    # print(parameters["q_inj"] * parameters["C_w"] * parameters["T_inj_diff"], energy_extraction_boundary)
-    assert parameters["q_inj"] * parameters["C_w"] * parameters["T_inj_diff"] <= energy_extraction_boundary, "energy extraction must be at most 45.000 kWh/year"
-
-def calc_and_plot(domain, parameters):
-    results = {}
-    factor_year_to_seconds = 60*60*24*365
-    for t in parameters["time_sim"]:
-        delta_T_grid = lahm.delta_T(domain.x_grid-domain.injection_point[0], domain.y_grid-domain.injection_point[1], t, parameters["q_inj"], parameters)
-        print("T diff", delta_T_grid[int(domain.injection_point[1]/domain.cell_size), int(domain.injection_point[0]/domain.cell_size)])
-        results[f"{np.round(np.multiply(1/factor_year_to_seconds, t), 2)} years"] = delta_T_grid+parameters["T_gwf"]
-
-    # ellipse_10 = lahm.ellipse_10_percent(domain.injection_point, parameters["alpha_L"], parameters["alpha_T"])
-    # lahm.plot_different_versions_of_temperature_lahm(results["4.8 years"], domain.x_grid, domain.y_grid, title=parameters["name"]) #, ellipses=[ellipse_10])
-    lahm.plot_temperature_lahm(results, domain.x_grid, domain.y_grid, filename=parameters["name"]) #, ellipses=[ellipse_10])
-
-def run_willibald(domain, parameters:dict):
-    T_isoline = 12
-    x_isoline, y_isoline, y_minus_isoline = willibald.position_of_isoline(domain.x_lin+1, domain.y_lin+1, parameters["q_inj"], T_isoline, parameters)  
-    # x, y, y_minus = willibald.position_of_isoline(domain.x_grid-domain.injection_point[1], domain.y_grid-domain.injection_point[0], parameters["q_inj"], T_isoline, parameters)  
-    willibald.plot_isoline(domain.x_lin+x_isoline, y_isoline, y_minus_isoline)
-
 @dataclass
 class Domain:
     cell_size = 1
@@ -56,60 +27,88 @@ def _calc_va(vf, ne):
 def _calc_alpha_T(alpha_L):
     return 0.1*alpha_L
 
-if __name__ == "__main__":
-    # default values (diss.tex)
-    Cw = 4.2e6 # [J/m^3K]
-    Cs = 2.4e6
-    ne = 0.25
-    R = _calc_R(ne, Cw, Cs) #2.7142857142857144
-    rho_w = 1000
-    rho_s = 2800
-    g = 9.81
-    eta = 1e-3
-    alpha_L = 1 #[1,30]
-    alpha_T = _calc_alpha_T(alpha_L)
-    m_aquifer = 5#[5,14]
+@dataclass
+class Parameters:
+    C_w : float = 4.2e6 # [J/m^3K]
+    C_s : float = 2.4e6
+    n_e : float = 0.25
+    R : float = _calc_R(n_e, C_w, C_s) #2.7142857142857144
+    rho_w : float = 1000
+    rho_s : float = 2800
+    g : float = 9.81
+    eta : float = 1e-3
+    alpha_L : float = 1 #[1,30]
+    alpha_T : float = _calc_alpha_T(alpha_L)
+    m_aquifer : float = 5#[5,14]
+    
+    T_gwf : float = 10.6
+    T_inj_diff : float = 5
+    q_inj : float = 0.00024 #[m^3/s]
+    time_sim : np.array = np.array([1, 5, 27.5]) - 72/365 # 5?[years]
+    time_sim_sec : np.array = lahm._time_years_to_seconds(time_sim) # [s]
+    
+    def __post_init__(self):
+        # check_lahm_requirements
+        # second lahm requirement: energy extraction / injection must be at most 45.000 kWh/year
+        energy_extraction_boundary = 45000e3/365/24 #[W] = [J/s]
+        # print(self.q_inj*1000)
+        # print(self.q_inj * self.["C_w"] * self.["T_inj_diff"], energy_extraction_boundary)
+        assert self.q_inj * self.C_w * self.T_inj_diff <= energy_extraction_boundary, "energy extraction must be at most 45.000 kWh/year"
 
-    T_gwf = 10.6
-    T_inj_diff = 5
-    q_inj = 0.00024 #[m^3/s]
-    t_sim = np.array([1, 5, 27.5]) - 72/365 # 5?[years]
+@dataclass
+class Testcase:
+    name : str
+    grad_p : float
+    k_cond : float
+    k_perm : float = 0
+    v_f : float = 0
+    v_a : float = 0
+    v_a_m_per_day : float = 0
+
+    def post_init(self, params:Parameters):
+        self.k_perm = _calc_perm(self.k_cond, params.eta, params.rho_w, params.g)
+        self.v_f = _calc_vf(self.k_cond, self.grad_p)
+        self.v_a = _calc_va(self.v_f, params.n_e)
+        self.v_a_m_per_day = self.v_a*24*60*60
+
+        # first lahm requirement: 
+        # assert self.v_a_m_per_day <= -1, "v_a must be at least 1 m per day to get a valid result"
+
+    
+def calc_and_plot(domain:Domain, params:Parameters, testcase:Testcase):
+    results = {}
+    factor_year_to_seconds = 60*60*24*365
+    for t in params.time_sim_sec:
+        delta_T_grid = lahm.delta_T(domain.x_grid-domain.injection_point[0], domain.y_grid-domain.injection_point[1], t, params, testcase)
+        print("T diff", delta_T_grid[int(domain.injection_point[1]/domain.cell_size), int(domain.injection_point[0]/domain.cell_size)])
+        results[f"{np.round(np.multiply(1/factor_year_to_seconds, t), 2)} years"] = delta_T_grid+params.T_gwf
+
+    lahm.plot_temperature_field(results, domain.x_grid, domain.y_grid, filename=f"{testcase.name}_combined", params=params)
+    lahm.plot_temperature_field(results, domain.x_grid, domain.y_grid, filename=testcase.name)
+
+def run_willibald(domain, parameters:dict):
+    T_isoline = 12
+    x_isoline, y_isoline, y_minus_isoline = willibald.position_of_isoline(domain.x_lin+1, domain.y_lin+1, parameters["q_inj"], T_isoline, parameters)  
+    # x, y, y_minus = willibald.position_of_isoline(domain.x_grid-domain.injection_point[1], domain.y_grid-domain.injection_point[0], parameters["q_inj"], T_isoline, parameters)  
+    willibald.plot_isoline(domain.x_lin+x_isoline, y_isoline, y_minus_isoline)
+
+if __name__ == "__main__":
+
+    params = Parameters
 
     testcases = [
-        {"case": "1", "grad_p": 0.0015, "k_cond": 0.002, "k_perm": 0, "vf": 0, "va": 0, "va_m_per_day": 0},
-        {"case": "2", "grad_p": 0.003, "k_cond": 0.01, "k_perm": 0, "vf": 0, "va": 0, "va_m_per_day": 0},
-        {"case": "3", "grad_p": 0.0035, "k_cond": 0.05, "k_perm": 0, "vf": 0, "va": 0, "va_m_per_day": 0}
+        Testcase(f'benchmark_lahm_testcase_0', grad_p = 0.0015, k_cond = 0.0001),
+        Testcase(f'benchmark_lahm_testcase_1', grad_p = 0.0015, k_cond = 0.002),
+        Testcase(f'benchmark_lahm_testcase_2', grad_p = 0.003, k_cond = 0.01),
+        Testcase(f'benchmark_lahm_testcase_3', grad_p = 0.0035, k_cond = 0.05)
     ]
 
     for testcase in testcases:
-        k_perm = _calc_perm(testcase["k_cond"], eta, rho_w, g)
-        vf = _calc_vf(testcase["k_cond"], testcase["grad_p"])
-        va = _calc_va(vf, ne)
-        testcase["k_perm"] = k_perm
-        testcase["vf"] = vf
-        testcase["va"] = va
-        testcase["va_m_per_day"] = va*60*60*24
+        testcase.post_init(params)
+        print(testcase)
 
     domain = Domain
 
     for testcase in testcases:
-
-        parameters = {
-            "name": f'benchmark_lahm_testcase_{testcase["case"]}',
-            "C_w": Cw,
-            "n_e": ne, 
-            "M": m_aquifer, 
-            "v_a": testcase["va"], # [m/s]
-            "alpha_L": alpha_L,
-            "alpha_T": alpha_T,
-            "R": R, 
-            "T_inj_diff": T_inj_diff,
-            "T_gwf": 10.6, # [K], 
-            "q_inj": q_inj, # [m^3/s]
-            "time_sim": lahm._time_years_to_seconds(t_sim), # [s]
-            "k_perm": testcase["k_perm"], # [m^2] # for Willibald
-            "grad_p": testcase["grad_p"], # [m/s] # for Willibald
-        }
-        check_lahm_requirements(parameters)
-        calc_and_plot(domain, parameters)
+        calc_and_plot(domain, params, testcase)
         # x, y, y_minus = run_willibald(domain, parameters)
