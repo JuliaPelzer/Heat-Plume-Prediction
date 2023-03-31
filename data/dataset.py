@@ -27,6 +27,14 @@ class SimulationDataset(Dataset):
             raise ValueError(
                 "Number of Inputs and labels does not match!")
 
+    @property
+    def input_channels(self):
+        return len(self.info["Inputs"])
+
+    @property
+    def output_channels(self):
+        return len(self.info["Labels"])
+
     def __load_info(self):
         with open(self.path.joinpath("info.yaml"), "r") as f:
             info = yaml.safe_load(f)

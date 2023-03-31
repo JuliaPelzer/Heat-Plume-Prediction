@@ -15,10 +15,7 @@ from torch.utils.data import random_split
 import torch
 
 
-def run_training(settings: SettingsTraining):
-    time_begin = dt.datetime.now()
-
-    # init data
+def init_data(settings: SettingsTraining, seed=1):
     dataset = SimulationDataset(
         os.path.join(settings.datasets_path, settings.dataset_name))
     generator = torch.Generator().manual_seed(1)
@@ -33,13 +30,20 @@ def run_training(settings: SettingsTraining):
         "test": DataLoader(
             datasets[2], batch_size=100, shuffle=True, num_workers=0)
     }
+    return dataset, dataloaders
+
+
+def run_training(settings: SettingsTraining):
+    time_begin = dt.datetime.now()
+
+    dataset, dataloaders = init_data(settings)
 
     if settings.device is None:
         settings.device = "cuda" if cuda.is_available() else "cpu"
     logging.warning(f"Using {settings.device} device")
 
     # model choice
-    in_channels = dataset[0][0].shape[0]
+    in_channels = dataset.input_channels
     if not settings.finetune:
         model = create_model(settings.model_choice, in_channels)
     else:
@@ -100,10 +104,10 @@ def run_training(settings: SettingsTraining):
 def run_tests(settings: SettingsTraining):
 
     # init data
-    _, dataloader = make_dataset_for_test(settings)
+    dataset, dataloaders = init_data(settings)
 
     # model choice
-    in_channels = len(settings.inputs)
+    in_channels = dataset.input_channels
     model = create_model(settings.model_choice, in_channels)
     model.to(settings.device)
 
@@ -118,7 +122,7 @@ def run_tests(settings: SettingsTraining):
 
     # visualization
     time_begin = dt.datetime.now()
-    plot_sample(model, dataloader, settings.device,
+    plot_sample(model, dataloaders["test"], settings.device,
                 plot_name=settings.name_folder_destination + "/plot_TEST_sample", amount_plots=10,)
 
     time_end = dt.datetime.now()
@@ -156,6 +160,6 @@ if __name__ == "__main__":
         pass
     settings.save()
 
-    run_training(settings)
-    # run_tests(settings)
+    # run_training(settings)
+    run_tests(settings)
     # tensorboard --logdir runs/
