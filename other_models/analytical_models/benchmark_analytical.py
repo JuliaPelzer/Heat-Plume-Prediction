@@ -57,12 +57,12 @@ class Parameters:
 @dataclass
 class Testcase:
     name : str
-    grad_p : float
-    k_cond : float
-    k_perm : float = 0
-    v_f : float = 0
-    v_a : float = 0
-    v_a_m_per_day : float = 0
+    grad_p : float # [-]
+    k_cond : float # [m/s]
+    k_perm : float = 0 # [m^2]
+    v_f : float = 0 # [m/s]
+    v_a : float = 0 # [m/s]
+    v_a_m_per_day : float = 0 # [m/day]
 
     def post_init(self, params:Parameters):
         self.k_perm = _calc_perm(self.k_cond, params.eta, params.rho_w, params.g)
