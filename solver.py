@@ -38,37 +38,37 @@ class Solver(object):
 
         epochs = tqdm(range(settings.epochs), desc="epochs", disable=False)
         for epoch in epochs:
-            # try:
-            # Set lr according to schedule
-            if epoch in self.lr_schedule.keys():
-                self.opt.param_groups[0]["lr"] = self.lr_schedule[epoch]
+            try:
+                # Set lr according to schedule
+                if epoch in self.lr_schedule.keys():
+                    self.opt.param_groups[0]["lr"] = self.lr_schedule[epoch]
 
-            # Training
-            self.model.train()
-            train_epoch_loss = self.run_epoch(
-                self.train_dataloader, device)
+                # Training
+                self.model.train()
+                train_epoch_loss = self.run_epoch(
+                    self.train_dataloader, device)
 
-            # Validation
-            self.model.eval()
-            val_epoch_loss = self.run_epoch(self.val_dataloader, device)
+                # Validation
+                self.model.eval()
+                val_epoch_loss = self.run_epoch(self.val_dataloader, device)
 
-            # Logging
-            writer.add_scalar("train_loss", train_epoch_loss, epoch)
-            writer.add_scalar("val_loss", val_epoch_loss, epoch)
-            writer.add_scalar(
-                "learning_rate", self.opt.param_groups[0]["lr"], epoch)
-            epochs.set_postfix_str(
-                f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
+                # Logging
+                writer.add_scalar("train_loss", train_epoch_loss, epoch)
+                writer.add_scalar("val_loss", val_epoch_loss, epoch)
+                writer.add_scalar(
+                    "learning_rate", self.opt.param_groups[0]["lr"], epoch)
+                epochs.set_postfix_str(
+                    f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
 
-            # except KeyboardInterrupt:
-            # try:
-            #     new_lr = float(input("\nNew learning rate: "))
-            # except ValueError as e:
-            #     print(e)
-            # else:
-            #     for g in self.opt.param_groups:
-            #         g["lr"] = new_lr
-            #     self.lr_schedule[epoch] = self.opt.param_groups[0]["lr"]
+            except KeyboardInterrupt:
+                try:
+                    new_lr = float(input("\nNew learning rate: "))
+                except ValueError as e:
+                    print(e)
+                else:
+                    for g in self.opt.param_groups:
+                        g["lr"] = new_lr
+                    self.lr_schedule[epoch] = self.opt.param_groups[0]["lr"]
 
     def run_epoch(self, dataloader: DataLoader, device: str):
         epoch_loss = 0.0
