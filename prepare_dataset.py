@@ -267,7 +267,7 @@ if __name__ == "__main__":
     remote = True
     default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets"
     if remote:
-        default_raw_dir = "/home/pelzerja/pelzerja/test_nn/datasets"
+        default_raw_dir = "/scratch/sgs/pelzerja/datasets"
     parser = argparse.ArgumentParser()
     parser.add_argument("--raw_dir", type=str, default=default_raw_dir)
     parser.add_argument("--datasets_dir", type=str, default="datasets_prepared")
