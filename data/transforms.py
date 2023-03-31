@@ -4,9 +4,9 @@ Definition of problem-specific transform classes
 
 import logging
 import numpy as np
-from torch import Tensor, unsqueeze, linalg, nonzero
+from torch import unsqueeze, linalg, nonzero
 import torch
-from typing import Dict, Tuple
+from typing import Tuple
 
 
 class RescaleTransform:
@@ -62,8 +62,22 @@ def _compute_data_max_and_min(data):
 
 
 class NormalizeTransform:
-    # TODO batch normalization
-    def __init__(self, info: Dict):
+    """
+    This transform normalizes the data to mean 0 and std 1.
+    *This transform takes a single tensor as input and returns a single tensor.*
+    The mean and std are taken from the info dict.
+    """
+    # TODO normalization entire batch
+
+    def __init__(self, info: dict):
+        """
+        Parameters
+        ----------
+            info : dict
+                Dictionary containing the mean,std and index of each channel.
+                e.g. {"SDF": {"mean": 0.0, "std": 1.0, "index": 0},
+                        "Material ID": {"mean": 0.0, "std": 1.0, "index": 1}}
+        """
         self.info = info
 
     def __call__(self, data):
@@ -97,13 +111,14 @@ class NormalizeTransform:
 
 class SignedDistanceTransform:
     """
-    Transform class to calculate signed distance transform for material id
+    Transform class to calculate signed distance transform for material id.  
+    This transform takes a dict of tensors as input and returns a dict of tensors.
     """
 
     def __init__(self):
         pass
 
-    def __call__(self, data):
+    def __call__(self, data: dict):
         logging.info("Start SignedDistanceTransform")
 
         # check if SDF is in data (inputs vs. labels)
@@ -164,7 +179,8 @@ class PowerOfTwoTransform:
 
 class ReduceTo2DTransform:
     """
-    Transform class to reduce data to 2D, reduce in x, in height of hp: x=7 (if after Normalize)
+    Transform class to reduce data to 2D, reduce in x, in height of hp: x=7
+    This Transform takes a dict of tensors as input and returns a dict of tensors
     """
 
     def __init__(self, reduce_to_2D_xy=False):
@@ -219,15 +235,10 @@ class ComposeTransform:
         """
         self.transforms = transforms
 
-    def __call__(self, data, loc_hp: Tuple = None, mean_val: Dict = None, std_val: Dict = None):
+    def __call__(self, data, loc_hp: Tuple = None):
         for transform in self.transforms:
             if isinstance(transform, ReduceTo2DTransform):
                 data = transform(data, loc_hp)
-            elif isinstance(transform, NormalizeTransform):
-                if not mean_val == None and not std_val == None:
-                    data = transform(data, mean_val, std_val)
-                else:
-                    data = transform.init_mean_std(data)
             else:
                 data = transform(data)
         return data
@@ -240,17 +251,9 @@ class ComposeTransform:
                 pass
         return data
 
-    def reverse_tensor_input(self, data: Tensor, **normalize_kwargs):
-        for transform in reversed(self.transforms):
-            try:
-                data = transform.reverse_tensor(data, **normalize_kwargs)
-            except AttributeError as e:
-                pass
-        return data
-
 
 class ToTensorTransform:
-    """Transform class to convert np.array-data to torch.Tensor"""
+    """Transform class to convert dict of tensors to one tensor"""
 
     def __init__(self):
         pass
