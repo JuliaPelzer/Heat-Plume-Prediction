@@ -14,18 +14,23 @@ from torch.utils.data import DataLoader
 from torch.utils.data import random_split
 import torch
 
-def init_data(settings: SettingsTraining, seed=1):
+def init_data(settings: SettingsTraining, seed=1, case:bool = "train"):
     dataset = SimulationDataset(
         os.path.join(settings.datasets_path, settings.dataset_name))
     generator = torch.Generator().manual_seed(seed)
-    datasets = random_split(
-        dataset, _get_splits(len(dataset), [0.7, 0.2, 0.1]), generator=generator)
+    if case == "train":
+        datasets = random_split(
+            dataset, _get_splits(len(dataset), [0.7, 0.2, 0.1]), generator=generator)
+    elif case == "test":
+        datasets = random_split(
+            dataset, _get_splits(len(dataset), [0, 0, 1.0]), generator=generator)
 
-    dataloaders = {
-        "train": DataLoader(datasets[0], batch_size=100, shuffle=True, num_workers=0),
-        "val": DataLoader(datasets[1], batch_size=100, shuffle=True, num_workers=0),
-        "test": DataLoader(datasets[2], batch_size=100, shuffle=True, num_workers=0)
-    }
+    dataloaders = {}
+    if case == "train":
+        dataloaders["train"] = DataLoader(datasets[0], batch_size=100, shuffle=True, num_workers=0)
+        dataloaders["val"] = DataLoader(datasets[1], batch_size=100, shuffle=True, num_workers=0)
+    dataloaders["test"] = DataLoader(datasets[2], batch_size=100, shuffle=True, num_workers=0)
+
     return dataset, dataloaders
 
 
@@ -100,7 +105,7 @@ def run_training(settings: SettingsTraining):
 def run_tests(settings: SettingsTraining):
 
     # init data
-    dataset, dataloaders = init_data(settings)
+    dataset, dataloaders = init_data(settings, case="test")
 
     # model choice
     in_channels = dataset.input_channels
@@ -112,8 +117,7 @@ def run_tests(settings: SettingsTraining):
         f"Model {settings.model_choice} with number of parameters: {number_parameter}")
 
     # load model
-    model = load_model({"model_choice": settings.model_choice, "in_channels": in_channels}, os.path.join(
-        os.getcwd(), "runs", settings.name_folder_destination), "model")
+    model = load_model({"model_choice": settings.model_choice, "in_channels": in_channels}, os.path.join(settings.path_to_model), "model")
     model.to(settings.device)
 
     # visualization
@@ -139,13 +143,13 @@ if __name__ == "__main__":
 
     parser.add_argument("--datasets_path", type=str, default="datasets_prepared")
     parser.add_argument("--dataset_name", type=str,
-                        default="benchmark_dataset_2d_100dp_vary_perm")
+                        default="benchmark_dataset_2d_100datapoints")
     # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
     parser.add_argument("--device", type=str, default="cuda:3")
     parser.add_argument("--epochs", type=int, default=30000)
     parser.add_argument("--finetune", type=bool, default=False)
     parser.add_argument("--path_to_model", type=str,
-                        default="benchmarkPLUSdataset_2d_100dp_vary_hp_loc/unet_inputs_pk_MatID_noPowerOf2")
+                        default="benchmarkPLUSdataset_2d_100dp_vary_hp_loc/unet_inputs_pk_MatID_noPowerOf2") # for finetuning or testing
     parser.add_argument("--model_choice", type=str, default="unet")
     parser.add_argument("--name_folder_destination",
                         type=str, default="default")
@@ -161,6 +165,6 @@ if __name__ == "__main__":
         pass
     settings.save()
 
-    run_training(settings)
-    # run_tests(settings)
+    # run_training(settings)
+    run_tests(settings)
     # tensorboard --logdir runs/

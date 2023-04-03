@@ -292,18 +292,17 @@ def normalize(dataset_path: str, info: dict, total: int = None):
             Total number of files to normalize. Used for tqdm progress bar.
 
     """
-    input_norm = NormalizeTransform(info["Inputs"])
-    label_norm = NormalizeTransform(info["Labels"])
+    norm = NormalizeTransform(info)
     dataset_path = pathlib.Path(dataset_path)
     input_path = dataset_path.joinpath("Inputs")
     label_path = dataset_path.joinpath("Labels")
     for input_file in tqdm(input_path.iterdir(), desc="Normalizing inputs", total=total):
         x = torch.load(input_file)
-        x = input_norm(x)
+        x = norm(x)
         torch.save(x, input_file)
     for label_file in tqdm(label_path.iterdir(), desc="Normalizing labels", total=total):
         y = torch.load(label_file)
-        y = label_norm(y)
+        y = norm(y)
         torch.save(y, label_file)
 
 

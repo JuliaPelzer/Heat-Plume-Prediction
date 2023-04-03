@@ -21,13 +21,17 @@ class DataToVisualize:
     contourargs: Dict = field(default_factory=dict)
 
     def __post_init__(self):
-        # TODO: add reasonable extent
+        # TODO: add reasonable extent, make variable
+        extent = (0, 1280, 100, 0)
+        self.imshowargs["extent"]  = extent
+        self.contourargs["extent"] = extent
         self.contourargs = {"levels": np.arange(
-            10.6, 15.6, 0.25), "cmap": "RdBu_r", }
+            10.4, 15.6, 0.25), "cmap": "RdBu_r", }
 
 
 def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: int = inf, plot_name: str = "default"):
 
+    logging.warning("Plotting...")
     error = []
     error_mean = []
 
@@ -104,10 +108,9 @@ def _plot_datafields(data: Dict[str, DataToVisualize], name_pic: str):
     plt.savefig(f"{name_pic}.png")
     plt.close()
 
-
 def _plot_isolines(data: Dict[str, DataToVisualize], name_pic: str):
     # helper function to plot isolines of temperature out
-    _, axis = plt.subplots(figsize=(20, 5))
+    _, axis = plt.subplots(figsize=(20, 3)) #TODO (20,5)
     plt.sca(axis)
     data_point = data["t_out"]
     plt.contourf(data_point.data.T, **data_point.contourargs)
