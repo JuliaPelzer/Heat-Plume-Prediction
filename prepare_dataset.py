@@ -91,12 +91,11 @@ def get_normalization_type(property:str):
 
 
 
-def get_dimensions(raw_dataset_path: str):
+def get_pflotran_settings(raw_dataset_path: str):
     raw_dataset_path = pathlib.Path(raw_dataset_path)
     with open(raw_dataset_path.joinpath("inputs", "settings.yaml"), "r") as f:
-        perm_settings = yaml.safe_load(f)
-    dimensions_of_datapoint = perm_settings["grid"]["ncells"]
-    return dimensions_of_datapoint
+        pflotran_settings = yaml.safe_load(f)
+    return pflotran_settings
 
 
 def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoint: tuple):
@@ -231,7 +230,10 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     input_variables = expand_property_names(input_variables)
     time_first = "   0 Time  0.00000E+00 y"
     time_final = "   3 Time  5.00000E+00 y"
-    dims = get_dimensions(full_raw_path)
+    pflotran_settings = get_pflotran_settings(full_raw_path)
+    dims = np.array(pflotran_settings["grid"]["ncells"])
+    total_size = np.array(pflotran_settings["grid"]["size"])
+    cell_size = total_size/dims
 
     calc = WelfordStatistics()
     tensor_transform = ToTensorTransform()
@@ -255,18 +257,19 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     stds = calc.std()
     mins = calc.min()
     maxs = calc.max()
+    info["CellsSize"] = cell_size.tolist()
     info["Inputs"] = {key: {"mean": means[key],
                             "std": stds[key],
                             "min": mins[key],
                             "max": maxs[key],
-                            "normalization": get_normalization_type(key),
+                            "norm": get_normalization_type(key),
                             "index": n}
                       for n, key in enumerate(input_variables)}
     info["Labels"] = {key: {"mean": means[key],
                             "std": stds[key],
                             "min": mins[key],
                             "max": maxs[key],
-                            "normalization": get_normalization_type(key),
+                            "norm": get_normalization_type(key),
                             "index": n}
                       for n, key in enumerate(output_variables)}
     with open(os.path.join(new_dataset_path, "info.yaml"), "w") as file:
@@ -292,18 +295,17 @@ def normalize(dataset_path: str, info: dict, total: int = None):
             Total number of files to normalize. Used for tqdm progress bar.
 
     """
-    input_norm = NormalizeTransform(info["Inputs"])
-    label_norm = NormalizeTransform(info["Labels"])
+    norm = NormalizeTransform(info)
     dataset_path = pathlib.Path(dataset_path)
     input_path = dataset_path.joinpath("Inputs")
     label_path = dataset_path.joinpath("Labels")
     for input_file in tqdm(input_path.iterdir(), desc="Normalizing inputs", total=total):
         x = torch.load(input_file)
-        x = input_norm(x)
+        x = norm(x,"Inputs")
         torch.save(x, input_file)
     for label_file in tqdm(label_path.iterdir(), desc="Normalizing labels", total=total):
         y = torch.load(label_file)
-        y = label_norm(y)
+        y = norm(y,"Labels")
         torch.save(y, label_file)
 
 

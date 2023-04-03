@@ -165,6 +165,6 @@ if __name__ == "__main__":
         pass
     settings.save()
 
-    # run_training(settings)
-    run_tests(settings)
+    run_training(settings)
+    # run_tests(settings)
     # tensorboard --logdir runs/

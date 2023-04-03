@@ -8,104 +8,43 @@ from torch import unsqueeze, linalg, nonzero
 import torch
 from typing import Tuple
 
-
-class RescaleTransform:
-    """Transform class to rescale data to a given range"""
-
-    def __init__(self, out_range=(0, 1)):
-        """
-        :param out_range: range to which data should be rescaled to
-        :param in_range:  Old range of the data
-            e.g. (0, 255) for images with raw pixels
-        """
-        self.min = out_range[0]
-        self.max = out_range[1]
-
-    def __call__(self, data):
-        print("rescale")
-        assert True, "RescaleTransform not corrected for new datatype of PhysicalVariables yet"
-        # calc max, min of data for each channel of one datapoint, broadcast
-        self._data_max, self._data_min = _compute_data_max_and_min(data)
-        # self._data_max = self._data_max[:,np.newaxis,np.newaxis,np.newaxis]
-        # self._data_min = self._data_min[:,np.newaxis,np.newaxis,np.newaxis]
-
-        # rescale data to new range
-        data = data - self._data_min  # normalize to (0, data_max-data_min)
-        data /= (self._data_max - self._data_min)  # normalize to (0, 1)
-        data *= (self.max - self.min)  # norm to (0, target_max-target_min)
-        data += self.min  # normalize to (target_min, target_max)
-
-        return data
-
-
-def _compute_data_max_and_min(data):
-    """
-    Calculate the per-channel data maximum and minimum of a given data point
-    :param data: numpy array of shape (Nx)CxHxWxD
-        (for N data points with C channels of spatial size HxWxD)
-    :returns: per-channels mean and std; numpy array of shape C
-    """
-    assert True, "RescaleTransform not corrected for new datatype of PhysicalVariables yet"
-
-    # does not check the input type
-    for n in data:
-        assert type(n) == np.ndarray, "Data is not a numpy array"
-    # TODO does this produce/assert the correct output?
-
-    max, min = None, None
-
-    # Calculate the per-channel max and min of the data
-    max = np.max(data, axis=(1, 2, 3), keepdims=True)
-    min = np.min(data, axis=(1, 2, 3), keepdims=True)
-
-    return max, min
-
-
 class NormalizeTransform:
-    """
-    This transform normalizes the data to mean 0 and std 1.
-    *This transform takes a single tensor as input and returns a single tensor.*
-    The mean and std are taken from the info dict.
-    """
-    # TODO normalization entire batch
-
-    def __init__(self, info: dict):
-        """
-        Parameters
-        ----------
-            info : dict
-                Dictionary containing the mean,std and index of each channel.
-                e.g. {"SDF": {"mean": 0.0, "std": 1.0, "index": 0},
-                        "Material ID": {"mean": 0.0, "std": 1.0, "index": 1}}
-        """
+    def __init__(self,info:dict,out_range = (0,1)):
         self.info = info
-
-    def __call__(self, data):
-        logging.info("Start normalization")
-        # normalize data to mean and std
-        for prop, stats in self.info.items():
-            n = stats["index"]
-            if prop == "Material ID":
-                data[n] -= 1
-                mask = data[n] == 2
-                data[n][mask] = -1
-            if prop not in ["SDF", "Material ID"]:
-                data[n] = (data[n] - stats["mean"]) / stats["std"]
-            # # squeeze in case of reduced_to_2D_wrong necessary because unsqueezed before for Normalize to work
-        logging.info("Data normalized")
+        self.input_stats = self.info["Inputs"]
+        self.label_stats = self.info["Labels"]
+        self.out_min, self.out_max = out_range 
+    def __apply_norm(self,data,index,stats):
+        norm = stats["norm"]
+        if norm == "Rescale":
+            delta = stats["max"] - stats["min"]
+            data[index] = (data[index] - stats["min"]) / delta * (self.out_max - self.out_min) + self.out_min
+        elif norm == "Standardize":
+            data[index] = (data[index] - stats["mean"]) / stats["std"]
+        elif norm is None:
+            pass
+        else:
+            raise ValueError(f"Normalization type '{stats['Norm']}' not recognized")
+    def __reverse_norm(self,data,index,stats):
+        norm = stats["norm"]
+        if norm == "Rescale":
+            delta = stats["max"] - stats["min"]
+            data[index] = (data[index] - self.out_min) / (self.out_max - self.out_min) * delta + stats["min"]
+        elif norm == "Standardize":
+            data[index] = data[index] * stats["std"] + stats["mean"]
+        elif norm is None:
+            pass
+        else:
+            raise ValueError(f"Normalization type '{stats['Norm']}' not recognized")
+    def __call__(self,data, type = "Inputs"):
+        for prop, stats in self.info[type].items():
+            index = stats["index"]
+            self.__apply_norm(data,index,stats)
         return data
-
-    def reverse(self, data):
-        # reverse normalization
-        for prop, stats in self.info.items():
-            n = stats["index"]
-            if prop == "Material ID":
-                mask = data[n] == -1
-                # only required, if extraction well (with ID=3) exists
-                data[n][mask] = 2
-                data[n] += 1
-            if prop not in ["SDF", "Material ID"]:
-                data[n] = data[n] * stats["std"] + stats["mean"]
+    def reverse(self,data,type = "Labels"):
+        for prop, stats in self.info[type].items():
+            index = stats["index"]
+            self.__reverse_norm(data,index,stats)
         return data
 
 

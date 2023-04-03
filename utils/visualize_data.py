@@ -17,12 +17,13 @@ from networks.unet import UNet
 class DataToVisualize:
     data: np.ndarray
     name: str
+    extent_highs :tuple = (1280,100) # x,y in meters
     imshowargs: Dict = field(default_factory=dict)
     contourargs: Dict = field(default_factory=dict)
 
     def __post_init__(self):
         # TODO: add reasonable extent, make variable
-        extent = (0, 1280, 100, 0)
+        extent = (0,int(self.extent_highs[0]),int(self.extent_highs[1]),0)
         self.imshowargs["extent"]  = extent
         self.contourargs["extent"] = extent
         self.contourargs = {"levels": np.arange(
@@ -39,8 +40,7 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
         amount_plots = len(dataloader.dataset)
 
     current_id = 0
-    input_norm = dataloader.dataset.dataset.input_norm
-    label_norm = dataloader.dataset.dataset.label_norm
+    norm = dataloader.dataset.dataset.norm
     for inputs, labels in dataloader:
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
@@ -52,9 +52,9 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
 
             # reverse transform for plotting real values
             y = labels[datapoint_id]
-            x = input_norm.reverse(x.detach().cpu().squeeze())
-            y = label_norm.reverse(y.detach().cpu())[0]
-            y_out = label_norm.reverse(y_out.detach().cpu()[0])[0]
+            x = norm.reverse(x.detach().cpu().squeeze(), "Inputs")
+            y = norm.reverse(y.detach().cpu(),"Labels")[0]
+            y_out = norm.reverse(y_out.detach().cpu()[0],"Labels")[0]
 
             # calculate error
             error_current = y-y_out
@@ -65,17 +65,18 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
             # plot temperature true, temperature out, error, physical variables
             temp_max = max(y.max(), y_out.max())
             temp_min = min(y.min(), y_out.min())
-            dict_to_plot = {
-                "t_true": DataToVisualize(y, "Temperature True [°C]", {"vmax": temp_max, "vmin": temp_min}),
-                "t_out": DataToVisualize(y_out, "Temperature Out [°C]", {"vmax": temp_max, "vmin": temp_min}),
-                "error": DataToVisualize(torch.abs(error_current), "Abs. Error [°C]"),
-            }
             info = dataloader.dataset.dataset.info
+            extent_highs = (np.array(info["CellsSize"][:2]) * y.shape)
+            dict_to_plot = {
+                "t_true": DataToVisualize(y, "Temperature True [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+                "t_out": DataToVisualize(y_out, "Temperature Out [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+                "error": DataToVisualize(torch.abs(error_current), "Abs. Error [°C]",extent_highs),
+            }
             physical_vars = info["Inputs"].keys()
             for physical_var in physical_vars:
                 index = info["Inputs"][physical_var]["index"]
                 dict_to_plot[physical_var] = DataToVisualize(
-                    x[index], physical_var)
+                    x[index], physical_var,extent_highs)
 
             name_pic = f"runs/{plot_name}_{current_id}"
             _plot_datafields(dict_to_plot, name_pic=name_pic)
