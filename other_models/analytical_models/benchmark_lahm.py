@@ -5,12 +5,9 @@ import analytical_steady_state_model_willibald as willibald
 
 def check_lahm_requirements(parameters):
     # first lahm requirement: 
-    # print(parameters["v_a"]*60*60*24)
     assert parameters["v_a"]*60*60*24 <= -1, "v_a must be at least 1 m per day to get a valid result"
     # second lahm requirement: energy extraction / injection must be at most 45.000 kWh/year
     energy_extraction_boundary = 45000e3/365/24 #[W] = [J/s]
-    # print(parameters["q_inj"]*1000)
-    # print(parameters["q_inj"] * parameters["C_w"] * parameters["T_inj_diff"], energy_extraction_boundary)
     assert parameters["q_inj"] * parameters["C_w"] * parameters["T_inj_diff"] <= energy_extraction_boundary, "energy extraction must be at most 45.000 kWh/year"
 
 def calc_and_plot(domain, parameters):
