@@ -41,6 +41,7 @@ def plot_temperature_field(data:Dict, x_grid, y_grid, filename="", params=None):
     plt.xlabel("y [m]")
     # plt.show()
     plt.savefig(f"{filename}.png")
+    plt.savefig(f"{filename}.svg")
 
 def plot_different_versions_of_temperature(data, x_grid, y_grid, title="", ellipses=None):
     """
