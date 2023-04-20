@@ -10,19 +10,6 @@ import networks.losses
 import numpy as np
 from torch import Tensor, zeros, eq, Size, mean, std
 
-def test_compute_data_max_and_min():
-    # Fixture
-    data = np.array([[[[1.0,2.0,3],[4,5,6]]]])
-    # Expected result
-    max = np.array([[[[6]]]])
-    min = np.array([[[[1]]]])
-    # Actual result
-    actual_result = trans._compute_data_max_and_min(data)
-    # Test
-    assert actual_result == (max, min)
-    # does not test keepdim part - necessary?
-    # float numbers? expected_vlaue = pytest.approx(value, abs=0.001)
-
 def test_sdf_transform():
     # TODO
     pass
@@ -140,15 +127,6 @@ def test_visualize_data():
 def test_train_model():
     pass
     """ Test input format etc. of train_model"""
-
-# def test_reverse_transform():
-#     _, dataloaders_2D = lp.init_data(dataset_name="test_dataset_bm_10", #"OLD_bash_file_and_script_structure/groundtruth_hps_no_hps/groundtruth_hps_overfit_10", 
-#         reduce_to_2D=True, reduce_to_2D_xy=True,
-#         inputs="pk", labels="t") #, batch_size=3)
-
-#     for _, data in enumerate(dataloaders_2D["train"]):
-#         for data in dataloaders_2D["train"].dataset:
-#             dataloaders_2D["train"].dataset.reverse_transform(data)
 
 def test_mselossexcludenotchangedtemp():
     import torch
