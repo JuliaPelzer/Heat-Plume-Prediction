@@ -60,8 +60,8 @@ def plot_different_versions_of_temperature(data, x_grid, y_grid, title="", ellip
             plt.title("Temperature field with contour lines")
             plt.contourf(x_grid, y_grid, data, extent=(0,1280,100,0))
         elif index == 2:
-            plt.title("Temperature field with focused contour lines [10 °C, 15 °C]")
-            levels = np.arange(10, 15.0, 0.25)
+            plt.title("Temperature field with focused contour lines [10.6 °C, 15.6 °C]")
+            levels = np.arange(10.6, 15.6, 0.25)
             plt.contourf(x_grid, y_grid, data, levels=levels, cmap='RdBu_r', extent=(0,1280,100,0))
 
         if ellipses:
