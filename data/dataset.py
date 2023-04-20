@@ -6,7 +6,6 @@ from torch.utils.data import Dataset
 import pathlib
 from data.transforms import NormalizeTransform
 
-
 class SimulationDataset(Dataset):
     def __init__(self, path):
         Dataset.__init__(self)
@@ -20,8 +19,7 @@ class SimulationDataset(Dataset):
         self.input_names.sort()
         self.label_names.sort()
         self.info = self.__load_info()
-        self.input_norm = NormalizeTransform(self.info["Inputs"])
-        self.label_norm = NormalizeTransform(self.info["Labels"])
+        self.norm = NormalizeTransform(self.info)
 
         if len(self.input_names) != len(self.label_names):
             raise ValueError(

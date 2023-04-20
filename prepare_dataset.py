@@ -4,7 +4,7 @@ import h5py
 import numpy as np
 import yaml
 import torch
-from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, ToTensorTransform, SignedDistanceTransform
+from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, ToTensorTransform, SignedDistanceTransform, PowerOfTwoTransform
 from tqdm.auto import tqdm
 import pathlib
 import argparse
@@ -72,13 +72,32 @@ def expand_property_names(properties: str):
                for prop in properties), f"input parameters have to be a string of characters, each of which is either {possible_vars}"
     return [translation[prop] for prop in properties]
 
+def get_normalization_type(property:str):
+    """
+    Returns the normalization type for a given property
+    Types can be:
+        Rescale: Rescale the data to be between 0 and 1
+        Standardize: Standardize the data to have mean 0 and standard deviation 1
+        None: Do not normalize the data
+    """
+    types = {
+        "default": "Rescale", #Standardize
+        # "Material ID": "Rescale",
+        # "SDF": None,
+    }
+    
+    if property in types:
+        return types[property]
+    else:
+        return types["default"]
 
-def get_dimensions(raw_dataset_path: str):
+
+
+def get_pflotran_settings(raw_dataset_path: str):
     raw_dataset_path = pathlib.Path(raw_dataset_path)
     with open(raw_dataset_path.joinpath("inputs", "settings.yaml"), "r") as f:
-        perm_settings = yaml.safe_load(f)
-    dimensions_of_datapoint = perm_settings["grid"]["ncells"]
-    return dimensions_of_datapoint
+        pflotran_settings = yaml.safe_load(f)
+    return pflotran_settings
 
 
 def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoint: tuple):
@@ -115,42 +134,61 @@ def get_hp_location(data):
 class WelfordStatistics:
     """
     Track mean and variance of a stream of data using Welford's online algorithm.
+    Also track min and max
     The data passed in must be a dict of torch tensors.
     """
 
     def __init__(self):
-        self.ns = dict()
-        self.means = dict()
-        self.m2s = dict()
+        self.__ns = dict()
+        self.__means = dict()
+        self.__m2s = dict()
+        self.__mins = dict()
+        self.__maxs = dict()
 
     def add_data(self, x: dict):
         for key, value in x.items():
-            if key not in self.ns:
-                self.ns[key] = 0
-                self.means[key] = 0
-                self.m2s[key] = 0
+            if key not in self.__ns:
+                self.__ns[key] = 0
+                self.__means[key] = torch.zeros_like(value)
+                self.__m2s[key] = 0
+                self.__mins[key] = value.min()
+                self.__maxs[key] = value.max()
             # use Welford's online algorithm
-            self.ns[key] += 1
-            delta = value.mean() - self.means[key]
-            self.means[key] += delta/self.ns[key]
-            self.m2s[key] += delta*(value.mean() - self.means[key])
+            self.__ns[key] += 1
+            delta = value - self.__means[key]
+            self.__means[key] += delta/self.__ns[key]
+            self.__m2s[key] += delta*(value - self.__means[key].mean())
+            self.__mins[key] = torch.min(self.__mins[key], value.min())
+            self.__maxs[key] = torch.max(self.__maxs[key], value.max())
 
     def mean(self):
         result = dict()
-        for key in self.ns:
-            result[key] = self.means[key].item()
+        for key in self.__ns:
+            result[key] = self.__means[key].mean().item()
         return result
 
     def var(self):
         result = dict()
-        for key in self.ns:
-            result[key] = (self.m2s[key]/(self.ns[key]-1)).item()
+        for key in self.__ns:
+            result[key] = (self.__m2s[key]/(self.__ns[key]-1)).mean()
         return result
 
     def std(self):
         result = dict()
-        for key in self.ns:
+        for key in self.__ns:
             result[key] = (np.sqrt(self.var()[key])).item()
+        return result
+    
+    def min(self):
+        result = dict()
+        for key in self.__ns:
+            result[key] = self.__mins[key].item()
+        return result
+    
+    def max(self):
+        result = dict()
+        for key in self.__ns:
+            result[key] = self.__maxs[key].item()
         return result
 
 
@@ -160,13 +198,14 @@ def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool):
     if reduce_to_2D:
         transforms_list.append(ReduceTo2DTransform(
             reduce_to_2D_xy=reduce_to_2D_xy))
+    transforms_list.append(PowerOfTwoTransform())
     transforms_list.append(SignedDistanceTransform())
 
     transforms = ComposeTransform(transforms_list)
     return transforms
 
 
-def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: str, input_variables: str):
+def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: str, input_variables: str, name_extension: str = ""):
     """
     Create a dataset from the raw pflotran data in raw_data_path.
     The saved dataset is normalized using the mean and standard deviation, which are saved to info.yaml in the new dataset folder.
@@ -184,7 +223,7 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     """
     full_raw_path = check_for_dataset(raw_data_directory, dataset_name)
     datasets_path = pathlib.Path(datasets_path)
-    new_dataset_path = datasets_path.joinpath(dataset_name)
+    new_dataset_path = datasets_path.joinpath(dataset_name+name_extension)
     new_dataset_path.mkdir(parents=True, exist_ok=True)
     new_dataset_path.joinpath("Inputs").mkdir(parents=True, exist_ok=True)
     new_dataset_path.joinpath("Labels").mkdir(parents=True, exist_ok=True)
@@ -193,7 +232,10 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     input_variables = expand_property_names(input_variables)
     time_first = "   0 Time  0.00000E+00 y"
     time_final = "   3 Time  5.00000E+00 y"
-    dims = get_dimensions(full_raw_path)
+    pflotran_settings = get_pflotran_settings(full_raw_path)
+    dims = np.array(pflotran_settings["grid"]["ncells"])
+    total_size = np.array(pflotran_settings["grid"]["size"])
+    cell_size = total_size/dims
 
     calc = WelfordStatistics()
     tensor_transform = ToTensorTransform()
@@ -215,12 +257,21 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     info = dict()
     means = calc.mean()
     stds = calc.std()
+    mins = calc.min()
+    maxs = calc.max()
+    info["CellsSize"] = cell_size.tolist()
     info["Inputs"] = {key: {"mean": means[key],
                             "std": stds[key],
+                            "min": mins[key],
+                            "max": maxs[key],
+                            "norm": get_normalization_type(key),
                             "index": n}
                       for n, key in enumerate(input_variables)}
     info["Labels"] = {key: {"mean": means[key],
                             "std": stds[key],
+                            "min": mins[key],
+                            "max": maxs[key],
+                            "norm": get_normalization_type(key),
                             "index": n}
                       for n, key in enumerate(output_variables)}
     with open(os.path.join(new_dataset_path, "info.yaml"), "w") as file:
@@ -246,18 +297,17 @@ def normalize(dataset_path: str, info: dict, total: int = None):
             Total number of files to normalize. Used for tqdm progress bar.
 
     """
-    input_norm = NormalizeTransform(info["Inputs"])
-    label_norm = NormalizeTransform(info["Labels"])
+    norm = NormalizeTransform(info)
     dataset_path = pathlib.Path(dataset_path)
     input_path = dataset_path.joinpath("Inputs")
     label_path = dataset_path.joinpath("Labels")
     for input_file in tqdm(input_path.iterdir(), desc="Normalizing inputs", total=total):
         x = torch.load(input_file)
-        x = input_norm(x)
+        x = norm(x,"Inputs")
         torch.save(x, input_file)
     for label_file in tqdm(label_path.iterdir(), desc="Normalizing labels", total=total):
         y = torch.load(label_file)
-        y = label_norm(y)
+        y = norm(y,"Labels")
         torch.save(y, label_file)
 
 
@@ -278,4 +328,6 @@ if __name__ == "__main__":
         args.raw_dir,
         args.datasets_dir,
         args.dataset_name,
-        args.inputs)
+        args.inputs,
+        # name_extension="_power2trafo",
+        )
