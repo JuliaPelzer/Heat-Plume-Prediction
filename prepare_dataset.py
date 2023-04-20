@@ -81,9 +81,11 @@ def get_normalization_type(property:str):
         None: Do not normalize the data
     """
     types = {
-        "default": "Rescale",
-
+        "default": "Rescale", #Standardize
+        # "Material ID": "Rescale",
+        # "SDF": None,
     }
+    
     if property in types:
         return types[property]
     else:
@@ -196,14 +198,14 @@ def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool):
     if reduce_to_2D:
         transforms_list.append(ReduceTo2DTransform(
             reduce_to_2D_xy=reduce_to_2D_xy))
-    # transforms_list.append(PowerOfTwoTransform())
+    transforms_list.append(PowerOfTwoTransform())
     transforms_list.append(SignedDistanceTransform())
 
     transforms = ComposeTransform(transforms_list)
     return transforms
 
 
-def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: str, input_variables: str):
+def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: str, input_variables: str, name_extension: str = ""):
     """
     Create a dataset from the raw pflotran data in raw_data_path.
     The saved dataset is normalized using the mean and standard deviation, which are saved to info.yaml in the new dataset folder.
@@ -221,7 +223,7 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     """
     full_raw_path = check_for_dataset(raw_data_directory, dataset_name)
     datasets_path = pathlib.Path(datasets_path)
-    new_dataset_path = datasets_path.joinpath(dataset_name)
+    new_dataset_path = datasets_path.joinpath(dataset_name+name_extension)
     new_dataset_path.mkdir(parents=True, exist_ok=True)
     new_dataset_path.joinpath("Inputs").mkdir(parents=True, exist_ok=True)
     new_dataset_path.joinpath("Labels").mkdir(parents=True, exist_ok=True)
@@ -326,4 +328,6 @@ if __name__ == "__main__":
         args.raw_dir,
         args.datasets_dir,
         args.dataset_name,
-        args.inputs)
+        args.inputs,
+        # name_extension="_power2trafo",
+        )
