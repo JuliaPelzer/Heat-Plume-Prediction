@@ -23,13 +23,27 @@ class SettingsTraining:
     device: str
     epochs: int
     model_choice: str
-    finetune: bool
-    path_to_model: str
     name_folder_destination: str
     datasets_path: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets"
-
+    case: str = "train"
+    finetune: bool = False
+    path_to_model: str = None
+    test: bool = False
+    
     def __post_init__(self):
         self.path_to_model = os.path.join("runs", self.path_to_model)
+        if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:
+            self.finetune = True
+            self.case = "finetune"
+            assert self.path_to_model is not None, "Path to model is not defined"
+        elif self.case in ["test", "testing", "Test", "Testing", "TEST"]:
+            self.case = "test"
+            self.test = True
+            assert self.finetune is False, "Finetune is not possible in test mode"
+        else:
+            self.case = "train"
+            assert self.finetune is False, "Finetune is not possible in train mode"
+            assert self.test is False, "Test is not possible in train mode"
 
     def save(self):
         save_settings(self.__dict__, os.path.join(
