@@ -1,11 +1,12 @@
-from dataclasses import dataclass, field
-import numpy as np
-from math import inf
-import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import torch
 import logging
+from datetime import datetime
 from typing import Dict
+from math import inf
+import numpy as np
+import matplotlib.pyplot as plt
+import torch
+from dataclasses import dataclass, field
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from line_profiler_decorator import profiler
 
 from torch.utils.data import DataLoader
@@ -56,6 +57,7 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
             # get data
+            start_time = datetime.now()
             x = inputs[datapoint_id].to(device)
             x = torch.unsqueeze(x, 0)
             model.eval()
@@ -66,6 +68,10 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
             x = norm.reverse(x.detach().cpu().squeeze(), "Inputs")
             y = norm.reverse(y.detach().cpu(),"Labels")[0]
             y_out = norm.reverse(y_out.detach().cpu()[0],"Labels")[0]
+            logging.info(datapoint_id)
+            logging.info(f"Time of inference: {(datetime.now() - start_time).total_seconds()}s")
+            loc_max = y_out.argmax()
+            logging.info(f"Max temp: {y_out.max()} at {(loc_max%100, loc_max//100%1280, loc_max//100//1280%5)}")
 
             # calculate error
             error_current = y-y_out
