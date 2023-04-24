@@ -24,7 +24,7 @@ class SettingsTraining:
     epochs: int
     model_choice: str
     name_folder_destination: str
-    datasets_path: str = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets"
+    datasets_path: str = "/home/pelzerja/Development/dataset_generation_pflotran/Phd_simulation_groundtruth/datasets"
     case: str = "train"
     finetune: bool = False
     path_to_model: str = None
