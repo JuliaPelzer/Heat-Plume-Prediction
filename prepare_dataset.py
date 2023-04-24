@@ -232,6 +232,7 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     input_variables = expand_property_names(input_variables)
     time_first = "   0 Time  0.00000E+00 y"
     time_final = "   3 Time  5.00000E+00 y"
+    time_steady_state = "   4 Time  2.75000E+01 y"
     pflotran_settings = get_pflotran_settings(full_raw_path)
     dims = np.array(pflotran_settings["grid"]["ncells"])
     total_size = np.array(pflotran_settings["grid"]["size"])
@@ -244,7 +245,7 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     total = len(datapaths)
     for datapath, run in tqdm(zip(datapaths, runs), desc="Converting", total=total):
         x = load_data(datapath, time_first, input_variables, dims)
-        y = load_data(datapath, time_final, output_variables, dims)
+        y = load_data(datapath, time_steady_state, output_variables, dims)
         loc_hp = get_hp_location(x)
         x = transforms(x, loc_hp=loc_hp)
         calc.add_data(x)
@@ -329,5 +330,5 @@ if __name__ == "__main__":
         args.datasets_dir,
         args.dataset_name,
         args.inputs,
-        # name_extension="_power2trafo",
+        name_extension="_assumedsteadystate",
         )
