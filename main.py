@@ -2,7 +2,7 @@ import datetime as dt
 import logging
 import os
 import argparse
-from networks.models import create_model, load_model
+from networks.models import create_model, load_model, compare_models
 from networks.losses import create_loss_fn
 from torch import cuda, save
 from data.utils import SettingsTraining
@@ -69,6 +69,9 @@ def run(settings: SettingsTraining):
             solver.train(settings)
         except KeyboardInterrupt:
             logging.warning("Stopping training early")
+            logging.warning(f"Best model was found in epoch {solver.best_model_params['epoch']}.")
+            compare_models(model, solver.best_model_params["state_dict"])
+            
         finally:
             solver.save_lr_schedule(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "learning_rate_history.csv"))
     else:
