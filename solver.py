@@ -20,6 +20,7 @@ class Solver(object):
     learning_rate: float = 1e-5
     opt: Optimizer = Adam
     finetune: bool = False
+    best_model_params: dict = None
 
     def __post_init__(self):
         self.opt = self.opt(self.model.parameters(),
@@ -59,6 +60,16 @@ class Solver(object):
                     "learning_rate", self.opt.param_groups[0]["lr"], epoch)
                 epochs.set_postfix_str(
                     f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
+                
+                # Keep best model
+                if self.best_model_params is None or val_epoch_loss < self.best_model_params["loss"]:
+                    self.best_model_params = {
+                        "epoch": epoch,
+                        "loss": val_epoch_loss,
+                        "state_dict": self.model.state_dict(),
+                        "optimizer": self.opt.state_dict(),
+                        "parameters": self.model.parameters(),
+                    }
 
             except KeyboardInterrupt:
                 try:
@@ -69,6 +80,13 @@ class Solver(object):
                     for g in self.opt.param_groups:
                         g["lr"] = new_lr
                     self.lr_schedule[epoch] = self.opt.param_groups[0]["lr"]
+
+        # Apply best model params to model
+        self.model = self.model.load_state_dict(
+            self.best_model_params["state_dict"])
+        self.opt = self.opt.load_state_dict(
+            self.best_model_params["optimizer"])
+        print(f"Best model was found in epoch {self.best_model_params['epoch']}.")
 
     def run_epoch(self, dataloader: DataLoader, device: str):
         epoch_loss = 0.0
