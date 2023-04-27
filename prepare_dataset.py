@@ -261,6 +261,7 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     mins = calc.min()
     maxs = calc.max()
     info["CellsSize"] = cell_size.tolist()
+    info["CellsNumber"] = dims.tolist()
     info["Inputs"] = {key: {"mean": means[key],
                             "std": stds[key],
                             "min": mins[key],
@@ -317,11 +318,13 @@ if __name__ == "__main__":
     # TODO reasonable defaults
     remote = True
     default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets"
+    default_target_dir="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets_prepared"
     if remote:
-        default_raw_dir = "/scratch/sgs/pelzerja/datasets"
+        default_raw_dir = "/scratch/sgs/pelzerja/datasets/1hp_boxes"
+        default_target_dir="/home/pelzerja/test_nn/1HP_NN/datasets_prepared"
     parser = argparse.ArgumentParser()
     parser.add_argument("--raw_dir", type=str, default=default_raw_dir)
-    parser.add_argument("--datasets_dir", type=str, default="datasets_prepared")
+    parser.add_argument("--datasets_dir", type=str, default=default_target_dir)
     parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100dp_vary_perm")
     parser.add_argument("--inputs", type=str, default="pksi")
     args = parser.parse_args()
