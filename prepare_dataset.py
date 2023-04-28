@@ -192,20 +192,21 @@ class WelfordStatistics:
         return result
 
 
-def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool):
+def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool = True):
     transforms_list = []
 
     if reduce_to_2D:
         transforms_list.append(ReduceTo2DTransform(
             reduce_to_2D_xy=reduce_to_2D_xy))
-    transforms_list.append(PowerOfTwoTransform())
+    if power2trafo:
+        transforms_list.append(PowerOfTwoTransform())
     transforms_list.append(SignedDistanceTransform())
 
     transforms = ComposeTransform(transforms_list)
     return transforms
 
 
-def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: str, input_variables: str, name_extension: str = ""):
+def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: str, input_variables: str, name_extension: str = "", power2trafo: bool = True, info:dict = None):
     """
     Create a dataset from the raw pflotran data in raw_data_path.
     The saved dataset is normalized using the mean and standard deviation, which are saved to info.yaml in the new dataset folder.
@@ -228,7 +229,7 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     new_dataset_path.joinpath("Inputs").mkdir(parents=True, exist_ok=True)
     new_dataset_path.joinpath("Labels").mkdir(parents=True, exist_ok=True)
 
-    transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True)
+    transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo)
     input_variables = expand_property_names(input_variables)
     time_first = "   0 Time  0.00000E+00 y"
     time_final = "   3 Time  5.00000E+00 y"
@@ -238,7 +239,7 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     total_size = np.array(pflotran_settings["grid"]["size"])
     cell_size = total_size/dims
 
-    calc = WelfordStatistics()
+    if info is None: calc = WelfordStatistics()
     tensor_transform = ToTensorTransform()
     output_variables = ["Temperature [C]"]
     datapaths, runs = detect_datapoints(full_raw_path)
@@ -248,34 +249,37 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
         y = load_data(datapath, time_steady_state, output_variables, dims)
         loc_hp = get_hp_location(x)
         x = transforms(x, loc_hp=loc_hp)
-        calc.add_data(x)
+        if info is None: calc.add_data(x) 
         x = tensor_transform(x)
         y = transforms(y, loc_hp=loc_hp)
-        calc.add_data(y)
+        if info is None: calc.add_data(y)
         y = tensor_transform(y)
         torch.save(x, os.path.join(new_dataset_path, "Inputs", f"{run}.pt"))
         torch.save(y, os.path.join(new_dataset_path, "Labels", f"{run}.pt"))
-    info = dict()
-    means = calc.mean()
-    stds = calc.std()
-    mins = calc.min()
-    maxs = calc.max()
+
+    if info is None:
+        info = dict()
+        means = calc.mean()
+        stds = calc.std()
+        mins = calc.min()
+        maxs = calc.max()
+        info["Inputs"] = {key: {"mean": means[key],
+                                "std": stds[key],
+                                "min": mins[key],
+                                "max": maxs[key],
+                                "norm": get_normalization_type(key),
+                                "index": n}
+                        for n, key in enumerate(input_variables)}
+        info["Labels"] = {key: {"mean": means[key],
+                                "std": stds[key],
+                                "min": mins[key],
+                                "max": maxs[key],
+                                "norm": get_normalization_type(key),
+                                "index": n}
+                        for n, key in enumerate(output_variables)}
+        
     info["CellsSize"] = cell_size.tolist()
     info["CellsNumber"] = dims.tolist()
-    info["Inputs"] = {key: {"mean": means[key],
-                            "std": stds[key],
-                            "min": mins[key],
-                            "max": maxs[key],
-                            "norm": get_normalization_type(key),
-                            "index": n}
-                      for n, key in enumerate(input_variables)}
-    info["Labels"] = {key: {"mean": means[key],
-                            "std": stds[key],
-                            "min": mins[key],
-                            "max": maxs[key],
-                            "norm": get_normalization_type(key),
-                            "index": n}
-                      for n, key in enumerate(output_variables)}
     with open(os.path.join(new_dataset_path, "info.yaml"), "w") as file:
         yaml.dump(info, file)
     normalize(new_dataset_path, info, total)
