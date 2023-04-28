@@ -325,7 +325,7 @@ if __name__ == "__main__":
     default_target_dir="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets_prepared"
     if remote:
         default_raw_dir = "/scratch/sgs/pelzerja/datasets/1hp_boxes"
-        default_target_dir="/home/pelzerja/test_nn/1HP_NN/datasets_prepared"
+        default_target_dir="/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN"
     parser = argparse.ArgumentParser()
     parser.add_argument("--raw_dir", type=str, default=default_raw_dir)
     parser.add_argument("--datasets_dir", type=str, default=default_target_dir)
