@@ -69,6 +69,8 @@ class SignedDistanceTransform:
             if "SDF" in data.keys():
                 loc_hp = nonzero(data["SDF"] == torch.max(
                     data["SDF"])).squeeze()
+                # TODO what happens if loc_hp returns more than one position (more than one hp in this box)
+                assert len(loc_hp) == 3, "loc_hp returns more than one position"
                 return loc_hp
 
         loc_hp = get_loc_hp()
