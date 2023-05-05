@@ -5,14 +5,14 @@ from torch import Tensor
 from dataclasses import dataclass
 import pathlib
 
-def load_settings(path: str, file_name="settings") -> Dict:
+def load_yaml(path: str, file_name="settings") -> Dict:
     path = pathlib.Path(path)
     with open(path.joinpath(f"{file_name}.yaml"), "r") as file:
-        settings = yaml.load(file)
+        settings = yaml.safe_load(file)
     return settings
 
 
-def save_settings(settings: Dict, path: str, name_file: str = "settings"):
+def save_yaml(settings: Dict, path: str, name_file: str = "settings"):
     path = pathlib.Path(path)
     with open(path.joinpath(f"{name_file}.yaml"), "w") as file:
         yaml.dump(settings, file)
@@ -46,5 +46,5 @@ class SettingsTraining:
             assert self.test is False, "Test is not possible in train mode"
 
     def save(self):
-        save_settings(self.__dict__, os.path.join(
+        save_yaml(self.__dict__, os.path.join(
             "runs", self.name_folder_destination), "settings_training")
