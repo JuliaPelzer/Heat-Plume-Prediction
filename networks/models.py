@@ -31,6 +31,7 @@ def load_model(model_params:Dict, path:str, file_name:str="model", device:str="c
 def compare_models(model_1, model_2):
     # source: https://discuss.pytorch.org/t/check-if-models-have-same-weights/4351/3
     try:
+        # can handle both: model2 being only a state_dict or a full model
         model_2 = model_2.state_dict()
     except:
         pass    
