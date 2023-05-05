@@ -8,7 +8,7 @@ import pathlib
 def load_yaml(path: str, file_name="settings") -> Dict:
     path = pathlib.Path(path)
     with open(path.joinpath(f"{file_name}.yaml"), "r") as file:
-        settings = yaml.load(file)
+        settings = yaml.safe_load(file)
     return settings
 
 
