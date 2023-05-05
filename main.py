@@ -13,6 +13,7 @@ from data.dataset import SimulationDataset
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
 import torch
+from torch.utils.tensorboard import SummaryWriter
 
 def init_data(settings: SettingsTraining, seed=1):
     dataset = SimulationDataset(

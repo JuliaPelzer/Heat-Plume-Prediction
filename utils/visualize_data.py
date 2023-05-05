@@ -134,7 +134,7 @@ def _plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, figsize_x:
 
     plt.suptitle("Datafields: Inputs, Output, Error")
     plt.savefig(f"{name_pic}.png")
-    plt.savefig(f"{name_pic}.svg")
+    # plt.savefig(f"{name_pic}.svg")
 
 def _plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, figsize_x: float = 38.4):
     # helper function to plot isolines of temperature out
