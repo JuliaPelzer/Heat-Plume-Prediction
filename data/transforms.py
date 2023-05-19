@@ -69,7 +69,6 @@ class SignedDistanceTransform:
             if "SDF" in data.keys():
                 loc_hp = nonzero(data["SDF"] == torch.max(
                     data["SDF"])).squeeze()
-                # TODO what happens if loc_hp returns more than one position (more than one hp in this box)
                 assert len(loc_hp) == 3, "loc_hp returns more than one position"
                 return loc_hp
 
@@ -81,7 +80,7 @@ class SignedDistanceTransform:
                     data["SDF"][index_x, index_y, index_z] = linalg.norm(
                         torch.tensor([index_x, index_y, index_z]).float() - loc_hp.float())
 
-        data["SDF"] = data["SDF"] / torch.max(data["SDF"])
+        data["SDF"] = 1 - data["SDF"] / torch.max(data["SDF"])
         logging.info("SignedDistanceTransform done")
         return data
 
@@ -210,3 +209,12 @@ class ToTensorTransform:
                     (result, data[prop].squeeze()[None, ...]), axis=0)
         logging.info("Converted data to torch.Tensor")
         return result
+
+
+if __name__ == "__main__":
+    trafo = ComposeTransform([SignedDistanceTransform()])
+    data = {"SDF": torch.zeros((9, 9, 2))}
+    data["SDF"][1,1,0] = 1
+    print(data["SDF"][:,:,0])
+    data = trafo(data)
+    print(data["SDF"])
