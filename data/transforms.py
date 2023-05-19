@@ -14,6 +14,22 @@ class NormalizeTransform:
         self.input_stats = self.info["Inputs"]
         self.label_stats = self.info["Labels"]
         self.out_min, self.out_max = out_range 
+
+    def __call__(self,data, type = "Inputs"):
+        for prop, stats in self.info[type].items():
+            index = stats["index"]
+            if index < data.shape[0]:
+                self.__apply_norm(data,index,stats)
+            else:
+                logging.warning(f"Index {index} might be in training data but not in this dataset")
+        return data
+    
+    def reverse(self,data,type = "Labels"):
+        for prop, stats in self.info[type].items():
+            index = stats["index"]
+            self.__reverse_norm(data,index,stats)
+        return data
+    
     def __apply_norm(self,data,index,stats):
         norm = stats["norm"]
         if norm == "Rescale":
@@ -25,6 +41,7 @@ class NormalizeTransform:
             pass
         else:
             raise ValueError(f"Normalization type '{stats['Norm']}' not recognized")
+        
     def __reverse_norm(self,data,index,stats):
         norm = stats["norm"]
         if norm == "Rescale":
@@ -36,17 +53,6 @@ class NormalizeTransform:
             pass
         else:
             raise ValueError(f"Normalization type '{stats['Norm']}' not recognized")
-    def __call__(self,data, type = "Inputs"):
-        for prop, stats in self.info[type].items():
-            index = stats["index"]
-            self.__apply_norm(data,index,stats)
-        return data
-    def reverse(self,data,type = "Labels"):
-        for prop, stats in self.info[type].items():
-            index = stats["index"]
-            self.__reverse_norm(data,index,stats)
-        return data
-
 
 class SignedDistanceTransform:
     """
@@ -69,19 +75,26 @@ class SignedDistanceTransform:
             if "SDF" in data.keys():
                 loc_hp = nonzero(data["SDF"] == torch.max(
                     data["SDF"])).squeeze()
-                assert len(loc_hp) == 3, "loc_hp returns more than one position"
+                if len(loc_hp) != 3:
+                    logging.warning("loc_hp returns more than one position")
                 return loc_hp
 
-        loc_hp = get_loc_hp()
-        data["SDF"] = data["SDF"].float()
-        for index_x in range(data["SDF"].shape[0]):
-            for index_y in range(data["SDF"].shape[1]):
-                for index_z in range(data["SDF"].shape[2]):
-                    data["SDF"][index_x, index_y, index_z] = linalg.norm(
-                        torch.tensor([index_x, index_y, index_z]).float() - loc_hp.float())
-
-        data["SDF"] = 1 - data["SDF"] / torch.max(data["SDF"])
+        data["SDF"] = self.sdf(data["SDF"].float(), get_loc_hp().float())
         logging.info("SignedDistanceTransform done")
+        return data
+    
+    def sdf(self, data: torch.tensor, loc_hp: torch.tensor):
+        for index_x in range(data.shape[0]):
+            for index_y in range(data.shape[1]):
+                try:
+                    for index_z in range(data.shape[2]):
+                        data[index_x, index_y, index_z] = linalg.norm(
+                            torch.tensor([index_x, index_y, index_z]).float() - loc_hp)
+                except IndexError:
+                    data[index_x, index_y] = linalg.norm(
+                        torch.tensor([index_x, index_y]).float() - loc_hp)
+
+        data = 1 - data / data.max()
         return data
 
 
