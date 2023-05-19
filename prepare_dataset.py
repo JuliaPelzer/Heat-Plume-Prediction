@@ -10,202 +10,6 @@ import pathlib
 import argparse
 
 
-def check_for_dataset(path: str, name: str) -> str:
-    """
-    Check if the dataset exists and is not empty.
-    Dataset should be in the following folder self.dataset_path/<dataset_name>
-    """
-    dataset_path_full = os.path.join(path, name)
-    if not os.path.exists(dataset_path_full):
-        raise ValueError(
-            f"Dataset {name} does not exist in {dataset_path_full}")
-    if len(os.listdir(dataset_path_full)) == 0:
-        raise ValueError(f"Dataset {name} is empty")
-    return dataset_path_full
-
-
-def detect_datapoints(raw_dataset_path: str):
-    """
-    Create the simulation dataset by preparing a list of samples
-    Simulation data are sorted in an ascending order by run number
-    :returns: (data_paths, runs) where:
-        - data_paths is a list containing paths to all simulation runs in the dataset, NOT the actual simulated data
-        - runs is a list containing one label per run
-    """
-    set_data_paths_runs, runs = [], []
-    found_dataset = False
-    raw_dataset_path = pathlib.Path(raw_dataset_path)
-
-    logging.info(f"Directory of currently used dataset is: {raw_dataset_path}")
-    for _, folders, _ in os.walk(raw_dataset_path):
-        for folder in folders:
-            for file in os.listdir(raw_dataset_path.joinpath(folder)):
-                if file == "pflotran.h5":
-                    set_data_paths_runs.append(
-                        (folder, raw_dataset_path.joinpath(folder, file)))
-                    found_dataset = True
-    # Sort the data and runs in ascending order
-    set_data_paths_runs = sorted(
-        set_data_paths_runs, key=lambda val: int(val[0].strip('RUN_')))
-    runs = [data_path[0] for data_path in set_data_paths_runs]
-    data_paths = [data_path[1] for data_path in set_data_paths_runs]
-    if not found_dataset:
-        raise ValueError(f"No dataset found in {raw_dataset_path}")
-    assert len(data_paths) == len(runs)
-
-    return data_paths, runs
-
-
-def expand_property_names(properties: str):
-    translation = {
-        "x": "Liquid X-Velocity [m_per_y]",
-        "y": "Liquid Y-Velocity [m_per_y]",
-        "z": "Liquid Z-Velocity [m_per_y]",
-        "p": "Liquid Pressure [Pa]",
-        "t": "Temperature [C]",
-        "k": "Permeability X [m^2]",
-        "i": "Material ID",
-        "s": "SDF"
-    }
-    possible_vars = ','.join(translation.keys())
-    assert all((prop in possible_vars)
-               for prop in properties), f"input parameters have to be a string of characters, each of which is either {possible_vars}"
-    return [translation[prop] for prop in properties]
-
-def get_normalization_type(property:str):
-    """
-    Returns the normalization type for a given property
-    Types can be:
-        Rescale: Rescale the data to be between 0 and 1
-        Standardize: Standardize the data to have mean 0 and standard deviation 1
-        None: Do not normalize the data
-    """
-    types = {
-        "default": "Rescale", #Standardize
-        # "Material ID": "Rescale",
-        # "SDF": None,
-    }
-    
-    if property in types:
-        return types[property]
-    else:
-        return types["default"]
-
-
-
-def get_pflotran_settings(raw_dataset_path: str):
-    raw_dataset_path = pathlib.Path(raw_dataset_path)
-    with open(raw_dataset_path.joinpath("inputs", "settings.yaml"), "r") as f:
-        pflotran_settings = yaml.safe_load(f)
-    return pflotran_settings
-
-
-def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoint: tuple):
-    """
-    Load data from h5 file on data_path, but only the variables named in variables.get_ids() at time stamp variables.time
-    Sets the values of each PhysicalVariable in variables to the loaded data.
-    """
-    data = dict()
-    with h5py.File(data_path, "r") as file:
-        for key in variables:  # properties
-            try:
-                data[key] = torch.tensor(np.array(file[time][key]).reshape(
-                    dimensions_of_datapoint, order='F')).float()
-            except KeyError:
-                if key == "SDF":
-                    data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(
-                        dimensions_of_datapoint, order='F')).float()
-                else:
-                    raise KeyError(
-                        f"Key {key} not found in {data_path} at time {time}")
-    return data
-
-
-def get_hp_location(data):
-    try:  # TODO problematic with SDF?
-        ids = data["Material ID"]
-    except:
-        ids = data["SDF"]
-    max_id = ids.max()
-    loc_hp = np.array(np.where(ids == max_id)).squeeze()
-    return loc_hp
-
-
-class WelfordStatistics:
-    """
-    Track mean and variance of a stream of data using Welford's online algorithm.
-    Also track min and max
-    The data passed in must be a dict of torch tensors.
-    """
-
-    def __init__(self):
-        self.__ns = dict()
-        self.__means = dict()
-        self.__m2s = dict()
-        self.__mins = dict()
-        self.__maxs = dict()
-
-    def add_data(self, x: dict):
-        for key, value in x.items():
-            if key not in self.__ns:
-                self.__ns[key] = 0
-                self.__means[key] = torch.zeros_like(value)
-                self.__m2s[key] = 0
-                self.__mins[key] = value.min()
-                self.__maxs[key] = value.max()
-            # use Welford's online algorithm
-            self.__ns[key] += 1
-            delta = value - self.__means[key]
-            self.__means[key] += delta/self.__ns[key]
-            self.__m2s[key] += delta*(value - self.__means[key].mean())
-            self.__mins[key] = torch.min(self.__mins[key], value.min())
-            self.__maxs[key] = torch.max(self.__maxs[key], value.max())
-
-    def mean(self):
-        result = dict()
-        for key in self.__ns:
-            result[key] = self.__means[key].mean().item()
-        return result
-
-    def var(self):
-        result = dict()
-        for key in self.__ns:
-            result[key] = (self.__m2s[key]/(self.__ns[key]-1)).mean()
-        return result
-
-    def std(self):
-        result = dict()
-        for key in self.__ns:
-            result[key] = (np.sqrt(self.var()[key])).item()
-        return result
-    
-    def min(self):
-        result = dict()
-        for key in self.__ns:
-            result[key] = self.__mins[key].item()
-        return result
-    
-    def max(self):
-        result = dict()
-        for key in self.__ns:
-            result[key] = self.__maxs[key].item()
-        return result
-
-
-def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool = True):
-    transforms_list = []
-
-    if reduce_to_2D:
-        transforms_list.append(ReduceTo2DTransform(
-            reduce_to_2D_xy=reduce_to_2D_xy))
-    if power2trafo:
-        transforms_list.append(PowerOfTwoTransform())
-    transforms_list.append(SignedDistanceTransform())
-
-    transforms = ComposeTransform(transforms_list)
-    return transforms
-
-
 def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: str, input_variables: str, name_extension: str = "", power2trafo: bool = True, info:dict = None):
     """
     Create a dataset from the raw pflotran data in raw_data_path.
@@ -284,6 +88,193 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
         yaml.dump(info, file)
     normalize(new_dataset_path, info, total)
 
+## helper functions
+def check_for_dataset(path: str, name: str) -> str:
+    """
+    Check if the dataset exists and is not empty.
+    Dataset should be in the following folder self.dataset_path/<dataset_name>
+    """
+    dataset_path_full = os.path.join(path, name)
+    if not os.path.exists(dataset_path_full):
+        raise ValueError(
+            f"Dataset {name} does not exist in {dataset_path_full}")
+    if len(os.listdir(dataset_path_full)) == 0:
+        raise ValueError(f"Dataset {name} is empty")
+    return dataset_path_full
+
+def detect_datapoints(raw_dataset_path: str):
+    """
+    Create the simulation dataset by preparing a list of samples
+    Simulation data are sorted in an ascending order by run number
+    :returns: (data_paths, runs) where:
+        - data_paths is a list containing paths to all simulation runs in the dataset, NOT the actual simulated data
+        - runs is a list containing one label per run
+    """
+    set_data_paths_runs, runs = [], []
+    found_dataset = False
+    raw_dataset_path = pathlib.Path(raw_dataset_path)
+
+    logging.info(f"Directory of currently used dataset is: {raw_dataset_path}")
+    for _, folders, _ in os.walk(raw_dataset_path):
+        for folder in folders:
+            for file in os.listdir(raw_dataset_path.joinpath(folder)):
+                if file == "pflotran.h5":
+                    set_data_paths_runs.append(
+                        (folder, raw_dataset_path.joinpath(folder, file)))
+                    found_dataset = True
+    # Sort the data and runs in ascending order
+    set_data_paths_runs = sorted(
+        set_data_paths_runs, key=lambda val: int(val[0].strip('RUN_')))
+    runs = [data_path[0] for data_path in set_data_paths_runs]
+    data_paths = [data_path[1] for data_path in set_data_paths_runs]
+    if not found_dataset:
+        raise ValueError(f"No dataset found in {raw_dataset_path}")
+    assert len(data_paths) == len(runs)
+
+    return data_paths, runs
+
+def expand_property_names(properties: str):
+    translation = {
+        "x": "Liquid X-Velocity [m_per_y]",
+        "y": "Liquid Y-Velocity [m_per_y]",
+        "z": "Liquid Z-Velocity [m_per_y]",
+        "p": "Liquid Pressure [Pa]",
+        "t": "Temperature [C]",
+        "k": "Permeability X [m^2]",
+        "i": "Material ID",
+        "s": "SDF"
+    }
+    possible_vars = ','.join(translation.keys())
+    assert all((prop in possible_vars)
+               for prop in properties), f"input parameters have to be a string of characters, each of which is either {possible_vars}"
+    return [translation[prop] for prop in properties]
+
+def get_normalization_type(property:str):
+    """
+    Returns the normalization type for a given property
+    Types can be:
+        Rescale: Rescale the data to be between 0 and 1
+        Standardize: Standardize the data to have mean 0 and standard deviation 1
+        None: Do not normalize the data
+    """
+    types = {
+        "default": "Rescale", #Standardize
+        # "Material ID": "Rescale",
+        "SDF": None,
+    }
+    
+    if property in types:
+        return types[property]
+    else:
+        return types["default"]
+
+def get_pflotran_settings(raw_dataset_path: str):
+    raw_dataset_path = pathlib.Path(raw_dataset_path)
+    with open(raw_dataset_path.joinpath("inputs", "settings.yaml"), "r") as f:
+        pflotran_settings = yaml.safe_load(f)
+    return pflotran_settings
+
+def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoint: tuple):
+    """
+    Load data from h5 file on data_path, but only the variables named in variables.get_ids() at time stamp variables.time
+    Sets the values of each PhysicalVariable in variables to the loaded data.
+    """
+    data = dict()
+    with h5py.File(data_path, "r") as file:
+        for key in variables:  # properties
+            try:
+                data[key] = torch.tensor(np.array(file[time][key]).reshape(
+                    dimensions_of_datapoint, order='F')).float()
+            except KeyError:
+                if key == "SDF":
+                    data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(
+                        dimensions_of_datapoint, order='F')).float()
+                else:
+                    raise KeyError(
+                        f"Key {key} not found in {data_path} at time {time}")
+    return data
+
+def get_hp_location(data):
+    try:  # TODO problematic with SDF?
+        ids = data["Material ID"]
+    except:
+        ids = data["SDF"]
+    max_id = ids.max()
+    loc_hp = np.array(np.where(ids == max_id)).squeeze()
+    return loc_hp
+
+class WelfordStatistics:
+    """
+    Track mean and variance of a stream of data using Welford's online algorithm.
+    Also track min and max
+    The data passed in must be a dict of torch tensors.
+    """
+
+    def __init__(self):
+        self.__ns = dict()
+        self.__means = dict()
+        self.__m2s = dict()
+        self.__mins = dict()
+        self.__maxs = dict()
+
+    def add_data(self, x: dict):
+        for key, value in x.items():
+            if key not in self.__ns:
+                self.__ns[key] = 0
+                self.__means[key] = torch.zeros_like(value)
+                self.__m2s[key] = 0
+                self.__mins[key] = value.min()
+                self.__maxs[key] = value.max()
+            # use Welford's online algorithm
+            self.__ns[key] += 1
+            delta = value - self.__means[key]
+            self.__means[key] += delta/self.__ns[key]
+            self.__m2s[key] += delta*(value - self.__means[key].mean())
+            self.__mins[key] = torch.min(self.__mins[key], value.min())
+            self.__maxs[key] = torch.max(self.__maxs[key], value.max())
+
+    def mean(self):
+        result = dict()
+        for key in self.__ns:
+            result[key] = self.__means[key].mean().item()
+        return result
+
+    def var(self):
+        result = dict()
+        for key in self.__ns:
+            result[key] = (self.__m2s[key]/(self.__ns[key]-1)).mean()
+        return result
+
+    def std(self):
+        result = dict()
+        for key in self.__ns:
+            result[key] = (np.sqrt(self.var()[key])).item()
+        return result
+    
+    def min(self):
+        result = dict()
+        for key in self.__ns:
+            result[key] = self.__mins[key].item()
+        return result
+    
+    def max(self):
+        result = dict()
+        for key in self.__ns:
+            result[key] = self.__maxs[key].item()
+        return result
+
+def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool = True):
+    transforms_list = []
+
+    if reduce_to_2D:
+        transforms_list.append(ReduceTo2DTransform(
+            reduce_to_2D_xy=reduce_to_2D_xy))
+    if power2trafo:
+        transforms_list.append(PowerOfTwoTransform())
+    transforms_list.append(SignedDistanceTransform())
+
+    transforms = ComposeTransform(transforms_list)
+    return transforms
 
 def normalize(dataset_path: str, info: dict, total: int = None):
     """
