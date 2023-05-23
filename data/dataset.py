@@ -47,3 +47,6 @@ class SimulationDataset(Dataset):
         label = torch.load(self.path.joinpath(
             "Labels", self.label_names[index]))
         return input, label
+    
+    def get_run_id(self, index):
+        return self.input_names[index]

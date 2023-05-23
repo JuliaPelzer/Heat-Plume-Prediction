@@ -84,6 +84,7 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
         
     info["CellsSize"] = cell_size.tolist()
     info["CellsNumber"] = dims.tolist()
+    info["PositionLastHP"] = loc_hp.tolist()
     with open(os.path.join(new_dataset_path, "info.yaml"), "w") as file:
         yaml.dump(info, file)
     normalize(new_dataset_path, info, total)
@@ -311,9 +312,11 @@ def normalize(dataset_path: str, info: dict, total: int = None):
 if __name__ == "__main__":
 
     # TODO reasonable defaults
-    remote = True
-    default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets"
-    default_target_dir="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets_prepared"
+    remote = False
+    if os.path.exists("/scratch/sgs/pelzerja/"):
+        remote = True
+    default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets/1hp_boxes"
+    default_target_dir="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets_prepared/1HP_NN"
     if remote:
         default_raw_dir = "/scratch/sgs/pelzerja/datasets/1hp_boxes"
         default_target_dir="/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN"
