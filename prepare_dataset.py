@@ -196,7 +196,7 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
                         dimensions_of_datapoint, order='F')).float()
                 else:
                     raise KeyError(
-                        f"Key {key} not found in {data_path} at time {time}")
+                        f"Key '{key}' not found in {data_path} at time {time}")
     return data
 
 def get_hp_location(data):
