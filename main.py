@@ -109,9 +109,13 @@ if __name__ == "__main__":
     # level: DEBUG, INFO, WARNING, ERROR, CRITICAL
     logging.basicConfig(level=logging.WARNING)
 
-    parser = argparse.ArgumentParser()
+    remote = False
+    datasets_prepared = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
+    if os.path.exists("/scratch/sgs/pelzerja/"):
+        datasets_prepared = "/home/pelzerja/pelzerja/test_nn/datasets_prepared"
 
-    parser.add_argument("--datasets_path", type=str, default="/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--datasets_path", type=str, default=datasets_prepared)
     parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100datapoints_assumedsteadystate")
     # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
     parser.add_argument("--device", type=str, default="cuda:3")
