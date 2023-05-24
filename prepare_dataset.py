@@ -82,6 +82,10 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
                                 "index": n}
                         for n, key in enumerate(output_variables)}
         
+    if info is not None: 
+        info["CellsNumberPrior"] = info["CellsNumber"]
+        info["PositionHPPrior"] = info["PositionLastHP"]
+    assert info["CellsSize"] == cell_size.tolist(), "Cell size changed between given info.yaml and data"
     info["CellsSize"] = cell_size.tolist()
     info["CellsNumber"] = dims.tolist()
     info["PositionLastHP"] = loc_hp.tolist()
