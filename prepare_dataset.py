@@ -87,7 +87,14 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
                         for n, key in enumerate(output_variables)}
         
     info["CellsSize"] = cell_size.tolist()
-    info["CellsNumber"] = dims.tolist()
+    if power2trafo: 
+        # change of size possible; order of tensor is in any case the other way around
+        assert 1 in y.shape, "y is not expected to have several output parameters"
+        assert len(y.shape) == 3, "y is expected to be 2D"
+        dims = [y.shape[2], y.shape[1], y.shape[0]]
+    else:
+        dims = dims.tolist()
+    info["CellsNumber"] = dims
     info["PositionLastHP"] = loc_hp.tolist()
     with open(os.path.join(new_dataset_path, "info.yaml"), "w") as file:
         yaml.dump(info, file)
