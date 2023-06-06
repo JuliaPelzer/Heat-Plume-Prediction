@@ -24,7 +24,8 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
         dataset_name : str
             Name of the raw data. This will also be the name of the new dataset.
         input_variables : str
-            String of characters, each of which is either x, y, z, p, t, k, i, s.
+            String of characters, each of which is either x, y, z, p, t, k, i, s, g.
+            TODO make g (pressure gradient cell-size independent?)
     """
     full_raw_path = check_for_dataset(raw_data_directory, dataset_name)
     datasets_path = pathlib.Path(datasets_path)
@@ -154,7 +155,8 @@ def expand_property_names(properties: str):
         "t": "Temperature [C]",
         "k": "Permeability X [m^2]",
         "i": "Material ID",
-        "s": "SDF"
+        "s": "SDF",
+        "g": "Pressure Gradient [-]"
     }
     possible_vars = ','.join(translation.keys())
     assert all((prop in possible_vars)
@@ -201,6 +203,12 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
                 if key == "SDF":
                     data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(
                         dimensions_of_datapoint, order='F')).float()
+                elif key == "Pressure Gradient [-]":
+                    pressure = torch.tensor(np.array(file[time]["Liquid Pressure [Pa]"]).reshape(
+                        dimensions_of_datapoint, order='F')).float()
+                    data[key] = pressure[:, 1:, :] - pressure[:, :-1, :]
+                    first_row = pressure[:, 1, :] - pressure[:, 0, :]
+                    data[key] = torch.cat((first_row.unsqueeze(1), data[key]), dim=1)
                 else:
                     raise KeyError(
                         f"Key '{key}' not found in {data_path} at time {time}")
