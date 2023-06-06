@@ -20,6 +20,7 @@ def save_yaml(settings: Dict, path: str, name_file: str = "settings"):
 @dataclass
 class SettingsTraining:
     dataset_name: str
+    inputs_prep: str
     device: str
     epochs: int
     model_choice: str
