@@ -106,7 +106,7 @@ def _get_splits(n, splits):
     splits.append(n - sum(splits))
     return splits
 
-def set_paths(dataset_name: str):
+def set_paths(dataset_name: str, name_extension: str = None):
     # TODO reasonable defaults
     if os.path.exists("/scratch/sgs/pelzerja/"):
         default_raw_dir = "/scratch/sgs/pelzerja/datasets/1hp_boxes"
@@ -115,7 +115,7 @@ def set_paths(dataset_name: str):
         default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets/1hp_boxes"
         datasets_prepared_dir = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
     
-    dataset_prepared_path = os.path.join(datasets_prepared_dir, dataset_name)
+    dataset_prepared_path = os.path.join(datasets_prepared_dir, dataset_name, name_extension)
 
     return default_raw_dir, datasets_prepared_dir, dataset_prepared_path
 
@@ -135,7 +135,8 @@ if __name__ == "__main__":
     parser.add_argument("--inputs_prep", type=str, default="pksi")
     args = parser.parse_args()
     
-    default_raw_dir, datasets_prepared_dir, dataset_prepared_full_path = set_paths(args.dataset_name)
+    name_extension = "_grad_p"
+    default_raw_dir, datasets_prepared_dir, dataset_prepared_full_path = set_paths(args.dataset_name, name_extension)
     args.datasets_path = datasets_prepared_dir
 
     # prepare dataset if not done yet
@@ -143,9 +144,12 @@ if __name__ == "__main__":
         prepare_dataset(raw_data_directory = default_raw_dir,
                         datasets_path = datasets_prepared_dir,
                         dataset_name = args.dataset_name,
-                        input_variables = args.inputs_prep)
+                        input_variables = args.inputs_prep,
+                        name_extension=name_extension,)
+
     else:
         print(f"Dataset {dataset_prepared_full_path} already prepared")
+    args.dataset_name += name_extension
 
     settings = SettingsTraining(**vars(args))
     if settings.name_folder_destination == "":
