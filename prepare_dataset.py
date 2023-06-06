@@ -60,8 +60,12 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
         y = tensor_transform(y)
         torch.save(x, os.path.join(new_dataset_path, "Inputs", f"{run}.pt"))
         torch.save(y, os.path.join(new_dataset_path, "Labels", f"{run}.pt"))
-
-    if info is None:
+        
+    if info is not None: 
+        info["CellsNumberPrior"] = info["CellsNumber"]
+        info["PositionHPPrior"] = info["PositionLastHP"]
+        assert info["CellsSize"] == cell_size.tolist(), "Cell size changed between given info.yaml and data"
+    else:
         info = dict()
         means = calc.mean()
         stds = calc.std()
@@ -82,10 +86,6 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
                                 "index": n}
                         for n, key in enumerate(output_variables)}
         
-    if info is not None: 
-        info["CellsNumberPrior"] = info["CellsNumber"]
-        info["PositionHPPrior"] = info["PositionLastHP"]
-    assert info["CellsSize"] == cell_size.tolist(), "Cell size changed between given info.yaml and data"
     info["CellsSize"] = cell_size.tolist()
     info["CellsNumber"] = dims.tolist()
     info["PositionLastHP"] = loc_hp.tolist()
@@ -320,7 +320,7 @@ if __name__ == "__main__":
     if os.path.exists("/scratch/sgs/pelzerja/"):
         remote = True
     default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets/1hp_boxes"
-    default_target_dir="/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets_prepared/1HP_NN"
+    default_target_dir = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
     if remote:
         default_raw_dir = "/scratch/sgs/pelzerja/datasets/1hp_boxes"
         default_target_dir="/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN"
@@ -335,5 +335,4 @@ if __name__ == "__main__":
         args.datasets_dir,
         args.dataset_name,
         args.inputs,
-        name_extension="_assumedsteadystate",
         )
