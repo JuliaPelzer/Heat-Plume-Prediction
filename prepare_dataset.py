@@ -204,11 +204,9 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
                     data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(
                         dimensions_of_datapoint, order='F')).float()
                 elif key == "Pressure Gradient [-]":
-                    pressure = torch.tensor(np.array(file[time]["Liquid Pressure [Pa]"]).reshape(
-                        dimensions_of_datapoint, order='F')).float()
-                    data[key] = pressure[:, 1:, :] - pressure[:, :-1, :]
-                    first_row = pressure[:, 1, :] - pressure[:, 0, :]
-                    data[key] = torch.cat((first_row.unsqueeze(1), data[key]), dim=1)
+                    empty_field = torch.ones(list(dimensions_of_datapoint)).float()
+                    pressure_grad = get_pressure_gradient(data_path)
+                    data[key] = empty_field * pressure_grad[1]
                 else:
                     raise KeyError(
                         f"Key '{key}' not found in {data_path} at time {time}")
@@ -222,6 +220,15 @@ def get_hp_location(data):
     max_id = ids.max()
     loc_hp = np.array(np.where(ids == max_id)).squeeze()
     return loc_hp
+
+def get_pressure_gradient(data_path):
+    pressure_grad_file = data_path.parent.joinpath("pressure_gradient.txt")
+    with open(pressure_grad_file, "r") as f:
+        pressure_grad = f.read().split()[1:]
+    pressure_grad = torch.tensor([float(grad) for grad in pressure_grad])
+
+    return pressure_grad
+
 
 class WelfordStatistics:
     """

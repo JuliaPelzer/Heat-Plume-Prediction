@@ -115,7 +115,7 @@ def set_paths(dataset_name: str, name_extension: str = None):
         default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets/1hp_boxes"
         datasets_prepared_dir = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
     
-    dataset_prepared_path = os.path.join(datasets_prepared_dir, dataset_name, name_extension)
+    dataset_prepared_path = os.path.join(datasets_prepared_dir, dataset_name+name_extension)
 
     return default_raw_dir, datasets_prepared_dir, dataset_prepared_path
 
@@ -146,6 +146,7 @@ if __name__ == "__main__":
                         dataset_name = args.dataset_name,
                         input_variables = args.inputs_prep,
                         name_extension=name_extension,)
+        print(f"Dataset {dataset_prepared_full_path} prepared")
 
     else:
         print(f"Dataset {dataset_prepared_full_path} already prepared")
