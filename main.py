@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import random_split
 import torch
 from torch.utils.tensorboard import SummaryWriter
+from prepare_dataset import prepare_dataset
 
 def init_data(settings: SettingsTraining, seed=1):
     dataset = SimulationDataset(
@@ -105,18 +106,25 @@ def _get_splits(n, splits):
     splits.append(n - sum(splits))
     return splits
 
+def set_paths(dataset_name: str):
+    # TODO reasonable defaults
+    if os.path.exists("/scratch/sgs/pelzerja/"):
+        default_raw_dir = "/scratch/sgs/pelzerja/datasets/1hp_boxes"
+        datasets_prepared_dir="/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN"
+    else:
+        default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets/1hp_boxes"
+        datasets_prepared_dir = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
+    
+    dataset_prepared_path = os.path.join(datasets_prepared_dir, dataset_name)
+
+    return default_raw_dir, datasets_prepared_dir, dataset_prepared_path
+
 if __name__ == "__main__":
     # level: DEBUG, INFO, WARNING, ERROR, CRITICAL
     logging.basicConfig(level=logging.WARNING)
-
-    remote = False
-    datasets_prepared = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
-    if os.path.exists("/scratch/sgs/pelzerja/"):
-        datasets_prepared = "/home/pelzerja/pelzerja/test_nn/datasets_prepared"
-
+        
     parser = argparse.ArgumentParser()
-    parser.add_argument("--datasets_path", type=str, default=datasets_prepared)
-    parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100datapoints_assumedsteadystate")
+    parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100datapoints")
     # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
     parser.add_argument("--device", type=str, default="cuda:3")
     parser.add_argument("--epochs", type=int, default=30000)
@@ -124,7 +132,20 @@ if __name__ == "__main__":
     parser.add_argument("--path_to_model", type=str, default="benchmarkPLUSdataset_2d_100dp_vary_hp_loc/unet_inputs_pk_MatID_noPowerOf2") # for finetuning or testing
     parser.add_argument("--model_choice", type=str, default="unet")
     parser.add_argument("--name_folder_destination", type=str, default="")
+    parser.add_argument("--inputs_prep", type=str, default="pksi")
     args = parser.parse_args()
+    
+    default_raw_dir, datasets_prepared_dir, dataset_prepared_full_path = set_paths(args.dataset_name)
+    args.datasets_path = datasets_prepared_dir
+
+    # prepare dataset if not done yet
+    if not os.path.exists(dataset_prepared_full_path):
+        prepare_dataset(raw_data_directory = default_raw_dir,
+                        datasets_path = datasets_prepared_dir,
+                        dataset_name = args.dataset_name,
+                        input_variables = args.inputs_prep)
+    else:
+        print(f"Dataset {dataset_prepared_full_path} already prepared")
 
     settings = SettingsTraining(**vars(args))
     if settings.name_folder_destination == "":
