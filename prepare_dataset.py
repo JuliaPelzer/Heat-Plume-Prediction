@@ -88,15 +88,13 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
                         for n, key in enumerate(output_variables)}
         
     info["CellsSize"] = cell_size.tolist()
-    if power2trafo: 
-        # change of size possible; order of tensor is in any case the other way around
-        assert 1 in y.shape, "y is not expected to have several output parameters"
-        assert len(y.shape) == 3, "y is expected to be 2D"
-        dims = [y.shape[2], y.shape[1], y.shape[0]]
-    else:
-        dims = dims.tolist()
+    # change of size possible; order of tensor is in any case the other way around
+    assert 1 in y.shape, "y is not expected to have several output parameters"
+    assert len(y.shape) == 3, "y is expected to be 2D"
+    dims = list(y.shape)[1:]
     info["CellsNumber"] = dims
-    info["PositionLastHP"] = loc_hp.tolist()
+    info["PositionLastHP"] = get_hp_location_from_tensor(x, info)
+    print(info["PositionLastHP"])
     with open(os.path.join(new_dataset_path, "info.yaml"), "w") as file:
         yaml.dump(info, file)
     normalize(new_dataset_path, info, total)
@@ -219,6 +217,14 @@ def get_hp_location(data):
         ids = data["SDF"]
     max_id = ids.max()
     loc_hp = np.array(np.where(ids == max_id)).squeeze()
+    return loc_hp
+
+def get_hp_location_from_tensor(data: torch.Tensor, info: dict):
+    try:
+        idx = info["Inputs"]["Material ID"]["index"]
+    except:
+        idx = info["Inputs"]["SDF"]["index"]
+    loc_hp = torch.Tensor(torch.where(data[idx] == data[idx].max())).squeeze().int().tolist()
     return loc_hp
 
 def get_pressure_gradient(data_path):
