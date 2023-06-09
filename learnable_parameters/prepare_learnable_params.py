@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import sys
+import shutil
 import pathlib
 import torch
 from torch.utils.data import DataLoader
@@ -11,8 +12,9 @@ sys.path.append("/home/pelzerja/Development/1HP_NN")
 
 from data.dataset import SimulationDataset
 from utils.visualize_data import DataToVisualize
+from data.utils import load_yaml
 
-def main(dataset_path: str):
+def main_learnable_params(dataset_path: str):
     # main function to be called from outside
 
     dataset = SimulationDataset(dataset_path)
@@ -32,12 +34,12 @@ def main(dataset_path: str):
             y = norm.reverse(y.detach().cpu(),"Labels")[0]
 
             data_Temp = DataToVisualize(y, "Temperature True [°C]",domain_size_meters)
-            learnable_params = calc_learnable_parameters(data_Temp, domain_size_meters=domain_size_meters)
+            learnable_params = calc_learnable_params(data_Temp, domain_size_meters=domain_size_meters)
         
             run_id = dataset.get_run_id(datapoint_id)
             torch.save(learnable_params, os.path.join(dataset_path, "LearnableParams", run_id))
 
-def calc_learnable_parameters(datapoint: DataToVisualize, domain_size_meters: np.array = np.array([1280, 80])):
+def calc_learnable_params(datapoint: DataToVisualize, domain_size_meters: np.array = np.array([1280, 80])):
     # calc length and width of 1K - contour line
 
     loc_max_temp = datapoint.data.argmax()
@@ -74,6 +76,26 @@ def calc_learnable_parameters(datapoint: DataToVisualize, domain_size_meters: np
         
     return learnable_params
 
+def main_input_params(dataset_raw_path: pathlib.Path, destination_path: pathlib.Path):
+    # attention: expects the loc_hp to NOT vary over the dataset
+    
+    settings = load_yaml(os.path.join(dataset_raw_path, "inputs"))
+    loc_hp = settings["grid"]["loc_hp"]
+
+    for dir in dataset_raw_path.iterdir():
+        if dir.is_dir() and dir.name != "inputs":
+            run_id, permeability, pressure_gradient = get_input_params(dir)
+            input_params = torch.tensor([loc_hp[0], loc_hp[1], permeability, pressure_gradient])
+            torch.save(input_params, os.path.join(destination_path, "InputParams", run_id+".pt"))
+
+def get_input_params(dir: pathlib.Path):
+    name = dir.name
+    with open(os.path.join(dir, "permeability_iso.txt")) as f:
+        permeability = f.readline().split()[1]
+    with open(os.path.join(dir, "pressure_gradient.txt")) as f:
+        pressure_gradient = f.readline().split()[2]
+    return name, float(permeability), float(pressure_gradient)
+
 def test(dataset_path: str):
     # allows for visual verification of the learnable parameters
 
@@ -84,11 +106,23 @@ def test(dataset_path: str):
     plt.xticks([0, 256/6,256/3,256/2, 256])
     plt.show()
 
-
 if __name__ == "__main__":
-    datasets_path = "/home/pelzerja/Development/datasets_prepared/learn_parameters"
-    dataset_name = "benchmark_dataset_2d_100datapoints_5years"
-    dataset_path = pathlib.Path(os.path.join(datasets_path, dataset_name))
-    dataset_path.joinpath("LearnableParams").mkdir(parents=True, exist_ok=True)
+    # datasets_raw_path = "/home/pelzerja/Development/datasets/learn_parameters"
+    datasets_raw_path = "/scratch/sgs/pelzerja/datasets/1hp_boxes"
+    dataset_name = "benchmark_dataset_2d_100datapoints"
+    dataset_raw_path = pathlib.Path(os.path.join(datasets_raw_path, dataset_name))
 
-    main(dataset_path)
+    # datasets_prepared_1hp_path = "/home/pelzerja/Development/datasets_prepared/learn_parameters"
+    datasets_input_path = "/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN"
+    dataset_input_name = f"{dataset_name}_5years"
+    dataset_input_path = pathlib.Path(os.path.join(datasets_input_path, dataset_input_name))
+
+    datasets_target_path = "/home/pelzerja/pelzerja/test_nn/datasets_prepared/learn_parameters"
+    dataset_target_path = pathlib.Path(os.path.join(datasets_target_path, dataset_input_name))
+    shutil.copytree(dataset_input_path, dataset_target_path)
+ 
+    dataset_target_path.joinpath("InputParams").mkdir(parents=True, exist_ok=True)
+    main_input_params(dataset_raw_path, dataset_target_path)
+
+    dataset_target_path.joinpath("LearnableParams").mkdir(parents=True, exist_ok=True)
+    main_learnable_params(dataset_target_path)
