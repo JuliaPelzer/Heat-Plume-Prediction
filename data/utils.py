@@ -30,6 +30,7 @@ class SettingsTraining:
     finetune: bool = False
     path_to_model: str = None
     test: bool = False
+    name_extension: str = "" # extension of dataset name, e.g. _grad_p
     
     def __post_init__(self):
         self.path_to_model = os.path.join("runs", self.path_to_model)
