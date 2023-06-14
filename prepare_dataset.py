@@ -154,7 +154,8 @@ def expand_property_names(properties: str):
         "k": "Permeability X [m^2]",
         "i": "Material ID",
         "s": "SDF",
-        "g": "Pressure Gradient [-]"
+        "g": "Pressure Gradient [-]",
+        "o": "Original Temperature [C]"
     }
     possible_vars = ','.join(translation.keys())
     assert all((prop in possible_vars)
@@ -173,6 +174,7 @@ def get_normalization_type(property:str):
         "default": "Rescale", #Standardize
         # "Material ID": "Rescale",
         "SDF": None,
+        "Original Temperature [C]": None,
     }
     
     if property in types:
@@ -205,6 +207,10 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
                     empty_field = torch.ones(list(dimensions_of_datapoint)).float()
                     pressure_grad = get_pressure_gradient(data_path)
                     data[key] = empty_field * pressure_grad[1]
+                elif key == "Original Temperature [C]":
+                    empty_field = torch.ones(list(dimensions_of_datapoint)).float()
+                    data[key] = empty_field * 0 #10.6
+                    # TODO use torch.zeros instead
                 else:
                     raise KeyError(
                         f"Key '{key}' not found in {data_path} at time {time}")
