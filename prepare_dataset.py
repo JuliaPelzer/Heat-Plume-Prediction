@@ -93,8 +93,8 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     assert len(y.shape) == 3, "y is expected to be 2D"
     dims = list(y.shape)[1:]
     info["CellsNumber"] = dims
-    info["PositionLastHP"] = get_hp_location_from_tensor(x, info)
-    print(info["PositionLastHP"])
+    info["PositionLastHP"] = loc_hp.tolist()
+    # info["PositionLastHP"] = get_hp_location_from_tensor(x, info)
     with open(os.path.join(new_dataset_path, "info.yaml"), "w") as file:
         yaml.dump(info, file)
     normalize(new_dataset_path, info, total)
