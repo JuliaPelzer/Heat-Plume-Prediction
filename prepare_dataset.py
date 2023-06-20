@@ -235,8 +235,13 @@ def get_hp_location_from_tensor(data: torch.Tensor, info: dict):
 
 def get_pressure_gradient(data_path):
     pressure_grad_file = data_path.parent.joinpath("pressure_gradient.txt")
-    with open(pressure_grad_file, "r") as f:
-        pressure_grad = f.read().split()[1:]
+    pressure_grad_file_interim = data_path.parent.joinpath("interim_pressure_gradient.txt")
+    try:
+        with open(pressure_grad_file, "r") as f:
+            pressure_grad = f.read().split()[1:]
+    except FileNotFoundError:
+        with open(pressure_grad_file_interim, "r") as f:
+            pressure_grad = f.read().split()[1:]
     pressure_grad = torch.tensor([float(grad) for grad in pressure_grad])
 
     return pressure_grad
