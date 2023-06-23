@@ -10,6 +10,7 @@ from data.utils import SettingsTraining
 from solver import Solver
 from utils.visualize_data import plot_sample
 from utils.utils_networks import count_parameters, append_results_to_csv
+from utils.utils import beep
 from data.dataset import SimulationDataset
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
@@ -181,4 +182,7 @@ if __name__ == "__main__":
 
     settings.save()
     run(settings)
+    beep()
+
+
     # tensorboard --logdir runs/

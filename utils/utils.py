@@ -1,3 +1,4 @@
+import os
 from pynvml import *
 
 def sizeof_fmt(num, suffix="B"):
@@ -14,3 +15,14 @@ def get_memory_usage(device):
     print(f'total    : {sizeof_fmt(info.total)}')
     print(f'free     : {sizeof_fmt(info.free)}')
     print(f'used     : {sizeof_fmt(info.used)}')
+
+def beep():
+    duration = 0.05  # seconds
+    freq = 440  # Hz
+    os.system(f"play -nq -t alsa synth {duration} sine {freq}")
+    freq = 640  # Hz
+    os.system(f"play -nq -t alsa synth {duration} sine {freq}")
+
+
+if __name__ == "__main__":
+    beep()
