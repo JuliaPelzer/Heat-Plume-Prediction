@@ -65,7 +65,7 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     if info is not None: 
         info["CellsNumberPrior"] = info["CellsNumber"]
         info["PositionHPPrior"] = info["PositionLastHP"]
-        assert info["CellsSize"] == cell_size.tolist(), "Cell size changed between given info.yaml and data"
+        assert info["CellsSize"] == cell_size.tolist(), f"Cell size changed between given info.yaml {info['CellsSize']} and data {cell_size.tolist()}"
     else:
         info = dict()
         means = calc.mean()
