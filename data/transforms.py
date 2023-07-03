@@ -76,7 +76,7 @@ class SignedDistanceTransform:
                 loc_hp = nonzero(data["SDF"] == torch.max(
                     data["SDF"])).squeeze()
                 if len(loc_hp) != 3:
-                    logging.warning("loc_hp returns more than one position")
+                    logging.info(f"loc_hp returns more than one position: {loc_hp}")
                 return loc_hp
 
         data["SDF"] = self.sdf(data["SDF"].float(), get_loc_hp().float())
