@@ -138,16 +138,24 @@ def _plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, figsize_x:
 
 def _plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, figsize_x: float = 38.4):
     # helper function to plot isolines of temperature out
-    _, axes = plt.subplots(2, 1, sharex=True, figsize=(figsize_x, 3*2))
+    
+    if "Original Temperature [C]" in data.keys():
+        num_subplots = 3
+    else:
+        num_subplots = 2
+    _, axes = plt.subplots(num_subplots, 1, sharex=True, figsize=(figsize_x, 3*2))
 
-    for index, name in enumerate(["t_true", "t_out"]):
-        plt.sca(axes[index])
-        datapoint = data[name]
-        datapoint.data = torch.flip(datapoint.data, dims=[1])
-        plt.contourf(datapoint.data.T, **datapoint.contourfargs)
-        plt.ylabel("x [m]")
-        plt.xlabel("y [m]")
-        _aligned_colorbar(label=datapoint.name)
+    for index, name in enumerate(["t_true", "t_out", "Original Temperature [C]"]):
+        try:
+            plt.sca(axes[index])
+            datapoint = data[name]
+            datapoint.data = torch.flip(datapoint.data, dims=[1])
+            plt.contourf(datapoint.data.T, **datapoint.contourfargs)
+            plt.ylabel("x [m]")
+            plt.xlabel("y [m]")
+            _aligned_colorbar(label=datapoint.name)
+        except:
+            pass
 
     plt.suptitle(f"Isolines of Temperature [°C]")
     plt.savefig(f"{name_pic}_isolines.png")

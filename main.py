@@ -2,6 +2,7 @@ import datetime as dt
 import logging
 import os
 import argparse
+import pathlib
 from networks.models import create_model, load_model, compare_models
 from networks.losses import create_loss_fn
 from torch import cuda, save
@@ -18,8 +19,7 @@ from torch.utils.tensorboard import SummaryWriter
 from prepare_dataset import prepare_dataset
 
 def init_data(settings: SettingsTraining, seed=1):
-    dataset = SimulationDataset(
-        os.path.join(settings.datasets_path, settings.dataset_name))
+    dataset = SimulationDataset(os.path.join(settings.datasets_path, settings.dataset_name))
     generator = torch.Generator().manual_seed(seed)
 
     if settings.case in ["train", "finetune"]:
@@ -111,7 +111,7 @@ def set_paths(dataset_name: str, name_extension: str = None):
     # TODO reasonable defaults
     if os.path.exists("/scratch/sgs/pelzerja/"):
         default_raw_dir = "/scratch/sgs/pelzerja/datasets/1hp_boxes"
-        datasets_prepared_dir="/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN"
+        datasets_prepared_dir="/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN" # TODO CHANGE BACK TO 1HP_NN
     else:
         default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets/1hp_boxes"
         datasets_prepared_dir = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
@@ -119,6 +119,27 @@ def set_paths(dataset_name: str, name_extension: str = None):
     dataset_prepared_path = os.path.join(datasets_prepared_dir, dataset_name+name_extension)
 
     return default_raw_dir, datasets_prepared_dir, dataset_prepared_path
+
+def finetune_2HP_NN():
+    logging.basicConfig(level=logging.WARNING)
+    args = {}
+    args["device"] = "cuda:3"
+    args["epochs"] = 30000
+    args["model_choice"] = "unet"
+    args["case"] = "finetune"
+    args["path_to_model"] = "current_unet_benchmark_dataset_2d_100datapoints_input_empty_T_0"
+    args["datasets_path"] = "/home/pelzerja/pelzerja/test_nn/datasets_prepared/2HP_NN"
+    args["inputs_prep"] = "gksio"
+    args["dataset_name"] = "dataset_2hps_1fixed_100dp_2hp"
+    args["name_folder_destination"] = "2HP_NN_finetune_100dp" #f"current_{settings.model_choice}_{settings.dataset_name}"
+
+    settings = SettingsTraining(**args)
+
+    destination_dir = pathlib.Path(os.getcwd(), "runs", settings.name_folder_destination)
+    destination_dir.mkdir(parents=True, exist_ok=True)
+
+    settings.save()
+    run(settings)
 
 if __name__ == "__main__":
     # level: DEBUG, INFO, WARNING, ERROR, CRITICAL
@@ -156,11 +177,8 @@ if __name__ == "__main__":
     settings = SettingsTraining(**vars(args))
     if settings.name_folder_destination == "":
         settings.name_folder_destination = f"current_{settings.model_choice}_{settings.dataset_name}"
-
-    try:
-        os.mkdir(os.path.join(os.getcwd(), "runs", settings.name_folder_destination))
-    except FileExistsError:
-        pass
+    destination_dir = pathlib.Path(os.getcwd(), "runs", settings.name_folder_destination)
+    destination_dir.mkdir(parents=True, exist_ok=True)
 
     settings.save()
     run(settings)
