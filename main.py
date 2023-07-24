@@ -70,6 +70,7 @@ def run(settings: SettingsTraining):
         try:
             solver.load_lr_schedule(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "learning_rate_history.csv"))
             solver.train(settings)
+
         except KeyboardInterrupt:
             logging.warning("Stopping training early")
             logging.warning(f"Best model was found in epoch {solver.best_model_params['epoch']}.")
@@ -82,8 +83,9 @@ def run(settings: SettingsTraining):
         model = load_model({"model_choice": settings.model_choice, "in_channels": in_channels}, os.path.join(settings.path_to_model), "model", settings.device)
         model.to(settings.device)
 
-    # save model
-    save(model.state_dict(), os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "model.pt"))
+    if settings.case in ["train", "finetune"]:
+        # save model
+        save(model.state_dict(), os.path.join(os.getcwd(), "runs", settings.name_folder_destination, f"model_{solver.best_model_params['epoch']}_epochs.pt"))
 
     # visualization
     if settings.case in ["train", "finetune"]:
@@ -107,15 +109,17 @@ def _get_splits(n, splits):
     splits.append(n - sum(splits))
     return splits
 
-def set_paths(dataset_name: str, name_extension: str = None):
+def set_paths(datasets_path:str, dataset_name: str, name_extension: str = None):
     # TODO reasonable defaults
     if os.path.exists("/scratch/sgs/pelzerja/"):
         default_raw_dir = "/scratch/sgs/pelzerja/datasets/1hp_boxes"
-        datasets_prepared_dir="/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN" # TODO CHANGE BACK TO 1HP_NN
+        datasets_prepared_dir="/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN"
     else:
         default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets/1hp_boxes"
         datasets_prepared_dir = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
     
+    if os.path.exists(datasets_path):
+        datasets_prepared_dir = datasets_path
     dataset_prepared_path = os.path.join(datasets_prepared_dir, dataset_name+name_extension)
 
     return default_raw_dir, datasets_prepared_dir, dataset_prepared_path
@@ -146,6 +150,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
         
     parser = argparse.ArgumentParser()
+    parser.add_argument("--datasets_path", type=str, default="/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN")
     parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100datapoints")
     # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
     parser.add_argument("--device", type=str, default="cuda:3")
@@ -158,20 +163,19 @@ if __name__ == "__main__":
     parser.add_argument("--name_extension", type=str, default="") # _grad_p
     args = parser.parse_args()
     
-    default_raw_dir, datasets_prepared_dir, dataset_prepared_full_path = set_paths(args.dataset_name, args.name_extension)
-    args.datasets_path = datasets_prepared_dir
+    default_raw_dir, args.datasets_path, dataset_prepared_full_path = set_paths(args.datasets_path, args.dataset_name, args.name_extension)
 
     # prepare dataset if not done yet
-    if not os.path.exists(dataset_prepared_full_path):
-        prepare_dataset(raw_data_directory = default_raw_dir,
-                        datasets_path = datasets_prepared_dir,
-                        dataset_name = args.dataset_name,
-                        input_variables = args.inputs_prep,
-                        name_extension=args.name_extension,)
-        print(f"Dataset {dataset_prepared_full_path} prepared")
+    # if not os.path.exists(dataset_prepared_full_path):
+    #     prepare_dataset(raw_data_directory = default_raw_dir,
+    #                     datasets_path = args.datasets_path,
+    #                     dataset_name = args.dataset_name,
+    #                     input_variables = args.inputs_prep,
+    #                     name_extension=args.name_extension,)
+    #     print(f"Dataset {dataset_prepared_full_path} prepared")
 
-    else:
-        print(f"Dataset {dataset_prepared_full_path} already prepared")
+    # else:
+    #     print(f"Dataset {dataset_prepared_full_path} already prepared")
     args.dataset_name += args.name_extension
 
     settings = SettingsTraining(**vars(args))
