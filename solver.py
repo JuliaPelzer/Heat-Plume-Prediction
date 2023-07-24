@@ -2,6 +2,7 @@ import os
 from dataclasses import dataclass
 import logging
 from tqdm.auto import tqdm
+from torch import autograd
 from torch.optim import Adam, Optimizer
 from torch.nn import MSELoss, Module, modules
 from torch.utils.tensorboard import SummaryWriter
@@ -100,9 +101,10 @@ class Solver(object):
             y_pred = self.model(x)
 
             loss = None
-            loss = self.loss_func(y_pred, y)
+            loss = self.loss_func(y_pred, x, y) # TODO for physics loss (x,y) instead of y
 
             if self.model.training:
+                autograd.set_detect_anomaly(True)
                 loss.backward()
                 self.opt.step()
 

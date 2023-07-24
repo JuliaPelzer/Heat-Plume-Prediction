@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch
 from torch.nn import MSELoss
+from other_models.pinn.data_and_physics_loss import DataAndPhysicsLoss
 
 
 class MSELossExcludeNotChangedTemp(nn.MSELoss):
@@ -64,6 +65,8 @@ def create_loss_fn(loss_fn_str: str, dataloaders: dict = None):
         loss_fn = MSELossExcludeYBoundary()
     elif loss_fn_str == "Infinity":
         loss_fn = InfinityLoss()
+    elif loss_fn_str == "DataAndPhysicsLoss":
+        loss_fn = DataAndPhysicsLoss(norm=dataloaders["train"].dataset.dataset.norm)
     else:
         raise ValueError(f"loss_fn_str: {loss_fn_str} not implemented")
     return loss_fn

@@ -62,7 +62,7 @@ def run(settings: SettingsTraining):
 
     if settings.case in ["train", "finetune"]:
         # parameters of training
-        loss_fn_str = "MSE"
+        loss_fn_str = "DataAndPhysicsLoss"
         loss_fn = create_loss_fn(loss_fn_str, dataloaders)
         # training
         solver = Solver(model, dataloaders["train"], dataloaders["val"],
