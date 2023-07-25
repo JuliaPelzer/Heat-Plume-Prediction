@@ -11,6 +11,7 @@ from line_profiler_decorator import profiler
 
 from torch.utils.data import DataLoader
 from networks.unet import UNet
+from other_models.pinn.data_and_physics_loss import darcy, continuity, energy
 
 import matplotlib as mpl
 mpl.rcParams.update({'figure.max_open_warning': 0})
@@ -89,6 +90,29 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
                 "t_out": DataToVisualize(y_out, "Temperature Out [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
                 "error": DataToVisualize(torch.abs(error_current), "Abs. Error [°C]",extent_highs),
             }
+            
+            if True:
+                # continuity
+                params_physics = {"cell_length" : 5,
+                                "genuchten_m" : 0.5,
+                                "saturation_liquid_residual" : 0.1,
+                                "thermal_conductivity" : 1,
+                                }
+                p_orig = x[dataloader.dataset.dataset.get_channel(input_bool=True, property="Liquid Pressure [Pa]")]
+                k_orig = x[dataloader.dataset.dataset.get_channel(input_bool=True, property="Permeability X [m^2]")]
+                t_pred = y_out
+                t_label = y
+                q_u_pred, q_v_pred = darcy(p=p_orig, t=t_pred, k=k_orig, params=params_physics)
+                conti_pred = continuity(p_orig, t_pred, [q_u_pred, q_v_pred], params_physics)
+                energy_pred = energy(p_orig,  t_pred, [q_u_pred, q_v_pred], params_physics)
+                q_u_label, q_v_label = darcy(p=p_orig, t=t_label, k=k_orig, params=params_physics)
+                conti_label = continuity(p_orig, t_label, [q_u_label, q_v_label], params_physics)
+                energy_label = energy(p_orig,  t_label, [q_u_label, q_v_label], params_physics)
+                dict_to_plot["phys error q_u"] = DataToVisualize(torch.abs(q_u_pred-q_u_label), "q_u Error", extent_highs)
+                dict_to_plot["phys error q_v"] = DataToVisualize(torch.abs(q_v_pred-q_v_label), "q_v Error", extent_highs)
+                dict_to_plot["phys error continuity"] = DataToVisualize(torch.abs(conti_pred-conti_label), "Continuity Error", extent_highs)
+                dict_to_plot["phys error energy"] = DataToVisualize(torch.abs(energy_pred-energy_label), "Energy Error", extent_highs)
+            
             physical_vars = info["Inputs"].keys()
             for physical_var in physical_vars:
                 index = info["Inputs"][physical_var]["index"]

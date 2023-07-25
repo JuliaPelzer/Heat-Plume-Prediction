@@ -50,3 +50,9 @@ class SimulationDataset(Dataset):
     
     def get_run_id(self, index):
         return self.input_names[index]
+    
+    def get_channel(self, input_bool:bool, property:str):
+        if input_bool:
+            return self.info["Inputs"][property]["index"]
+        else:
+            return self.info["Labels"][property]["index"]
