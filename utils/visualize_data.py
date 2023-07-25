@@ -92,8 +92,12 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
             physical_vars = info["Inputs"].keys()
             for physical_var in physical_vars:
                 index = info["Inputs"][physical_var]["index"]
-                dict_to_plot[physical_var] = DataToVisualize(
+                try:
+                    dict_to_plot[physical_var] = DataToVisualize(
                     x[index], physical_var,extent_highs)
+                except:
+                    dict_to_plot[physical_var] = DataToVisualize(
+                    x[1], physical_var,extent_highs)
 
             name_pic = f"runs/{plot_name}_{current_id}"
             figsize_x = extent_highs[0]/extent_highs[1]*3
