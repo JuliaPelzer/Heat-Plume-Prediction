@@ -71,7 +71,7 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
             logging.info(datapoint_id)
             logging.info(f"Time of inference: {(datetime.now() - start_time).total_seconds()}s")
             loc_max = y_out.argmax()
-            logging.info(f"Max temp: {y_out.max()} at {(loc_max%100, loc_max//100%1280, loc_max//100//1280%5)}")
+            logging.info(f"Max temp: {y_out.max()} at {(loc_max%100, torch.div(loc_max,100)%1280, torch.div(torch.div(loc_max,100),1280)%5)}")
 
             # calculate error
             error_current = y-y_out
