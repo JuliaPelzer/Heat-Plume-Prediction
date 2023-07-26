@@ -66,7 +66,7 @@ def create_loss_fn(loss_fn_str: str, dataloaders: dict = None):
     elif loss_fn_str == "Infinity":
         loss_fn = InfinityLoss()
     elif loss_fn_str == "DataAndPhysicsLoss":
-        loss_fn = DataAndPhysicsLoss(norm=dataloaders["train"].dataset.dataset.norm)
+        loss_fn = DataAndPhysicsLoss(norm=dataloaders["train"].dataset.dataset.norm, weight_physics=1)
     else:
         raise ValueError(f"loss_fn_str: {loss_fn_str} not implemented")
     return loss_fn

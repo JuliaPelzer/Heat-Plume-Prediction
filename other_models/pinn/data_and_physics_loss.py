@@ -6,7 +6,7 @@ from typing import List
 from other_models.pinn.equations_of_state import eos_water_saturation_pressure_IFC67, eos_water_viscosity_1, eos_water_enthalpy, eos_water_density_IFC67, thermal_conductivity
 
 # main balance functions
-def darcy(p:np.ndarray, t:np.ndarray, k:np.ndarray, params:dict):
+def darcy(p:Tensor, t:Tensor, k:Tensor, params:dict):
     genuchten_m = params["genuchten_m"]
     saturation_liquid_residual = params["saturation_liquid_residual"]
     saturation = 1.0 * torch.ones_like(p)
@@ -22,14 +22,14 @@ def darcy(p:np.ndarray, t:np.ndarray, k:np.ndarray, params:dict):
 
     return q_u, q_v
 
-def continuity(p:np.ndarray, t:np.ndarray, q:List[np.ndarray], params:dict):
+def continuity(p:Tensor, t:Tensor, q:List[Tensor], params:dict):
     density, molar_density = eos_water_density_IFC67(t, p)
     dudx_cont = torch.gradient(molar_density * q[0], spacing=params["cell_length"])[1]
     dvdy_cont = torch.gradient(molar_density * q[1], spacing=params["cell_length"])[0]
     continuity = dudx_cont + dvdy_cont
     return continuity
 
-def energy(p:np.ndarray, t:np.ndarray, q:List[np.ndarray], params:dict):
+def energy(p:Tensor, t:Tensor, q:List[Tensor], params:dict):
     enthalpy = eos_water_enthalpy(t, p)
     thermal_conductivity = params["thermal_conductivity"]
     density, molar_density = eos_water_density_IFC67(t, p)
@@ -73,7 +73,7 @@ def van_genuchten(saturation, saturation_residual, saturation_max):
     """
     return (saturation-saturation_residual)/(saturation_max-saturation_residual)
 
-def van_genuchten_pc(alpha:float, m:float, capillary_pressure:np.ndarray):
+def van_genuchten_pc(alpha:float, m:float, capillary_pressure:Tensor):
     """
     PERMEABILITY_FUNCTION VAN_GENUCHTEN_PC, from https://documentation.pflotran.org/theory_guide/constitutive_relations.html
 
@@ -92,7 +92,8 @@ def van_genuchten_pc(alpha:float, m:float, capillary_pressure:np.ndarray):
 class DataAndPhysicsLoss(nn.modules.loss._Loss):
     def __init__(self, norm, weight_physics: float = 0.01) -> None:
         super(nn.modules.loss._Loss, self).__init__()
-        self.weight_physics = weight_physics
+        weight_init = weight_physics * 0.25
+        self.weights_physics = Tensor([1,1,1,1]) * weight_init
         self.params_physics = {"cell_length" : 5,
             "genuchten_m" : 0.5,
             "saturation_liquid_residual" : 0.1,
@@ -103,7 +104,10 @@ class DataAndPhysicsLoss(nn.modules.loss._Loss):
 
     def forward(self, prediction: Tensor, input: Tensor, target: Tensor) -> Tensor:
         # TODO whatabout BC, IC
-        # make tensor q_u_pred in size of target
+        input = input.clone()
+        target = target.clone()
+        prediction_local = prediction.detach().clone()
+
         q_u_pred = Tensor(target[:,0,:,:].shape)
         q_v_pred = Tensor(target[:,0,:,:].shape)
         conti_pred = Tensor(target[:,0,:,:].shape)
@@ -114,14 +118,14 @@ class DataAndPhysicsLoss(nn.modules.loss._Loss):
         energy_target = Tensor(target[:,0,:,:].shape)
 
         for datapoint_idx in range(input.shape[0]):
-            input[datapoint_idx] = self.norm.reverse(input[datapoint_idx], "Inputs")
-            target[datapoint_idx] = self.norm.reverse(target[datapoint_idx], "Labels")
-            prediction[datapoint_idx] = self.norm.reverse(prediction[datapoint_idx], "Labels")
+            input_dp = self.norm.reverse(input[datapoint_idx], "Inputs")
+            target_dp = self.norm.reverse(target[datapoint_idx], "Labels")
+            prediction_dp = self.norm.reverse(prediction_local[datapoint_idx], "Labels")
 
-            p_orig = input[datapoint_idx, 0, :, :]  # TODO make this more general (get index from info.yaml)
-            k_orig = input[datapoint_idx, 1, :, :]
-            t_target = target[datapoint_idx, 0, :, :]
-            t_pred = prediction[datapoint_idx, 0, :, :]
+            p_orig = input_dp[0]  # TODO make this more general (get index from info.yaml)
+            k_orig = input_dp[1]
+            t_target = target_dp[0]
+            t_pred = prediction_dp[0]
 
             q_u_pred_datapoint, q_v_pred_datapoint = darcy(p_orig, t_pred, k_orig, self.params_physics)
             conti_pred_datapoint = continuity(p_orig, t_pred, [q_u_pred_datapoint, q_v_pred_datapoint], self.params_physics)
@@ -130,17 +134,7 @@ class DataAndPhysicsLoss(nn.modules.loss._Loss):
             q_u_target_datapoint, q_v_target_datapoint = darcy(p_orig, t_target, k_orig, self.params_physics)
             conti_target_datapoint = continuity(p_orig, t_target, [q_u_target_datapoint, q_v_target_datapoint], self.params_physics)
             energy_target_datapoint = energy(p_orig, t_target, [q_u_target_datapoint, q_v_target_datapoint], self.params_physics)
-            if datapoint_idx == 0:
-                import matplotlib.pyplot as plt
-                fig = plt.figure()
-                ax1 = fig.add_subplot(211)
-                ax2 = fig.add_subplot(212)
-                ax1.imshow(q_v_pred_datapoint.cpu().detach().numpy().T)
-                ax1.set_title("q_v_pred")
-                ax2.imshow(q_v_target_datapoint.cpu().detach().numpy().T)
-                ax2.set_title("q_v_target")
-                plt.show()
-            # exit()
+
             q_u_pred[datapoint_idx] = q_u_pred_datapoint
             q_v_pred[datapoint_idx] = q_v_pred_datapoint
             conti_pred[datapoint_idx] = conti_pred_datapoint
@@ -150,4 +144,12 @@ class DataAndPhysicsLoss(nn.modules.loss._Loss):
             conti_target[datapoint_idx] = conti_target_datapoint
             energy_target[datapoint_idx] = energy_target_datapoint
 
-        return self.loss_func(prediction, target) + self.weight_physics/4 * (self.loss_func(q_u_pred, q_u_target) + self.loss_func(q_v_pred, q_v_target) + self.loss_func(conti_pred, conti_target) + self.loss_func(energy_pred, energy_target))
+        data_loss = (1-sum(self.weights_physics)) * self.loss_func(prediction, target)
+        physics_loss_qu = self.weights_physics[0] * self.loss_func(q_u_pred, q_u_target)
+        physics_loss_qv = self.weights_physics[1] * self.loss_func(q_v_pred, q_v_target)
+        physics_loss_conti = self.weights_physics[2] * self.loss_func(conti_pred, conti_target)
+        physics_loss_energy = self.weights_physics[3] * self.loss_func(energy_pred, energy_target)
+
+        # TODO + physics_loss_boundary + physics_loss_initial
+        # TODO include source terms ?
+        return data_loss + physics_loss_qu + physics_loss_qv + physics_loss_conti + physics_loss_energy

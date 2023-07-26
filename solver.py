@@ -10,6 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 from data.utils import SettingsTraining
 from networks.unet import weights_init
 from torch.utils.data import DataLoader
+from other_models.pinn.data_and_physics_loss import DataAndPhysicsLoss
 
 
 @dataclass
@@ -47,12 +48,11 @@ class Solver(object):
 
                 # Training
                 self.model.train()
-                train_epoch_loss = self.run_epoch(
-                    self.train_dataloader, device)
+                train_epoch_loss = self.run_epoch(self.train_dataloader, device, loss_func=self.loss_func) # with physics or data loss
 
                 # Validation
                 self.model.eval()
-                val_epoch_loss = self.run_epoch(self.val_dataloader, device)
+                val_epoch_loss = self.run_epoch(self.val_dataloader, device, loss_func=MSELoss())
 
                 # Logging
                 writer.add_scalar("train_loss", train_epoch_loss, epoch)
@@ -89,7 +89,9 @@ class Solver(object):
             self.best_model_params["optimizer"])
         print(f"Best model was found in epoch {self.best_model_params['epoch']}.")
 
-    def run_epoch(self, dataloader: DataLoader, device: str):
+    def run_epoch(self, dataloader: DataLoader, device: str, loss_func: modules.loss._Loss = None):
+        if loss_func is None:
+            loss_func = self.loss_func
         epoch_loss = 0.0
         for x, y in dataloader:
             x = x.to(device)
@@ -101,7 +103,10 @@ class Solver(object):
             y_pred = self.model(x)
 
             loss = None
-            loss = self.loss_func(y_pred, x, y) # TODO for physics loss (x,y) instead of y
+            if isinstance(loss_func, DataAndPhysicsLoss):
+                loss = loss_func(y_pred, x, y) # physics loss
+            else:
+                loss = loss_func(y_pred, y) # pure data loss
 
             if self.model.training:
                 autograd.set_detect_anomaly(True)
