@@ -16,13 +16,13 @@ def get_memory_usage(device):
     print(f'free     : {sizeof_fmt(info.free)}')
     print(f'used     : {sizeof_fmt(info.used)}')
 
-def beep():
+def beep(case:str="end"):
     duration = 0.05  # seconds
     freq = 440  # Hz
     os.system(f"play -nq -t alsa synth {duration} sine {freq}")
-    freq = 640  # Hz
-    os.system(f"play -nq -t alsa synth {duration} sine {freq}")
-
+    if case=="end":
+        freq = 640  # Hz
+        os.system(f"play -nq -t alsa synth {duration} sine {freq}")
 
 if __name__ == "__main__":
     beep()
