@@ -8,15 +8,15 @@ from networks.losses import create_loss_fn
 from torch import cuda, save
 from data.utils import SettingsTraining
 from solver import Solver
-from utils.visualize_data import plot_sample
+from utils.visualize_data import plot_sample, error_measurements
 from utils.utils_networks import count_parameters, append_results_to_csv
 from utils.utils import beep
 from data.dataset import SimulationDataset
-from torch.utils.data import DataLoader
-from torch.utils.data import random_split
+from torch.utils.data import DataLoader, random_split
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from prepare_dataset import prepare_dataset
+import time
 
 def init_data(settings: SettingsTraining, seed=1):
     dataset = SimulationDataset(os.path.join(settings.datasets_path, settings.dataset_name))
@@ -39,7 +39,8 @@ def init_data(settings: SettingsTraining, seed=1):
 
 
 def run(settings: SettingsTraining):
-    time_begin = dt.datetime.now()
+    time_begin = time.perf_counter()
+    timestamp_begin = time.ctime()
 
     dataset, dataloaders = init_data(settings)
 
@@ -69,8 +70,11 @@ def run(settings: SettingsTraining):
                         loss_func=loss_fn, finetune=settings.finetune)
         try:
             solver.load_lr_schedule(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "learning_rate_history.csv"))
+            time_initializations = time.perf_counter()
             solver.train(settings)
+            time_training = time.perf_counter()
         except KeyboardInterrupt:
+            time_training = time.perf_counter()
             logging.warning("Stopping training early")
             logging.warning(f"Best model was found in epoch {solver.best_model_params['epoch']}.")
             compare_models(model, solver.best_model_params["state_dict"])
@@ -86,15 +90,58 @@ def run(settings: SettingsTraining):
     save(model.state_dict(), os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "model.pt"))
 
     # visualization
+    avg_inference_times = []
     if settings.case in ["train", "finetune"]:
-        error_mean, final_max_error = plot_sample(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val_sample", amount_plots=10,)
-        error_mean, final_max_error = plot_sample(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train_sample", amount_plots=2,)
+        plot_sample(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val_sample", amount_plots=10,)
+        errors_val, avg_inference_time = error_measurements(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val")
+        avg_inference_times.append(avg_inference_time)
+
+        plot_sample(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train_sample", amount_plots=2,)
+        errors_train, avg_inference_time = error_measurements(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train")
+        avg_inference_times.append(avg_inference_time)
     else:
         plot_sample(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test_sample", amount_plots=10,)
+        errors_test, avg_inference_time = error_measurements(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test")
+        avg_inference_times.append(avg_inference_time)
+        
 
-    time_end = dt.datetime.now()
-    duration = f"{(time_end-time_begin).seconds//60} minutes {(time_end-time_begin).seconds%60} seconds"
+    time_end = time.perf_counter()
+    duration = f"{(time_end-time_begin)//60} minutes {(time_end-time_begin)%60} seconds"
     print(f"Experiment took {duration}")
+
+    # save measurements
+    with open(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "measurements.yaml"), "w") as f:
+        f.write(f"timestamp of beginning: {timestamp_begin}\n")
+        f.write(f"timestamp of end: {time.ctime()}\n")
+        f.write(f"duration of whole process including visualisation in seconds: {(time_end-time_begin)}\n")
+        f.write(f"duration of initializations in seconds: {time_initializations-time_begin}\n")
+        f.write(f"duration of training in seconds: {time_training-time_initializations}\n")
+        f.write(f"model: {settings.model_choice}\n")
+        f.write(f"number of input-channels: {in_channels}\n")
+        f.write(f"input params: {settings.inputs_prep}\n")
+        f.write(f"dataset location: {settings.datasets_path}\n")
+        f.write(f"dataset name: {settings.dataset_name}\n")
+        f.write(f"number of datapoints: {len(dataset)}\n")
+        f.write(f"name_destination_folder: {settings.name_folder_destination}\n")
+        f.write(f"number epochs: {settings.epochs}\n")
+        f.write(f"errors train: {errors_train}\n") if settings.case in ["train", "finetune"] else None
+        f.write(f"errors val: {errors_val}\n") if settings.case in ["train", "finetune"] else None
+        f.write(f"errors test: {errors_test}\n") if settings.case in ["test"] else None
+        f.write(f"avg inference times in seconds: {avg_inference_times}\n")
+        f.write(f"number parameters: {number_parameter}\n")
+        f.write(f"device: {settings.device}\n")
+        f.write(f"loss function: {loss_fn_str}\n")
+        f.write(f"case: {settings.case}\n")
+        if settings.case in ["test", "finetune"]:
+            f.write(f"path to pretrained model: {settings.path_to_model}\n")
+        f.write(f"best model found after epoch: {solver.best_model_params['epoch']}\n")
+        f.write(f"best model found with val loss: {solver.best_model_params['loss']}\n")
+        f.write(f"best model found with train loss: {solver.best_model_params['train loss']}\n")
+        f.write(f"best model found with val RMSE: {solver.best_model_params['val RMSE']}\n")
+        f.write(f"best model found with train RMSE: {solver.best_model_params['train RMSE']}\n")
+        f.write(f"best model found after training time in seconds: {solver.best_model_params['training time in sec']}\n")
+
+
 
     # logging
     if False:
@@ -182,7 +229,6 @@ if __name__ == "__main__":
 
     settings.save()
     run(settings)
-    beep()
 
-
-    # tensorboard --logdir runs/
+    # beep()
+    # tensorboard --logdir=runs/ --host localhost --port 8088

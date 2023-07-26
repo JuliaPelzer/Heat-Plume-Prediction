@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+import time
 from typing import Dict
 from math import inf
 import numpy as np
@@ -43,24 +43,22 @@ class DataToVisualize:
                             "extent": extent}
 
 def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: int = inf, plot_name: str = "default"):
-
     logging.warning("Plotting...")
-    error = []
-    error_mean = []
 
     if amount_plots > len(dataloader.dataset):
         amount_plots = len(dataloader.dataset)
 
-    current_id = 0
     norm = dataloader.dataset.dataset.norm
+    info = dataloader.dataset.dataset.info
+    model.eval()
+    current_id = 0
+
     for inputs, labels in dataloader:
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
             # get data
-            start_time = datetime.now()
             x = inputs[datapoint_id].to(device)
             x = torch.unsqueeze(x, 0)
-            model.eval()
             y_out = model(x).to(device)
 
             # reverse transform for plotting real values
@@ -69,25 +67,17 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
             y = norm.reverse(y.detach().cpu(),"Labels")[0]
             y_out = norm.reverse(y_out.detach().cpu()[0],"Labels")[0]
             logging.info(datapoint_id)
-            logging.info(f"Time of inference: {(datetime.now() - start_time).total_seconds()}s")
             loc_max = y_out.argmax()
             logging.info(f"Max temp: {y_out.max()} at {(loc_max%100, torch.div(loc_max,100)%1280, torch.div(torch.div(loc_max,100),1280)%5)}")
-
-            # calculate error
-            error_current = y-y_out
-            error.append(abs(error_current))
-            error_mean.append(
-                torch.mean(error_current).item())
 
             # plot temperature true, temperature out, error, physical variables
             temp_max = max(y.max(), y_out.max())
             temp_min = min(y.min(), y_out.min())
-            info = dataloader.dataset.dataset.info
             extent_highs = (np.array(info["CellsSize"][:2]) * y.shape)
             dict_to_plot = {
                 "t_true": DataToVisualize(y, "Temperature True [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
                 "t_out": DataToVisualize(y_out, "Temperature Out [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-                "error": DataToVisualize(torch.abs(error_current), "Abs. Error [°C]",extent_highs),
+                "error": DataToVisualize(torch.abs(y-y_out), "Abs. Error [°C]",extent_highs),
             }
             physical_vars = info["Inputs"].keys()
             for physical_var in physical_vars:
@@ -101,18 +91,70 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
             _plot_isolines(dict_to_plot, name_pic=name_pic, figsize_x=figsize_x)
             # _plot_temperature_field(dict_to_plot, name_pic=name_pic, figsize_x=figsize_x)
 
-            logging.info(f"Resulting pictures are at runs/{plot_name}_*")
-
             # if (current_id > 0 and current_id % 6 == 0) or current_id >= amount_plots-1:
             #     plt.close("all")
 
             if current_id >= amount_plots-1:
-                max_error = np.max(error[-1].cpu().numpy())
-                logging.info("Maximum error: ", max_error)
-                return error_mean, max_error
+                return None
             current_id += 1
 
-# @profiler        
+def error_measurements(model: UNet, dataloader: DataLoader, device: str, plot_name: str = "default"):
+
+    norm = dataloader.dataset.dataset.norm
+    info = dataloader.dataset.dataset.info
+    extent_highs = (np.array(info["CellsSize"][:2]) * dataloader.dataset[0][0][0].shape)
+    model.eval()
+
+    error_abs = []
+    error_mean = []
+    current_id = 0
+    avg_inference_time = 0
+    summed_error_pic = torch.zeros_like(dataloader.dataset[0][0][0])
+
+    for inputs, labels in dataloader:
+        len_batch = inputs.shape[0]
+        for datapoint_id in range(len_batch):
+            # get data
+            start_time = time.perf_counter()
+            x = inputs[datapoint_id].to(device)
+            x = torch.unsqueeze(x, 0)
+            y_out = model(x).to(device)
+
+            # reverse transform for plotting real values
+            y = labels[datapoint_id]
+            x = norm.reverse(x.detach().cpu().squeeze(), "Inputs")
+            y = norm.reverse(y.detach().cpu(),"Labels")[0]
+            y_out = norm.reverse(y_out.detach().cpu()[0],"Labels")[0]
+            avg_inference_time += (time.perf_counter() - start_time)
+
+            # calculate error
+            error_current = y-y_out
+            error_abs.append(torch.max(abs(error_current)))
+            error_mean.append(torch.mean(error_current).item())
+            summed_error_pic += abs(error_current)
+
+            current_id += 1
+
+        max_error = np.max(error_abs).item()
+        avg_inference_time = avg_inference_time / (current_id+1)
+        summed_error_pic = summed_error_pic / (current_id+1)
+        _plot_avg_pixel_error(summed_error_pic, plot_name, extent_highs)
+
+        return {"mean error in [°C]": np.average(error_mean), "max error in [°C]": max_error}, avg_inference_time
+
+
+def _plot_avg_pixel_error(data, plot_name:str, extent_highs:tuple):
+    extent = (0,int(extent_highs[0]),int(extent_highs[1]),0)
+    plt.figure()
+    plt.imshow(data.T, cmap="RdBu_r", extent=extent)
+    plt.gca().invert_yaxis()
+    plt.ylabel("x [m]")
+    plt.xlabel("y [m]")
+    plt.title("Pixelwise averaged Error [°C]")
+    _aligned_colorbar()
+    plt.savefig(f"runs/{plot_name}_pixelwise_avg_error.png")
+    plt.savefig(f"runs/{plot_name}_pixelwise_avg_error.svg")
+
 def _plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, figsize_x: float = 38.4):
     n_subplots = len(data)
     _, axes = plt.subplots(n_subplots, 1, sharex=True,

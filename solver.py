@@ -4,6 +4,7 @@ import logging
 from tqdm.auto import tqdm
 from torch.optim import Adam, Optimizer
 from torch.nn import MSELoss, Module, modules
+import time
 from torch.utils.tensorboard import SummaryWriter
 
 from data.utils import SettingsTraining
@@ -32,12 +33,13 @@ class Solver(object):
             self.model.apply(weights_init)
 
     def train(self, settings: SettingsTraining):
+        start_time = time.perf_counter()
         # initialize tensorboard
         writer = SummaryWriter(f"runs/{settings.name_folder_destination}")
         device = settings.device
         self.model = self.model.to(device)
 
-        epochs = tqdm(range(settings.epochs), desc="epochs", disable=False)
+        epochs = tqdm(range(settings.epochs), desc="epochs", disable=True)
         for epoch in epochs:
             try:
                 # Set lr according to schedule
@@ -66,9 +68,13 @@ class Solver(object):
                     self.best_model_params = {
                         "epoch": epoch,
                         "loss": val_epoch_loss,
+                        "train loss": train_epoch_loss,
+                        "val RMSE": val_epoch_loss**0.5, # TODO only true if loss_func == MSELoss()
+                        "train RMSE": train_epoch_loss**0.5, #TODO only true if loss_func == MSELoss()
                         "state_dict": self.model.state_dict(),
                         "optimizer": self.opt.state_dict(),
                         "parameters": self.model.parameters(),
+                        "training time in sec": (time.perf_counter() - start_time),
                     }
 
             except KeyboardInterrupt:
