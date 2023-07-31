@@ -1,13 +1,17 @@
-import os
+import argparse
 import logging
+import os
+import pathlib
+
 import h5py
 import numpy as np
-import yaml
 import torch
-from data.transforms import NormalizeTransform, ComposeTransform, ReduceTo2DTransform, ToTensorTransform, SignedDistanceTransform, PowerOfTwoTransform
+import yaml
 from tqdm.auto import tqdm
-import pathlib
-import argparse
+
+from data.transforms import (ComposeTransform, NormalizeTransform,
+                             PowerOfTwoTransform, ReduceTo2DTransform,
+                             SignedDistanceTransform, ToTensorTransform)
 
 
 def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: str, input_variables: str, name_extension: str = "", power2trafo: bool = True, info:dict = None):

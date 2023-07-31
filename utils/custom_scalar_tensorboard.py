@@ -1,11 +1,12 @@
 # + <
 # We need these to make a custom protocol buffer to display custom scalars.
 # See https://developers.google.com/protocol-buffers/
+#   > 
+import numpy as np
 import tensorflow as tf
 from tensorboard.plugins.custom_scalar import layout_pb2
 from tensorboard.summary.v1 import custom_scalar_pb
-#   > 
-import numpy as np
+
 
 def custom_scalar_tensorboard(train_loss:list, val_loss:list, name_folder: str = "default"):
     # Set up variables.

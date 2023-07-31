@@ -1,10 +1,12 @@
-import numpy as np
 from dataclasses import dataclass
+
 import analytical_model_lahm as lahm
 import analytical_model_pahm as pahm
 import analytical_model_rhm as rhm
 import analytical_steady_state_model_willibald as willibald
+import numpy as np
 import utils_and_visu as utils
+
 
 @dataclass
 class Domain:

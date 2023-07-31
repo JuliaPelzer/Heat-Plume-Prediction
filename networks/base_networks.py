@@ -1,8 +1,9 @@
 """Network base class"""
-from abc import ABC, abstractmethod
-import numpy as np
 import os
 import pickle
+from abc import ABC, abstractmethod
+
+import numpy as np
 
 """In Pytorch you would usually define the `forward` function which performs all the interesting computations"""
 

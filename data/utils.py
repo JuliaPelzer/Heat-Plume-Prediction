@@ -1,9 +1,11 @@
 import os
+import pathlib
+from dataclasses import dataclass
 from typing import Dict
+
 import yaml
 from torch import Tensor
-from dataclasses import dataclass
-import pathlib
+
 
 def load_yaml(path: str, file_name="settings") -> Dict:
     path = pathlib.Path(path)

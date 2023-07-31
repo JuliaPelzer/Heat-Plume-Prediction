@@ -1,12 +1,15 @@
-import sys
 import logging
-import numpy as np
+import sys
 from typing import Dict
-import torch.nn as nn
+
+import numpy as np
 import torch
-from networks.unet import UNet
+import torch.nn as nn
+
+from networks.dummy_network import DummyCNN, DummyNet
 from networks.turbnet import TurbNetG
-from networks.dummy_network import DummyNet, DummyCNN
+from networks.unet import UNet
+
 
 def create_model(model_choice: str, in_channels: int):
     """ takes model_choice-string and returns model """

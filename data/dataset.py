@@ -1,10 +1,13 @@
-import torch
 import os
+import pathlib
+
 import numpy as np
+import torch
 import yaml
 from torch.utils.data import Dataset
-import pathlib
+
 from data.transforms import NormalizeTransform
+
 
 class SimulationDataset(Dataset):
     def __init__(self, path):

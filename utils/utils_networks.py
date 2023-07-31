@@ -1,6 +1,8 @@
-from typing import Dict
 import csv
+from typing import Dict
+
 import pandas as pd
+
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)

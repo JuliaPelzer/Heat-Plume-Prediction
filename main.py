@@ -1,22 +1,25 @@
+import argparse
 import datetime as dt
 import logging
 import os
-import argparse
 import pathlib
-from networks.models import create_model, load_model, compare_models
-from networks.losses import create_loss_fn
-from torch import cuda, save
-from data.utils import SettingsTraining
-from solver import Solver
-from utils.visualize_data import plot_sample, error_measurements
-from utils.utils_networks import count_parameters, append_results_to_csv
-from utils.utils import beep
-from data.dataset import SimulationDataset
-from torch.utils.data import DataLoader, random_split
-import torch
-from torch.utils.tensorboard import SummaryWriter
-from prepare_dataset import prepare_dataset
 import time
+
+import torch
+from torch import cuda, save
+from torch.utils.data import DataLoader, random_split
+from torch.utils.tensorboard import SummaryWriter
+
+from data.dataset import SimulationDataset
+from data.utils import SettingsTraining
+from networks.losses import create_loss_fn
+from networks.models import compare_models, create_model, load_model
+from prepare_dataset import prepare_dataset
+from solver import Solver
+from utils.utils import beep
+from utils.utils_networks import append_results_to_csv, count_parameters
+from utils.visualize_data import error_measurements, plot_sample
+
 
 def init_data(settings: SettingsTraining, seed=1):
     dataset = SimulationDataset(os.path.join(settings.datasets_path, settings.dataset_name))

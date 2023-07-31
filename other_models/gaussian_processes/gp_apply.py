@@ -1,9 +1,10 @@
-from main import init_data
-from data.utils import SettingsTraining
+import matplotlib.pyplot as plt
+import numpy as np
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF
-import numpy as np
-import matplotlib.pyplot as plt
+
+from data.utils import SettingsTraining
+from main import init_data
 
 print("Loading data...")
 args = {"datasets_path": "datasets_prepared",

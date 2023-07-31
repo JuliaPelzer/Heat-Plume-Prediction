@@ -1,9 +1,10 @@
+import os
+import pathlib
+import shutil
+import sys
+
 import matplotlib.pyplot as plt
 import numpy as np
-import os
-import sys
-import shutil
-import pathlib
 import torch
 from torch.utils.data import DataLoader
 
@@ -11,8 +12,9 @@ sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN") # relevant for remote
 sys.path.append("/home/pelzerja/Development/1HP_NN")  
 
 from data.dataset import SimulationDataset
-from utils.visualize_data import DataToVisualize
 from data.utils import load_yaml
+from utils.visualize_data import DataToVisualize
+
 
 def main_learnable_params(dataset_path: str):
     # main function to be called from outside

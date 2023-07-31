@@ -1,7 +1,9 @@
 import pytest
 import torch
+
 import networks.losses
 from data.transforms import ComposeTransform, SignedDistanceTransform
+
 
 def test_sdf_transform():
     trafo = ComposeTransform([SignedDistanceTransform()])
@@ -59,6 +61,7 @@ def test_sdf_transform():
 
 def test_mselossexcludenotchangedtemp():
     import torch
+
     # Fixture
     tensor1 = torch.tensor([[10.6, 12], [12, 10.6]])
     tensor2 = torch.tensor([[10.6, 12], [10.6, 12]])

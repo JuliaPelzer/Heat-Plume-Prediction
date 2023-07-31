@@ -1,18 +1,19 @@
 import logging
 import time
-from typing import Dict
-from math import inf
-import numpy as np
-import matplotlib.pyplot as plt
-import torch
 from dataclasses import dataclass, field
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from line_profiler_decorator import profiler
-
-from torch.utils.data import DataLoader
-from networks.unet import UNet
+from math import inf
+from typing import Dict
 
 import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from line_profiler_decorator import profiler
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from torch.utils.data import DataLoader
+
+from networks.unet import UNet
+
 mpl.rcParams.update({'figure.max_open_warning': 0})
 
 # TODO: look at vispy library for plotting 3D data

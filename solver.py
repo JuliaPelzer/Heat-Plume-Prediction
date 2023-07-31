@@ -1,15 +1,16 @@
-import os
-from dataclasses import dataclass
 import logging
-from tqdm.auto import tqdm
-from torch.optim import Adam, Optimizer
-from torch.nn import MSELoss, Module, modules
+import os
 import time
+from dataclasses import dataclass
+
+from torch.nn import Module, MSELoss, modules
+from torch.optim import Adam, Optimizer
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from tqdm.auto import tqdm
 
 from data.utils import SettingsTraining
 from networks.unet import weights_init
-from torch.utils.data import DataLoader
 
 
 @dataclass
@@ -39,7 +40,7 @@ class Solver(object):
         device = settings.device
         self.model = self.model.to(device)
 
-        epochs = tqdm(range(settings.epochs), desc="epochs", disable=True)
+        epochs = tqdm(range(settings.epochs), desc="epochs", disable=False)
         for epoch in epochs:
             try:
                 # Set lr according to schedule

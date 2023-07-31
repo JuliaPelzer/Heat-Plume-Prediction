@@ -6,9 +6,10 @@ Analytical formula for groundwater thermal plumes
 @author: Smajil Halilovic
 """
 
+import csv
+
 import matplotlib.pyplot as plt
 import numpy as np
-import csv
 from scipy import special
 
 # reference point (center) for the coordinate system

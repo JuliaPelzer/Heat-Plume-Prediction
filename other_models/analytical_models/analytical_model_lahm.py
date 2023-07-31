@@ -1,11 +1,12 @@
 # Implementation of LAHM model and application to my dataset
-import numpy as np
-from scipy import special
-import matplotlib.pyplot as plt
-from matplotlib.patches import Ellipse
 from copy import copy
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 from typing import Dict
+
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.patches import Ellipse
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from scipy import special
 
 ###### Requirements etc
 # only applicable to:

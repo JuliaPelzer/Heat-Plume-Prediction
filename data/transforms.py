@@ -3,10 +3,12 @@ Definition of problem-specific transform classes
 """
 
 import logging
-import numpy as np
-from torch import unsqueeze, linalg, nonzero
-import torch
 from typing import Tuple
+
+import numpy as np
+import torch
+from torch import linalg, nonzero, unsqueeze
+
 
 class NormalizeTransform:
     def __init__(self,info:dict,out_range = (0,1)):

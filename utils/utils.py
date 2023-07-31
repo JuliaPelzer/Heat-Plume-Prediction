@@ -1,5 +1,7 @@
 import os
+
 from pynvml import *
+
 
 def sizeof_fmt(num, suffix="B"):
     for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:

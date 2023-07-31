@@ -1,10 +1,12 @@
-import numpy as np
-from scipy import special
-import matplotlib.pyplot as plt
-from matplotlib.patches import Ellipse
 from copy import copy
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 from typing import Dict
+
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.patches import Ellipse
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from scipy import special
+
 
 def ellipse_10_percent(inj_point, alpha_L, alpha_T):
     height = 4 * np.sqrt(alpha_L*alpha_T)

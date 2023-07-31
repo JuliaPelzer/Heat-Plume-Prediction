@@ -1,8 +1,8 @@
+import analytical_model_lahm as lahm
+import benchmark_analytical as bm_lahm
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy import special
-import matplotlib.pyplot as plt
-import benchmark_analytical as bm_lahm
-import analytical_model_lahm as lahm
 
 # # Implementation of LAHM model and application to my dataset
 
