@@ -110,12 +110,13 @@ def run(settings: SettingsTraining):
     print(f"Experiment took {duration}")
 
     # save measurements
-    with open(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "measurements.yaml"), "w") as f:
+    with open(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, f"measurements_{settings.case}.yaml"), "w") as f:
         f.write(f"timestamp of beginning: {timestamp_begin}\n")
         f.write(f"timestamp of end: {time.ctime()}\n")
         f.write(f"duration of whole process including visualisation in seconds: {(time_end-time_begin)}\n")
-        f.write(f"duration of initializations in seconds: {time_initializations-time_begin}\n")
-        f.write(f"duration of training in seconds: {time_training-time_initializations}\n")
+        if settings.case in ["train", "finetune"]: 
+            f.write(f"duration of initializations in seconds: {time_initializations-time_begin}\n")
+            f.write(f"duration of training in seconds: {time_training-time_initializations}\n")
         f.write(f"model: {settings.model_choice}\n")
         f.write(f"number of input-channels: {in_channels}\n")
         f.write(f"input params: {settings.inputs_prep}\n")
@@ -124,22 +125,25 @@ def run(settings: SettingsTraining):
         f.write(f"number of datapoints: {len(dataset)}\n")
         f.write(f"name_destination_folder: {settings.name_folder_destination}\n")
         f.write(f"number epochs: {settings.epochs}\n")
-        f.write(f"errors train: {errors_train}\n") if settings.case in ["train", "finetune"] else None
-        f.write(f"errors val: {errors_val}\n") if settings.case in ["train", "finetune"] else None
-        f.write(f"errors test: {errors_test}\n") if settings.case in ["test"] else None
+        if settings.case in ["train", "finetune"]: 
+            f.write(f"errors train: {errors_train}\n")
+            f.write(f"errors val: {errors_val}\n")
+        else:
+            f.write(f"errors test: {errors_test}\n")
         f.write(f"avg inference times in seconds: {avg_inference_times}\n")
         f.write(f"number parameters: {number_parameter}\n")
         f.write(f"device: {settings.device}\n")
-        f.write(f"loss function: {loss_fn_str}\n")
         f.write(f"case: {settings.case}\n")
-        if settings.case in ["test", "finetune"]:
+        if settings.case in ["test", "finetune"]: 
             f.write(f"path to pretrained model: {settings.path_to_model}\n")
-        f.write(f"best model found after epoch: {solver.best_model_params['epoch']}\n")
-        f.write(f"best model found with val loss: {solver.best_model_params['loss']}\n")
-        f.write(f"best model found with train loss: {solver.best_model_params['train loss']}\n")
-        f.write(f"best model found with val RMSE: {solver.best_model_params['val RMSE']}\n")
-        f.write(f"best model found with train RMSE: {solver.best_model_params['train RMSE']}\n")
-        f.write(f"best model found after training time in seconds: {solver.best_model_params['training time in sec']}\n")
+        if settings.case in ["train", "finetune"]: 
+            f.write(f"loss function: {loss_fn_str}\n")
+            f.write(f"best model found after epoch: {solver.best_model_params['epoch']}\n")
+            f.write(f"best model found with val loss: {solver.best_model_params['loss']}\n")
+            f.write(f"best model found with train loss: {solver.best_model_params['train loss']}\n")
+            f.write(f"best model found with val RMSE: {solver.best_model_params['val RMSE']}\n")
+            f.write(f"best model found with train RMSE: {solver.best_model_params['train RMSE']}\n")
+            f.write(f"best model found after training time in seconds: {solver.best_model_params['training time in sec']}\n")
 
 
 
