@@ -27,7 +27,7 @@ class NormalizeTransform:
     def reverse(self,data,type = "Labels"):
         for prop, stats in self.info[type].items():
             index = stats["index"]
-            self.__reverse_norm(data,index,stats)
+            data = self.__reverse_norm(data,index,stats)
         return data
     
     def __apply_norm(self,data,index,stats):
@@ -45,6 +45,7 @@ class NormalizeTransform:
     def __reverse_norm(self,data,index,stats):
         assert len(data.shape) == 3, "Data must be 3D"
         norm = stats["norm"]
+        data = data.clone()
         if norm == "Rescale":
             delta = stats["max"] - stats["min"]
             data[index] = (data[index] - self.out_min) / (self.out_max - self.out_min) * delta + stats["min"]
@@ -54,6 +55,8 @@ class NormalizeTransform:
             pass
         else:
             raise ValueError(f"Normalization type '{stats['Norm']}' not recognized")
+
+        return data
 
 class SignedDistanceTransform:
     """
