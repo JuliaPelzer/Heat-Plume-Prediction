@@ -4,6 +4,7 @@ import logging
 import os
 import pathlib
 import time
+import yaml
 
 import torch
 from torch import cuda, save
@@ -148,23 +149,15 @@ def run(settings: SettingsTraining):
             f.write(f"best model found with train RMSE: {solver.best_model_params['train RMSE']}\n")
             f.write(f"best model found after training time in seconds: {solver.best_model_params['training time in sec']}\n")
 
-
-
-    # logging
-    if False:
-        results = {"timestamp": time_begin, "model": settings.model_choice, "dataset": settings.dataset_name, "n_epochs": settings.epochs,
-                "error_mean": error_mean[-1], "error_max": final_max_error, "duration": duration, "name_destination_folder": settings.name_folder_destination, }
-        append_results_to_csv(results, "runs/collected_results_rough_idea.csv")
-
 def _get_splits(n, splits):
     splits = [int(n * s) for s in splits[:-1]]
     splits.append(n - sum(splits))
     return splits
 
 def set_paths(dataset_name: str, name_extension: str = None):
-    if os.file.exists("paths.yaml"):
+    if os.path.exists("paths.yaml"):
         with open("paths.yaml", "r") as f:
-            paths = yaml.safe_load(f)
+            paths = yaml.load(f, Loader=yaml.SafeLoader)
             default_raw_dir = paths["default_raw_dir"]
             datasets_prepared_dir = paths["datasets_prepared_dir"]
     else:
