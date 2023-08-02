@@ -18,6 +18,24 @@ def ellipse_1_percent(inj_point, alpha_L, alpha_T):
     width = 40 * alpha_L
     return Ellipse(inj_point, width, height, fill=False, color="red")
 
+def plot_lahm_from_InputParams(data:Dict, filename=""):
+    """
+    Plot the temperature field.
+    """
+    n_subplots = len(data.keys())
+    _, axes = plt.subplots(n_subplots,1,sharex=True,figsize=(38.4,3*(n_subplots)))
+    
+    for index, (key, value) in enumerate(data.items()):
+        plt.sca(axes[index])
+        plt.title(f"{key}")
+        plt.imshow(value, cmap="RdBu_r", extent=(0,1280,100,0))
+        plt.gca().invert_yaxis()
+        plt.ylabel("x [m]")
+        _aligned_colorbar(label="Temperature [°C]")
+
+    plt.xlabel("y [m]")
+    plt.savefig(f"{filename}.png")
+
 def plot_temperature_field(data:Dict, x_grid, y_grid, filename="", params=None):
     """
     Plot the temperature field.
