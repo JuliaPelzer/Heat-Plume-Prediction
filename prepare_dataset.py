@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import pathlib
+import time
 
 import h5py
 import numpy as np
@@ -31,9 +32,10 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
             String of characters, each of which is either x, y, z, p, t, k, i, s, g.
             TODO make g (pressure gradient cell-size independent?)
     """
+    time_start = time.perf_counter()
     full_raw_path = check_for_dataset(raw_data_directory, dataset_name)
     datasets_path = pathlib.Path(datasets_path)
-    new_dataset_path = datasets_path.joinpath(dataset_name+name_extension)
+    new_dataset_path = datasets_path.joinpath(dataset_name+"_"+input_variables+name_extension)
     new_dataset_path.mkdir(parents=True, exist_ok=True)
     new_dataset_path.joinpath("Inputs").mkdir(parents=True, exist_ok=True)
     new_dataset_path.joinpath("Labels").mkdir(parents=True, exist_ok=True)
@@ -102,6 +104,11 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     with open(os.path.join(new_dataset_path, "info.yaml"), "w") as file:
         yaml.dump(info, file)
     normalize(new_dataset_path, info, total)
+    
+    time_end = time.perf_counter()
+    with open(os.path.join(args.datasets_dir, args.dataset_name+"_"+args.inputs, "args.yaml"), "w") as f:
+        yaml.dump(vars(args), f, default_flow_style=False)
+        f.write(f"Duration for preparation in sec: {time_end-time_start}")
 
 ## helper functions
 def check_for_dataset(path: str, name: str) -> str:
@@ -357,20 +364,16 @@ def normalize(dataset_path: str, info: dict, total: int = None):
 
 
 if __name__ == "__main__":
-
-    # TODO reasonable defaults
-    remote = False
     if os.path.exists("/scratch/sgs/pelzerja/"):
-        remote = True
-    default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets/1hp_boxes"
-    default_target_dir = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
-    if remote:
         default_raw_dir = "/scratch/sgs/pelzerja/datasets/1hp_boxes"
-        default_target_dir="/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN"
+        default_target_dir="/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN/experiments"
+    else:
+        default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets/1hp_boxes"
+        default_target_dir = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
     parser = argparse.ArgumentParser()
     parser.add_argument("--raw_dir", type=str, default=default_raw_dir)
     parser.add_argument("--datasets_dir", type=str, default=default_target_dir)
-    parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100dp_vary_perm")
+    parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_10datapoints")
     parser.add_argument("--inputs", type=str, default="pksi")
     args = parser.parse_args()
     prepare_dataset(
