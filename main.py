@@ -93,20 +93,22 @@ def run(settings: SettingsTraining):
     save(model.state_dict(), os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "model.pt"))
 
     # visualization
-    avg_inference_times = []
-    if settings.case in ["train", "finetune"]:
-        plot_sample(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val_sample", amount_plots=10,)
-        errors_val, avg_inference_time = error_measurements(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val")
-        avg_inference_times.append(avg_inference_time)
+    try:
+        avg_inference_times = []
+        if settings.case in ["train", "finetune"]:
+            plot_sample(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val_sample", amount_plots=10,)
+            errors_val, avg_inference_time = error_measurements(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val")
+            avg_inference_times.append(avg_inference_time)
 
-        plot_sample(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train_sample", amount_plots=2,)
-        errors_train, avg_inference_time = error_measurements(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train")
-        avg_inference_times.append(avg_inference_time)
-    else:
-        plot_sample(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test_sample", amount_plots=10,)
-        errors_test, avg_inference_time = error_measurements(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test")
-        avg_inference_times.append(avg_inference_time)
-        
+            plot_sample(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train_sample", amount_plots=2,)
+            errors_train, avg_inference_time = error_measurements(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train")
+            avg_inference_times.append(avg_inference_time)
+        else:
+            plot_sample(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test_sample", amount_plots=10,)
+            errors_test, avg_inference_time = error_measurements(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test")
+            avg_inference_times.append(avg_inference_time)
+    except:
+        pass 
 
     time_end = time.perf_counter()
     duration = f"{(time_end-time_begin)//60} minutes {(time_end-time_begin)%60} seconds"
@@ -128,12 +130,15 @@ def run(settings: SettingsTraining):
         f.write(f"number of datapoints: {len(dataset)}\n")
         f.write(f"name_destination_folder: {settings.name_folder_destination}\n")
         f.write(f"number epochs: {settings.epochs}\n")
-        if settings.case in ["train", "finetune"]: 
-            f.write(f"errors train: {errors_train}\n")
-            f.write(f"errors val: {errors_val}\n")
-        else:
-            f.write(f"errors test: {errors_test}\n")
-        f.write(f"avg inference times in seconds: {avg_inference_times}\n")
+        try:
+            if settings.case in ["train", "finetune"]: 
+                f.write(f"errors train: {errors_train}\n")
+                f.write(f"errors val: {errors_val}\n")
+            else:
+                f.write(f"errors test: {errors_test}\n")
+            f.write(f"avg inference times in seconds: {avg_inference_times}\n")
+        except:
+            pass
         f.write(f"number parameters: {number_parameter}\n")
         f.write(f"device: {settings.device}\n")
         f.write(f"case: {settings.case}\n")
