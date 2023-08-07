@@ -165,13 +165,9 @@ def set_paths(dataset_name: str, name_extension: str = None):
             paths = yaml.load(f, Loader=yaml.SafeLoader)
             default_raw_dir = paths["default_raw_dir"]
             datasets_prepared_dir = paths["datasets_prepared_dir"]
-    else:
-        if os.path.exists("/scratch/sgs/pelzerja/"):
-            default_raw_dir = "/scratch/sgs/pelzerja/datasets/1hp_boxes"
-            datasets_prepared_dir="/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN" # TODO CHANGE BACK TO 1HP_NN
-        else:
-            default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets/1hp_boxes"
-            datasets_prepared_dir = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
+    elif not os.path.exists("/scratch/sgs/pelzerja/"):
+        default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets/1hp_boxes"
+        datasets_prepared_dir = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
     
     dataset_prepared_path = os.path.join(datasets_prepared_dir, dataset_name+name_extension)
 
