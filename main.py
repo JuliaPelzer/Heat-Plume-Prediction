@@ -35,9 +35,9 @@ def init_data(settings: SettingsTraining, seed=1):
 
     dataloaders = {}
     if settings.case in ["train", "finetune"]:
-        dataloaders["train"] = DataLoader(datasets[0], batch_size=1000, shuffle=True, num_workers=0)
-        dataloaders["val"] = DataLoader(datasets[1], batch_size=1000, shuffle=True, num_workers=0)
-    dataloaders["test"] = DataLoader(datasets[2], batch_size=1000, shuffle=True, num_workers=0)
+        dataloaders["train"] = DataLoader(datasets[0], batch_size=1000, shuffle=True, num_workers=8, pin_memory=True)
+        dataloaders["val"] = DataLoader(datasets[1], batch_size=1000, shuffle=True, num_workers=8, pin_memory=True)
+    dataloaders["test"] = DataLoader(datasets[2], batch_size=1000, shuffle=True, num_workers=8, pin_memory=True)
 
     return dataset, dataloaders
 
