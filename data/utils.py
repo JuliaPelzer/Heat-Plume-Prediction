@@ -44,7 +44,7 @@ class SettingsTraining:
             self.case = "test"
             self.test = True
             assert self.finetune is False, "Finetune is not possible in test mode"
-        else:
+        elif self.case in ["train", "training", "Train", "Training", "TRAIN"]:
             self.case = "train"
             assert self.finetune is False, "Finetune is not possible in train mode"
             assert self.test is False, "Test is not possible in train mode"
