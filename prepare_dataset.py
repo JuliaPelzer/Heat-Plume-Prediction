@@ -13,9 +13,10 @@ from tqdm.auto import tqdm
 from data.transforms import (ComposeTransform, NormalizeTransform,
                              PowerOfTwoTransform, ReduceTo2DTransform,
                              SignedDistanceTransform, ToTensorTransform)
+from data.utils import SettingsPrepare
 
 
-def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: str, input_variables: str, name_extension: str = "", power2trafo: bool = True, info:dict = None):
+def prepare_dataset(args: SettingsPrepare, power2trafo: bool = True, info:dict = None):
     """
     Create a dataset from the raw pflotran data in raw_data_path.
     The saved dataset is normalized using the mean and standard deviation, which are saved to info.yaml in the new dataset folder.
@@ -33,15 +34,15 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
             TODO make g (pressure gradient cell-size independent?)
     """
     time_start = time.perf_counter()
-    full_raw_path = check_for_dataset(raw_data_directory, dataset_name)
-    datasets_path = pathlib.Path(datasets_path)
-    new_dataset_path = datasets_path.joinpath(dataset_name+"_"+input_variables+name_extension)
+    full_raw_path = check_for_dataset(args.raw_dir, args.dataset_name)
+    args.datasets_dir = pathlib.Path(args.datasets_dir)
+    new_dataset_path = args.datasets_dir.joinpath(args.dataset_name+"_"+args.inputs_prep+args.name_extension)
     new_dataset_path.mkdir(parents=True, exist_ok=True)
     new_dataset_path.joinpath("Inputs").mkdir(parents=True, exist_ok=True)
     new_dataset_path.joinpath("Labels").mkdir(parents=True, exist_ok=True)
 
     transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo)
-    input_variables = expand_property_names(input_variables)
+    args.inputs = expand_property_names(args.inputs_prep)
     time_first = "   0 Time  0.00000E+00 y"
     time_final = "   3 Time  5.00000E+00 y"
     time_steady_state = "   4 Time  2.75000E+01 y"
@@ -56,7 +57,7 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     datapaths, runs = detect_datapoints(full_raw_path)
     total = len(datapaths)
     for datapath, run in tqdm(zip(datapaths, runs), desc="Converting", total=total):
-        x = load_data(datapath, time_first, input_variables, dims)
+        x = load_data(datapath, time_first, args.inputs, dims)
         y = load_data(datapath, time_steady_state, output_variables, dims)
         loc_hp = get_hp_location(x)
         x = transforms(x, loc_hp=loc_hp)
@@ -84,7 +85,7 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
                                 "max": maxs[key],
                                 "norm": get_normalization_type(key),
                                 "index": n}
-                        for n, key in enumerate(input_variables)}
+                        for n, key in enumerate(args.inputs)}
         info["Labels"] = {key: {"mean": means[key],
                                 "std": stds[key],
                                 "min": mins[key],
@@ -106,7 +107,8 @@ def prepare_dataset(raw_data_directory: str, datasets_path: str, dataset_name: s
     normalize(new_dataset_path, info, total)
     
     time_end = time.perf_counter()
-    with open(os.path.join(args.datasets_dir, args.dataset_name+"_"+args.inputs, "args.yaml"), "w") as f:
+    with open(os.path.join(args.datasets_dir, args.dataset_name+"_"+args.inputs_prep, "args.yaml"), "w") as f:
+        args.datasets_dir = str(args.datasets_dir)
         yaml.dump(vars(args), f, default_flow_style=False)
         f.write(f"Duration for preparation in sec: {time_end-time_start}")
 
@@ -363,22 +365,18 @@ def normalize(dataset_path: str, info: dict, total: int = None):
         torch.save(y, label_file)
 
 
-if __name__ == "__main__":
-    if os.path.exists("/scratch/sgs/pelzerja/"):
-        default_raw_dir = "/scratch/sgs/pelzerja/datasets/1hp_boxes"
-        default_target_dir="/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN/experiments"
-    else:
-        default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets/1hp_boxes"
-        default_target_dir = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--raw_dir", type=str, default=default_raw_dir)
-    parser.add_argument("--datasets_dir", type=str, default=default_target_dir)
-    parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_10datapoints")
-    parser.add_argument("--inputs", type=str, default="pksi")
-    args = parser.parse_args()
-    prepare_dataset(
-        args.raw_dir,
-        args.datasets_dir,
-        args.dataset_name,
-        args.inputs,
-        )
+# if __name__ == "__main__":
+#     if os.path.exists("/scratch/sgs/pelzerja/"):
+#         default_raw_dir = "/scratch/sgs/pelzerja/datasets/1hp_boxes"
+#         default_target_dir="/home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN/experiments"
+#     else:
+#         default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets/1hp_boxes"
+#         default_target_dir = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument("--raw_dir", type=str, default=default_raw_dir)
+#     parser.add_argument("--datasets_dir", type=str, default=default_target_dir)
+#     parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_10datapoints")
+#     parser.add_argument("--inputs_prep", type=str, default="pksi")
+#     args = parser.parse_args()
+#     args = SettingsPrepare(**vars(args))
+#     prepare_dataset(args)

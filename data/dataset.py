@@ -53,3 +53,8 @@ class SimulationDataset(Dataset):
     
     def get_run_id(self, index):
         return self.input_names[index]
+
+def _get_splits(n, splits):
+    splits = [int(n * s) for s in splits[:-1]]
+    splits.append(n - sum(splits))
+    return splits

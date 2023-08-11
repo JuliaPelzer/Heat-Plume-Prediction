@@ -11,15 +11,16 @@ from torch import cuda, save
 from torch.utils.data import DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
 
-from data.dataset import SimulationDataset
-from data.utils import SettingsTraining
+from data.dataset import SimulationDataset, _get_splits
+from data.utils import SettingsTraining, SettingsPrepare
 from networks.losses import create_loss_fn
 from networks.models import compare_models, create_model, load_model
 from prepare_dataset import prepare_dataset
 from solver import Solver
-from utils.utils import beep
+from utils.utils import beep, set_paths
 from utils.utils_networks import append_results_to_csv, count_parameters
 from utils.visualize_data import error_measurements, plot_sample
+# from torchsummary import summary
 
 
 def init_data(settings: SettingsTraining, seed=1):
@@ -61,6 +62,7 @@ def run(settings: SettingsTraining):
         model = create_model(settings.model_choice, in_channels)
     model.to(settings.device)
 
+    # summary(model, (4, 256, 16))
     number_parameter = count_parameters(model)
     logging.warning(
         f"Model {settings.model_choice} with number of parameters: {number_parameter}")
@@ -154,24 +156,6 @@ def run(settings: SettingsTraining):
             f.write(f"best model found with train RMSE: {solver.best_model_params['train RMSE']}\n")
             f.write(f"best model found after training time in seconds: {solver.best_model_params['training time in sec']}\n")
 
-def _get_splits(n, splits):
-    splits = [int(n * s) for s in splits[:-1]]
-    splits.append(n - sum(splits))
-    return splits
-
-def set_paths(dataset_name: str, name_extension: str = None):
-    if os.path.exists("paths.yaml"):
-        with open("paths.yaml", "r") as f:
-            paths = yaml.load(f, Loader=yaml.SafeLoader)
-            default_raw_dir = paths["default_raw_dir"]
-            datasets_prepared_dir = paths["datasets_prepared_dir"]
-    elif not os.path.exists("/scratch/sgs/pelzerja/"):
-        default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets/1hp_boxes"
-        datasets_prepared_dir = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
-    
-    dataset_prepared_path = os.path.join(datasets_prepared_dir, dataset_name+name_extension)
-
-    return default_raw_dir, datasets_prepared_dir, dataset_prepared_path
 
 def finetune_2HP_NN():
     logging.basicConfig(level=logging.WARNING)
@@ -216,16 +200,18 @@ if __name__ == "__main__":
 
     # prepare dataset if not done yet
     if not os.path.exists(dataset_prepared_full_path):
-        prepare_dataset(raw_data_directory = default_raw_dir,
-                        datasets_path = datasets_prepared_dir,
-                        dataset_name = args.dataset_name,
-                        input_variables = args.inputs_prep,
-                        name_extension=args.name_extension,)
+        args_prep = {"raw_dir": default_raw_dir,
+            "datasets_dir": datasets_prepared_dir,
+            "dataset_name": args.dataset_name,
+            "inputs_prep": args.inputs_prep,
+            "name_extension": args.name_extension}
+        args_prep = SettingsPrepare(**args_prep)
+        prepare_dataset(args=args_prep)
         print(f"Dataset {dataset_prepared_full_path} prepared")
 
     else:
         print(f"Dataset {dataset_prepared_full_path} already prepared")
-    args.dataset_name += args.name_extension
+    args.dataset_name += "_"+args.inputs_prep + args.name_extension
 
     settings = SettingsTraining(**vars(args))
     if settings.name_folder_destination == "":

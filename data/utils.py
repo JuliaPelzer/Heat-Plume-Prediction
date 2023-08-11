@@ -52,3 +52,11 @@ class SettingsTraining:
     def save(self):
         save_yaml(self.__dict__, os.path.join(
             "runs", self.name_folder_destination), "settings_training")
+        
+@dataclass
+class SettingsPrepare:
+    raw_dir: str
+    datasets_dir: str
+    dataset_name: str
+    inputs_prep: str
+    name_extension: str = ""
