@@ -72,7 +72,7 @@ def prepare_dataset(args: SettingsPrepare, power2trafo: bool = True, info:dict =
     if info is not None: 
         info["CellsNumberPrior"] = info["CellsNumber"]
         info["PositionHPPrior"] = info["PositionLastHP"]
-        assert info["CellsSize"] == cell_size.tolist(), f"Cell size changed between given info.yaml {info['CellsSize']} and data {cell_size.tolist()}"
+        assert info["CellsSize"][:2] == cell_size.tolist()[:2], f"Cell size changed between given info.yaml {info['CellsSize']} and data {cell_size.tolist()}"
     else:
         info = dict()
         means = calc.mean()
@@ -104,6 +104,7 @@ def prepare_dataset(args: SettingsPrepare, power2trafo: bool = True, info:dict =
     # info["PositionLastHP"] = get_hp_location_from_tensor(x, info)
     with open(os.path.join(new_dataset_path, "info.yaml"), "w") as file:
         yaml.dump(info, file)
+
     normalize(new_dataset_path, info, total)
     
     time_end = time.perf_counter()
