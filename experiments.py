@@ -25,7 +25,8 @@ def run(settings: SettingsTraining):
     avg_load_inference_times = 0
     num_dp = 0
     path_inputs = os.path.join(settings.datasets_path, settings.dataset_name, "Inputs")
-    for datapoint in tqdm(os.listdir(path_inputs), desc="Loading and inferring"):
+    # for datapoint in tqdm(os.listdir(path_inputs), desc="Loading and inferring"):
+    for datapoint in os.listdir(path_inputs):
         _, time_inference, time_load_inference = load_and_infer(settings, datapoint, settings.path_to_model, settings.device)
         avg_inference_times += time_inference
         avg_load_inference_times += time_load_inference
@@ -72,12 +73,13 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="cuda:3")
     parser.add_argument("--epochs", type=int, default=0)
     parser.add_argument("--case", type=str, default="experiments")
-    parser.add_argument("--path_to_model", type=str, default="current_unet_benchmark_dataset_2d_100datapoints_p_v2")
+    parser.add_argument("--path_to_model", type=str, default="current_unet_benchmark_dataset_2d_100datapoints_p_v10")
     parser.add_argument("--model_choice", type=str, default="unet")
-    parser.add_argument("--name_folder_destination", type=str, default="experiments_unet_benchmark_dataset_2d_100datapoints_p_v2")
     parser.add_argument("--inputs_prep", type=str, default="pksi")
     parser.add_argument("--name_extension", type=str, default="")
     args = parser.parse_args()
+
+    args.name_folder_destination = "experiments"+args.path_to_model[7:]
     
     default_raw_dir, datasets_prepared_dir, dataset_prepared_full_path = set_paths(args.dataset_name, args.inputs_prep, args.name_extension)
     args.datasets_path = datasets_prepared_dir
