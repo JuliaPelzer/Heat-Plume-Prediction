@@ -77,7 +77,7 @@ def run(settings: SettingsTraining):
         try:
             solver.load_lr_schedule(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "learning_rate_history.csv"))
             time_initializations = time.perf_counter()
-            solver.train(settings)
+            solver.train(settings, settings.name_folder_destination)
             time_training = time.perf_counter()
         except KeyboardInterrupt:
             time_training = time.perf_counter()

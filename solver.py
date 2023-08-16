@@ -1,3 +1,4 @@
+import csv
 import logging
 import os
 import time
@@ -33,14 +34,21 @@ class Solver(object):
         if not self.finetune:
             self.model.apply(weights_init)
 
-    def train(self, settings: SettingsTraining):
+    def train(self, settings: SettingsTraining, destination_dir:str = ""):
+        log_val_epoch = True
+        if log_val_epoch:
+            file = open(os.path.join(os.getcwd(), "runs", destination_dir, "log_loss_per_epoch.csv"), 'w', newline='')
+            csv_writer = csv.writer(file)
+            csv_writer.writerow(["epoch", "val loss", "train loss"])
+
         start_time = time.perf_counter()
         # initialize tensorboard
         writer = SummaryWriter(f"runs/{settings.name_folder_destination}")
         device = settings.device
         self.model = self.model.to(device)
+        # writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
 
-        epochs = tqdm(range(settings.epochs), desc="epochs", disable=False)
+        epochs = tqdm(range(settings.epochs), desc="epochs", disable=True)
         for epoch in epochs:
             try:
                 # Set lr according to schedule
@@ -77,6 +85,9 @@ class Solver(object):
                         "parameters": self.model.parameters(),
                         "training time in sec": (time.perf_counter() - start_time),
                     }
+                if log_val_epoch:
+                    if epoch in [250, 500, 1000, 2500, 5000, 10000, 25000]:
+                        csv_writer.writerow([epoch, val_epoch_loss, train_epoch_loss])
 
             except KeyboardInterrupt:
                 try:
@@ -87,6 +98,8 @@ class Solver(object):
                     for g in self.opt.param_groups:
                         g["lr"] = new_lr
                     self.lr_schedule[epoch] = self.opt.param_groups[0]["lr"]
+                    if log_val_epoch:
+                        file.close()
 
         # Apply best model params to model
         self.model = self.model.load_state_dict(
@@ -94,6 +107,9 @@ class Solver(object):
         self.opt = self.opt.load_state_dict(
             self.best_model_params["optimizer"])
         print(f"Best model was found in epoch {self.best_model_params['epoch']}.")
+
+        if log_val_epoch:
+            file.close()
 
     def run_epoch(self, dataloader: DataLoader, device: str):
         epoch_loss = 0.0
