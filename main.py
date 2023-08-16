@@ -200,6 +200,7 @@ if __name__ == "__main__":
 
     # prepare dataset if not done yet
     if not os.path.exists(dataset_prepared_full_path):
+        time_begin = time.perf_counter()
         args_prep = {"raw_dir": default_raw_dir,
             "datasets_dir": datasets_prepared_dir,
             "dataset_name": args.dataset_name,
@@ -207,6 +208,13 @@ if __name__ == "__main__":
             "name_extension": args.name_extension}
         args_prep = SettingsPrepare(**args_prep)
         prepare_dataset(args=args_prep)
+        time_end = time.perf_counter() - time_begin
+        with open(dataset_prepared_full_path + "/preparation_time.yaml", "w") as file:
+            yaml.safe_dump(
+                {"timestamp of end": time.ctime(), 
+                 "duration of whole process in seconds": time_end}
+            , file)
+            
         print(f"Dataset {dataset_prepared_full_path} prepared")
 
     else:
