@@ -193,9 +193,10 @@ if __name__ == "__main__":
     parser.add_argument("--name_folder_destination", type=str, default="")
     parser.add_argument("--inputs_prep", type=str, default="pksi")
     parser.add_argument("--name_extension", type=str, default="") # _grad_p
+    parser.add_argument("--case_2hp", type=bool, default=False)
     args = parser.parse_args()
     
-    default_raw_dir, datasets_prepared_dir, dataset_prepared_full_path = set_paths(args.dataset_name, args.inputs_prep, args.name_extension)
+    default_raw_dir, datasets_prepared_dir, dataset_prepared_full_path = set_paths(args.dataset_name, args.inputs_prep, args.name_extension, args.case_2hp)
     args.datasets_path = datasets_prepared_dir
 
     # prepare dataset if not done yet
@@ -219,7 +220,9 @@ if __name__ == "__main__":
 
     else:
         print(f"Dataset {dataset_prepared_full_path} already prepared")
-    args.dataset_name += "_"+args.inputs_prep + args.name_extension
+
+    if not args.case_2hp:
+        args.dataset_name += "_"+args.inputs_prep + args.name_extension
 
     settings = SettingsTraining(**vars(args))
     if settings.name_folder_destination == "":
