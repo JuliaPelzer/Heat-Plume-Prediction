@@ -199,8 +199,8 @@ if __name__ == "__main__":
     default_raw_dir, datasets_prepared_dir, dataset_prepared_full_path = set_paths(args.dataset_name, args.inputs_prep, args.name_extension, args.case_2hp)
     args.datasets_path = datasets_prepared_dir
 
-    # prepare dataset if not done yet
-    if not os.path.exists(dataset_prepared_full_path):
+    # prepare dataset if not done yet OR if test=case do it anyways because of potentially different std,mean,... values than trained with
+    if not os.path.exists(dataset_prepared_full_path) or args.case == "test":
         time_begin = time.perf_counter()
         args_prep = {"raw_dir": default_raw_dir,
             "datasets_dir": datasets_prepared_dir,
@@ -208,7 +208,19 @@ if __name__ == "__main__":
             "inputs_prep": args.inputs_prep,
             "name_extension": args.name_extension}
         args_prep = SettingsPrepare(**args_prep)
-        prepare_dataset(args=args_prep)
+
+        if args.case == "test":
+            # get info of training
+            with open(os.path.join(os.getcwd(), "runs", args.path_to_model, "info.yaml"), "r") as file:
+                info = yaml.safe_load(file)
+            prepare_dataset(args=args_prep, info=info)
+        else:
+            info = prepare_dataset(args=args_prep)
+            if args.case == "train":
+                # store info of training
+                with open(os.path.join(os.getcwd(), "runs", args.name_folder_destination, "info.yaml"), "w") as file:
+                    yaml.safe_dump(info, file)
+
         time_end = time.perf_counter() - time_begin
         with open(dataset_prepared_full_path + "/preparation_time.yaml", "w") as file:
             yaml.safe_dump(

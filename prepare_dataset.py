@@ -113,6 +113,8 @@ def prepare_dataset(args: SettingsPrepare, power2trafo: bool = True, info:dict =
         yaml.dump(vars(args), f, default_flow_style=False)
         f.write(f"Duration for preparation in sec: {time_end-time_start}")
 
+    return info
+
 ## helper functions
 def check_for_dataset(path: str, name: str) -> str:
     """
