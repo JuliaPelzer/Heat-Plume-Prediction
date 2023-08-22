@@ -79,14 +79,18 @@ class Testcase:
     v_a_m_per_day : float = 0 # [m/day]
 
     def post_init(self, params:Parameters):
-        self.k_perm = _calc_perm(self.k_cond, params.eta, params.rho_w, params.g)
+        if self.k_perm == 0:
+            self.k_perm = _calc_perm(self.k_cond, params.eta, params.rho_w, params.g)
+        else:
+            temp = _calc_perm(self.k_cond, params.eta, params.rho_w, params.g)
+            assert abs(temp - self.k_perm) < 1e-6, f"k_perm {self.k_perm} must be equal to k_cond*eta/(rho_w*g) {temp}"
         self.v_f = _calc_vf(self.k_cond, self.grad_p)
-        self.v_a = np.round(_calc_va(self.v_f, params.n_e), 12)
+        self.v_a = np.array(np.round(_calc_va(self.v_f, params.n_e), 12))
         if self.v_a < 0:
             print("v_a must be positive, I change it to its absolute value")
             self.v_a = abs(self.v_a)
 
-        self.v_a_m_per_day = np.round(self.v_a*24*60*60, 12)
+        self.v_a_m_per_day = np.array(np.round(self.v_a*24*60*60, 12))
 
         # first lahm requirement:
         # assert self.v_a_m_per_day <= -1, "v_a must be at least 1 m per day to get a valid result"
