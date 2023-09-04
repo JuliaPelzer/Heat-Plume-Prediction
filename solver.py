@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
-from data.utils import SettingsTraining
+from data_stuff.utils import SettingsTraining
 from networks.unet import weights_init
 
 

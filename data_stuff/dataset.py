@@ -6,7 +6,7 @@ import torch
 import yaml
 from torch.utils.data import Dataset
 
-from data.transforms import NormalizeTransform
+from data_stuff.transforms import NormalizeTransform
 
 
 class SimulationDataset(Dataset):

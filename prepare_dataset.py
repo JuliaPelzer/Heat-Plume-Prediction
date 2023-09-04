@@ -10,10 +10,10 @@ import torch
 import yaml
 from tqdm.auto import tqdm
 
-from data.transforms import (ComposeTransform, NormalizeTransform,
+from data_stuff.transforms import (ComposeTransform, NormalizeTransform,
                              PowerOfTwoTransform, ReduceTo2DTransform,
                              SignedDistanceTransform, ToTensorTransform)
-from data.utils import SettingsPrepare
+from data_stuff.utils import SettingsPrepare
 
 
 def prepare_dataset(args: SettingsPrepare, power2trafo: bool = True, info:dict = None):

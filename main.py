@@ -11,8 +11,8 @@ from torch import cuda, save
 from torch.utils.data import DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
 
-from data.dataset import SimulationDataset, _get_splits
-from data.utils import SettingsTraining, SettingsPrepare
+from data_stuff.dataset import SimulationDataset, _get_splits
+from data_stuff.utils import SettingsTraining, SettingsPrepare
 from networks.losses import create_loss_fn
 from networks.models import compare_models, create_model, load_model
 from prepare_dataset import prepare_dataset

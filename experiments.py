@@ -8,7 +8,7 @@ from tqdm.auto import tqdm
 import yaml
 import torch
 
-from data.utils import SettingsTraining, SettingsPrepare
+from data_stuff.utils import SettingsTraining, SettingsPrepare
 from networks.models import load_model
 from prepare_dataset import prepare_dataset
 from utils.utils import set_paths
