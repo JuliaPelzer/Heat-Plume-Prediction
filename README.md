@@ -16,3 +16,16 @@
 - tensorboard
 - tqdm
 - pytest
+
+## Begin working
+- make a paths.yaml file in same folder as main.py. It should look like this
+
+    ` default_raw_dir:  /scratch/sgs/pelzerja/datasets/1hp_boxes
+    datasets_prepared_dir: /home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN
+    datasets_prepared_dir_2hp: /home/pelzerja/pelzerja/test_nn/datasets_prepared/2HP_NN`
+
+- have your data in the default_raw_dir OR an already prepared dataset in the datasets_prepared_dir
+
+- run main.py
+
+- for running a 2HP-NN you need the prepared 2HP-dataset in datasets_prepared_dir_2hp
