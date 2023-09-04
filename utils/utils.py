@@ -42,6 +42,7 @@ def set_paths(dataset_name: str, inputs_prep:str = "", name_extension: str = "",
     dataset_prepared_path = os.path.join(datasets_prepared_dir, dataset_name+"_"+inputs_prep+name_extension)
     if case_2hp:
         dataset_prepared_path = os.path.join(datasets_prepared_dir, dataset_name)
+        print(dataset_prepared_path)
 
     return default_raw_dir, datasets_prepared_dir, dataset_prepared_path
 
