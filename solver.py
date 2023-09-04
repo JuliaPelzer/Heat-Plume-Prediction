@@ -40,6 +40,9 @@ class Solver(object):
             file = open(os.path.join(os.getcwd(), "runs", destination_dir, "log_loss_per_epoch.csv"), 'w', newline='')
             csv_writer = csv.writer(file)
             csv_writer.writerow(["epoch", "val loss", "train loss"])
+            file = open(os.path.join(os.getcwd(), "runs", destination_dir, "log_best_loss_per_epoch.csv"), 'w', newline='')
+            csv_writer_best = csv.writer(file)
+            csv_writer_best.writerow(["epoch", "val loss", "train loss"])
 
         start_time = time.perf_counter()
         # initialize tensorboard
@@ -86,8 +89,9 @@ class Solver(object):
                         "training time in sec": (time.perf_counter() - start_time),
                     }
                 if log_val_epoch:
-                    if epoch in [250, 500, 1000, 2500, 5000, 10000, 25000]:
+                    if epoch in [250, 500, 1000, 2500, 5000, 10000, 15000, 20000, 24999]:
                         csv_writer.writerow([epoch, val_epoch_loss, train_epoch_loss])
+                        csv_writer_best.writerow([epoch, self.best_model_params["loss"], self.best_model_params["train loss"]])
 
             except KeyboardInterrupt:
                 try:
