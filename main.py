@@ -32,6 +32,8 @@ def init_data(settings: SettingsTraining, seed=1):
             dataset, _get_splits(len(dataset), [0.7, 0.2, 0.1]), generator=generator)
     elif settings.case == "test":
         datasets = random_split(
+            # TODO CHOOSE WISELY (depending on whether it's a completely new dataset or a subset of the training dataset)
+            # dataset, _get_splits(len(dataset), [0.7, 0.2, 0.1]), generator=generator)
             dataset, _get_splits(len(dataset), [0, 0, 1.0]), generator=generator)
 
     dataloaders = {}
@@ -96,22 +98,23 @@ def run(settings: SettingsTraining):
     save(model.state_dict(), os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "model.pt"))
 
     # visualization
-    try:
-        avg_inference_times = []
-        if settings.case in ["train", "finetune"]:
-            plot_sample(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val_sample", amount_plots=10,)
-            errors_val, avg_inference_time = error_measurements(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val")
-            avg_inference_times.append(avg_inference_time)
+    # try:
+    avg_inference_times = []
+    if settings.case in ["train", "finetune"]:
+        pass
+    #     plot_sample(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val_sample", amount_plots=10,)
+    #     errors_val, avg_inference_time = error_measurements(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val")
+    #     avg_inference_times.append(avg_inference_time)
 
-            plot_sample(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train_sample", amount_plots=2,)
-            errors_train, avg_inference_time = error_measurements(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train")
-            avg_inference_times.append(avg_inference_time)
-        else:
-            plot_sample(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test_sample", amount_plots=10,)
-            errors_test, avg_inference_time = error_measurements(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test")
-            avg_inference_times.append(avg_inference_time)
-    except:
-        pass 
+    #     plot_sample(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train_sample", amount_plots=2,)
+    #     errors_train, avg_inference_time = error_measurements(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train")
+    #     avg_inference_times.append(avg_inference_time)
+    else:
+        # plot_sample(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test_sample", amount_plots=10,)
+        errors_test, avg_inference_time = error_measurements(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test")
+        avg_inference_times.append(avg_inference_time)
+    # except:
+    #     pass 
 
     time_end = time.perf_counter()
     duration = f"{(time_end-time_begin)//60} minutes {(time_end-time_begin)%60} seconds"
@@ -133,15 +136,13 @@ def run(settings: SettingsTraining):
         f.write(f"number of datapoints: {len(dataset)}\n")
         f.write(f"name_destination_folder: {settings.name_folder_destination}\n")
         f.write(f"number epochs: {settings.epochs}\n")
-        try:
-            if settings.case in ["train", "finetune"]: 
-                f.write(f"errors train: {errors_train}\n")
-                f.write(f"errors val: {errors_val}\n")
-            else:
-                f.write(f"errors test: {errors_test}\n")
-            f.write(f"avg inference times in seconds: {avg_inference_times}\n")
-        except:
+        if settings.case in ["train", "finetune"]: 
             pass
+        #         f.write(f"errors train: {errors_train}\n") #MAE and MSE
+        #         f.write(f"errors val: {errors_val}\n")    #MAE and MSE
+        else:
+            f.write(f"errors test: {errors_test}\n")  #MAE and MSE
+            f.write(f"avg inference times in seconds: {avg_inference_times}\n")
         f.write(f"number parameters: {number_parameter}\n")
         f.write(f"device: {settings.device}\n")
         f.write(f"case: {settings.case}\n")
@@ -166,7 +167,7 @@ def finetune_2HP_NN():
     args["case"] = "finetune"
     args["path_to_model"] = "current_unet_benchmark_dataset_2d_100datapoints_input_empty_T_0"
     args["datasets_path"] = "/home/pelzerja/pelzerja/test_nn/datasets_prepared/2HP_NN"
-    args["inputs_prep"] = "gksio"
+    args["inputs_prep"] = "ogksi"
     args["dataset_name"] = "dataset_2hps_1fixed_100dp_2hp"
     args["name_folder_destination"] = "2HP_NN_finetune_100dp" #f"current_{settings.model_choice}_{settings.dataset_name}"
 
@@ -185,7 +186,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100datapoints")
     # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
-    parser.add_argument("--device", type=str, default="cuda:3")
+    parser.add_argument("--device", type=str, default="cuda:1") # TODO 3
     parser.add_argument("--epochs", type=int, default=25000)
     parser.add_argument("--case", type=str, default="train") # test finetune
     parser.add_argument("--path_to_model", type=str, default="benchmarkPLUSdataset_2d_100dp_vary_hp_loc/unet_inputs_pk_MatID_noPowerOf2") # for finetuning or testing
@@ -200,7 +201,9 @@ if __name__ == "__main__":
     args.datasets_path = datasets_prepared_dir
 
     # prepare dataset if not done yet OR if test=case do it anyways because of potentially different std,mean,... values than trained with
-    if not os.path.exists(dataset_prepared_full_path) or args.case == "test":
+    if not os.path.exists(dataset_prepared_full_path):
+        if args.case_2hp:
+            raise NotImplementedError("dataset needs to be prepared manually for 2HP case")
         time_begin = time.perf_counter()
         args_prep = {"raw_dir": default_raw_dir,
             "datasets_dir": datasets_prepared_dir,
