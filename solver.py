@@ -144,13 +144,15 @@ class Solver(object):
             for epoch, lr in self.lr_schedule.items():
                 f.write(f"{epoch},{lr}\n")
 
-    def load_lr_schedule(self, path: str):
+    def load_lr_schedule(self, path: str, case_2hp:bool=False):
         """ read lr-schedule from csv file"""
         # check if path contains lr-schedule, else use default one
         if not os.path.exists(path):
-            logging.warning(
-                f"Could not find lr-schedule at {path}. Using default lr-schedule instead.")
-            path = os.path.join(os.getcwd(), "default_lr_schedule.csv")
+            logging.warning(f"Could not find lr-schedule at {path}. Using default lr-schedule instead.")
+            if not case_2hp:
+                path = os.path.join(os.getcwd(), "default_lr_schedule.csv")
+            else:
+                path = os.path.join(os.getcwd(), "default_lr_schedule_2hp.csv")
 
         with open(path, "r") as f:
             for line in f:

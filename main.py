@@ -77,7 +77,7 @@ def run(settings: SettingsTraining):
         solver = Solver(model, dataloaders["train"], dataloaders["val"],
                         loss_func=loss_fn, finetune=settings.finetune)
         try:
-            solver.load_lr_schedule(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "learning_rate_history.csv"))
+            solver.load_lr_schedule(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "learning_rate_history.csv"), settings.case_2hp)
             time_initializations = time.perf_counter()
             solver.train(settings, settings.name_folder_destination)
             time_training = time.perf_counter()
