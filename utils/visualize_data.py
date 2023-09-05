@@ -5,6 +5,7 @@ from math import inf
 from typing import Dict
 
 import matplotlib as mpl
+mpl.use('pgf')
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -90,6 +91,7 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
             figsize_x = extent_highs[0]/extent_highs[1]*3
             _plot_datafields(dict_to_plot, name_pic=name_pic, figsize_x=figsize_x)
             _plot_isolines(dict_to_plot, name_pic=name_pic, figsize_x=figsize_x)
+            # _isolines_measurements(dict_to_plot, name_pic=name_pic, figsize_x=figsize_x)
             # _plot_temperature_field(dict_to_plot, name_pic=name_pic, figsize_x=figsize_x)
 
             # if (current_id > 0 and current_id % 6 == 0) or current_id >= amount_plots-1:
@@ -106,8 +108,10 @@ def error_measurements(model: UNet, dataloader: DataLoader, device: str, plot_na
     extent_highs = (np.array(info["CellsSize"][:2]) * dataloader.dataset[0][0][0].shape)
     model.eval()
 
-    error_abs = []
-    error_mean = []
+    mae_abs = []
+    mae_mean = []
+    mse_max = []
+    mse_mean = []
     current_id = 0
     avg_inference_time = 0
     summed_error_pic = torch.zeros_like(dataloader.dataset[0][0][0])
@@ -130,18 +134,23 @@ def error_measurements(model: UNet, dataloader: DataLoader, device: str, plot_na
 
             # calculate error
             error_current = y-y_out
-            error_abs.append(torch.max(abs(error_current)))
-            error_mean.append(torch.mean(error_current).item())
+            mae_abs.append(torch.max(abs(error_current)))
+            mae_mean.append(torch.mean(error_current).item())
+            mse_max.append(torch.max(error_current**2))
+            mse_mean.append(torch.mean(error_current**2).item())
             summed_error_pic += abs(error_current)
 
             current_id += 1
 
-        max_error = np.max(error_abs).item()
+        max_mae = np.max(mae_abs).item()
+        max_mse = np.max(mse_max).item()
         avg_inference_time = avg_inference_time / (current_id+1)
         summed_error_pic = summed_error_pic / (current_id+1)
         _plot_avg_pixel_error(summed_error_pic, plot_name, extent_highs)
 
-        return {"mean error in [°C]": np.average(error_mean), "max error in [°C]": max_error}, avg_inference_time
+        return {"mean error in [°C]": np.average(mae_mean), "max error in [°C]": max_mae,
+                "mean squared error in [°C^2]": np.average(mse_mean), "max squared error in [°C^2]": max_mse,
+                }, avg_inference_time
 
 
 def _plot_avg_pixel_error(data, plot_name:str, extent_highs:tuple):
@@ -153,8 +162,9 @@ def _plot_avg_pixel_error(data, plot_name:str, extent_highs:tuple):
     plt.xlabel("y [m]")
     plt.title("Pixelwise averaged Error [°C]")
     _aligned_colorbar()
-    plt.savefig(f"runs/{plot_name}_pixelwise_avg_error.png")
-    plt.savefig(f"runs/{plot_name}_pixelwise_avg_error.svg")
+    print(plot_name)
+    # plt.savefig(f"runs/{plot_name}_pixelwise_avg_error.pgf", format="pgf")
+    ## plt.savefig(f"runs/{plot_name}_pixelwise_avg_error.svg")
 
 def _plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, figsize_x: float = 38.4):
     n_subplots = len(data)
@@ -176,7 +186,8 @@ def _plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, figsize_x:
         _aligned_colorbar(label=datapoint.name)
 
     plt.suptitle("Datafields: Inputs, Output, Error")
-    plt.savefig(f"{name_pic}.png")
+    # plt.savefig(f"{name_pic}.pgf", format="pgf")
+    # plt.savefig(f"{name_pic}.png")
     # plt.savefig(f"{name_pic}.svg")
 
 def _plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, figsize_x: float = 38.4):
@@ -201,8 +212,45 @@ def _plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, figsize_x: f
             pass
 
     plt.suptitle(f"Isolines of Temperature [°C]")
-    plt.savefig(f"{name_pic}_isolines.png")
+    plt.savefig(f"{name_pic}_isolines.pgf", format="pgf")
     # plt.savefig(f"{name_pic}.svg")
+
+def _isolines_measurements(data: Dict[str, DataToVisualize], name_pic: str, figsize_x: float = 38.4):
+    # helper function to plot isolines of temperature out
+    
+    max_temp = 16 
+    min_temp = 10 
+    lengths = {}
+    widths = {}
+    T_gwf = 10.6
+
+    _, axes = plt.subplots(4, 1, sharex=True, figsize=(figsize_x, 3*2))
+    for index, key in enumerate(["t_true", "t_out"]):
+        plt.sca(axes[index])
+        datapoint = data[key]
+        datapoint.data = torch.flip(datapoint.data, dims=[1])
+        left_bound, right_bound = 1280, 0
+        upper_bound, lower_bound = 0, 80
+        if datapoint.data.max() > T_gwf + 1:
+            levels = [T_gwf + 1] 
+            CS = plt.contour(datapoint.data.T, levels=levels, cmap='Pastel1', extent=(0,1280,80,0))
+
+            # calc maximum width and length of 1K-isoline
+            for level in CS.allsegs:
+                for seg in level:
+                    # print(seg[:,0].max(), seg[:,0].min(), seg[:,1].max(), seg[:,1].min())
+                    right_bound = max(right_bound, seg[:,0].max())
+                    left_bound = min(left_bound, seg[:,0].min())
+                    upper_bound = max(upper_bound, seg[:,1].max())
+                    lower_bound = min(lower_bound, seg[:,1].min())
+        lengths[key] = max(right_bound - left_bound, 0)
+        widths[key] = max(upper_bound - lower_bound, 0)
+        print(f"{key} length (max y): {lengths[key]}, width (max x): {widths[key]}, max temp: {datapoint.data.max()}")
+        plt.sca(axes[index+2])
+        plt.imshow(datapoint.data.T, extent=(0,1280,80,0))
+    # plt.show()
+    plt.close("all")
+    return lengths, widths
 
 def _plot_temperature_field(data: Dict[str, DataToVisualize], name_pic:str, figsize_x: float = 38.4):
     """
@@ -225,8 +273,8 @@ def _plot_temperature_field(data: Dict[str, DataToVisualize], name_pic:str, figs
 
     T_gwf_plus1, T_gwf_plusdiff = datapoint.contourargs["levels"]
     plt.suptitle(f"Temperature field and isolines of {T_gwf_plus1} and {T_gwf_plusdiff} °C")
-    plt.savefig(f"{name_pic}_combined.png")
-    plt.savefig(f"{name_pic}_combined.svg")
+    plt.savefig(f"{name_pic}_combined.pgf", format="pgf")
+    # plt.savefig(f"{name_pic}_combined.svg")
 
 def _aligned_colorbar(*args, **kwargs):
     cax = make_axes_locatable(plt.gca()).append_axes(
