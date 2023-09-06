@@ -28,4 +28,8 @@
 
 - run main.py
 
+    `
+    python main.py --dataset_name NAME_OF_DATASET
+    `
+
 - for running a 2HP-NN you need the prepared 2HP-dataset in datasets_prepared_dir_2hp
