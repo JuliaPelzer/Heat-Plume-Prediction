@@ -19,7 +19,7 @@ from prepare_dataset import prepare_dataset
 from solver import Solver
 from utils.utils import beep, set_paths
 from utils.utils_networks import append_results_to_csv, count_parameters
-from utils.visualize_data import error_measurements, plot_sample
+from utils.visualize_data import plt_avg_error_pixelwise, measure_loss, plot_sample
 # from torchsummary import summary
 
 
@@ -27,19 +27,16 @@ def init_data(settings: SettingsTraining, seed=1):
     dataset = SimulationDataset(os.path.join(settings.datasets_path, settings.dataset_name))
     generator = torch.Generator().manual_seed(seed)
 
-    if settings.case in ["train", "finetune"]:
-        datasets = random_split(
-            dataset, _get_splits(len(dataset), [0.7, 0.2, 0.1]), generator=generator)
-    elif settings.case == "test":
-        datasets = random_split(
-            # TODO CHOOSE WISELY (depending on whether it's a completely new dataset or a subset of the training dataset)
-            # dataset, _get_splits(len(dataset), [0.7, 0.2, 0.1]), generator=generator)
-            dataset, _get_splits(len(dataset), [0, 0, 1.0]), generator=generator)
+    split_ratios = [0.7, 0.2, 0.1]
+    # split_ratios = [0.0, 0.0, 1.0] 
+    datasets = random_split(
+        dataset, _get_splits(len(dataset), split_ratios), generator=generator)
 
     dataloaders = {}
-    if settings.case in ["train", "finetune"]:
+    try:
         dataloaders["train"] = DataLoader(datasets[0], batch_size=1000, shuffle=True, num_workers=8, pin_memory=True)
         dataloaders["val"] = DataLoader(datasets[1], batch_size=1000, shuffle=True, num_workers=8, pin_memory=True)
+    except: pass
     dataloaders["test"] = DataLoader(datasets[2], batch_size=1000, shuffle=True, num_workers=8, pin_memory=True)
 
     return dataset, dataloaders
@@ -95,33 +92,39 @@ def run(settings: SettingsTraining):
         model.to(settings.device)
 
     # save model
-    save(model.state_dict(), os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "model.pt"))
+    # TODO think it over!
+    if settings.case in ["train", "finetune"]:
+        save(model.state_dict(), os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "model.pt"))
 
     # visualization
     # try:
     avg_inference_times = []
-    if settings.case in ["train", "finetune"]:
-        pass
-    #     plot_sample(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val_sample", amount_plots=10,)
-    #     errors_val, avg_inference_time = error_measurements(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val")
+    # if settings.case in ["train", "finetune"]:
+    #     pass
+    # plot_sample(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train_sample", amount_plots=2,)
+        # errors_train, avg_inference_time = error_measurements(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train")
     #     avg_inference_times.append(avg_inference_time)
-
-    #     plot_sample(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train_sample", amount_plots=2,)
-    #     errors_train, avg_inference_time = error_measurements(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train")
+    # plot_sample(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val_sample", amount_plots=5,)
+        # errors_val, avg_inference_time = error_measurements(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val")
     #     avg_inference_times.append(avg_inference_time)
-    else:
-        # plot_sample(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test_sample", amount_plots=10,)
-        errors_test, avg_inference_time = error_measurements(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test")
-        avg_inference_times.append(avg_inference_time)
+    # else:
+    # plot_sample(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test_sample", amount_plots=10,)
+    # avg_inference_time = plt_avg_error_pixelwise(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test")
+    # avg_inference_times.append(avg_inference_time)
     # except:
     #     pass 
+    errors_test = measure_loss(model, dataloaders["test"], settings.device)
+    try:
+        errors_train = measure_loss(model, dataloaders["train"], settings.device)
+        errors_val = measure_loss(model, dataloaders["val"], settings.device)
+    except: pass
 
     time_end = time.perf_counter()
     duration = f"{(time_end-time_begin)//60} minutes {(time_end-time_begin)%60} seconds"
     print(f"Experiment took {duration}")
 
     # save measurements
-    with open(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, f"measurements_{settings.case}.yaml"), "w") as f:
+    with open(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, f"measurements_{settings.case}2.yaml"), "w") as f:
         f.write(f"timestamp of beginning: {timestamp_begin}\n")
         f.write(f"timestamp of end: {time.ctime()}\n")
         f.write(f"duration of whole process including visualisation in seconds: {(time_end-time_begin)}\n")
@@ -136,13 +139,13 @@ def run(settings: SettingsTraining):
         f.write(f"number of datapoints: {len(dataset)}\n")
         f.write(f"name_destination_folder: {settings.name_folder_destination}\n")
         f.write(f"number epochs: {settings.epochs}\n")
-        if settings.case in ["train", "finetune"]: 
-            pass
-        #         f.write(f"errors train: {errors_train}\n") #MAE and MSE
-        #         f.write(f"errors val: {errors_val}\n")    #MAE and MSE
-        else:
-            f.write(f"errors test: {errors_test}\n")  #MAE and MSE
-            f.write(f"avg inference times in seconds: {avg_inference_times}\n")
+        f.write(f"errors test: {errors_test}\n")  #MAE and MSE
+        try:
+            f.write(f"errors train: {errors_train}\n") #MAE and MSE
+            f.write(f"errors val: {errors_val}\n")    #MAE and MSE
+        except: pass
+        f.write(f"avg inference times in seconds: {avg_inference_times}\n")
+
         f.write(f"number parameters: {number_parameter}\n")
         f.write(f"device: {settings.device}\n")
         f.write(f"case: {settings.case}\n")
@@ -176,7 +179,7 @@ def finetune_2HP_NN():
     destination_dir = pathlib.Path(os.getcwd(), "runs", settings.name_folder_destination)
     destination_dir.mkdir(parents=True, exist_ok=True)
 
-    settings.save()
+    # settings.save()
     run(settings)
 
 if __name__ == "__main__":
