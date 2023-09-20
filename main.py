@@ -92,9 +92,9 @@ def run(settings: SettingsTraining):
         model.to(settings.device)
 
     # save model
-    # TODO think it over!
-    if settings.case in ["train", "finetune"]:
-        save(model.state_dict(), os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "model.pt"))
+    # TODO think over where!
+    # if settings.case in ["train", "finetune"]:
+    save(model.state_dict(), os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "model.pt"))
 
     # visualization
     # try:
@@ -108,7 +108,7 @@ def run(settings: SettingsTraining):
         # errors_val, avg_inference_time = error_measurements(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val")
     #     avg_inference_times.append(avg_inference_time)
     # else:
-    # plot_sample(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test_sample", amount_plots=10,)
+    # plot_sample(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test_sample")
     # avg_inference_time = plt_avg_error_pixelwise(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test")
     # avg_inference_times.append(avg_inference_time)
     # except:
@@ -179,7 +179,7 @@ def finetune_2HP_NN():
     destination_dir = pathlib.Path(os.getcwd(), "runs", settings.name_folder_destination)
     destination_dir.mkdir(parents=True, exist_ok=True)
 
-    # settings.save()
+    settings.save()
     run(settings)
 
 if __name__ == "__main__":
@@ -231,11 +231,9 @@ if __name__ == "__main__":
         with open(dataset_prepared_full_path + "/preparation_time.yaml", "w") as file:
             yaml.safe_dump(
                 {"timestamp of end": time.ctime(), 
-                 "duration of whole process in seconds": time_end}
-            , file)
+                 "duration of whole process in seconds": time_end}, file)
             
         print(f"Dataset {dataset_prepared_full_path} prepared")
-
     else:
         print(f"Dataset {dataset_prepared_full_path} already prepared")
 
