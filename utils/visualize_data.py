@@ -92,11 +92,11 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
                 "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
                 "error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]",extent_highs),
             }
-            # physical_vars = info["Inputs"].keys()
-            # for physical_var in physical_vars:
-            #     index = info["Inputs"][physical_var]["index"]
-            #     dict_to_plot[physical_var] = DataToVisualize(
-            #         x[index], physical_var,extent_highs)
+            physical_vars = info["Inputs"].keys()
+            for physical_var in physical_vars:
+                index = info["Inputs"][physical_var]["index"]
+                dict_to_plot[physical_var] = DataToVisualize(
+                    x[index], physical_var,extent_highs)
 
             name_pic = f"runs/{plot_name}_{current_id}"
             figsize_x = extent_highs[0]/extent_highs[1]*3
@@ -112,16 +112,15 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
                 return None
             current_id += 1
 
-def plt_avg_error_pixelwise(model: UNet, dataloader: DataLoader, device: str, plot_name: str = "default"):
-
+def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str):
+    # sum inference time and error over all datapoints
+    
     norm = dataloader.dataset.dataset.norm
-    info = dataloader.dataset.dataset.info
-    extent_highs = (np.array(info["CellsSize"][:2]) * dataloader.dataset[0][0][0].shape)
     model.eval()
 
     current_id = 0
     avg_inference_time = 0
-    summed_error_pic = torch.zeros_like(dataloader.dataset[0][0][0])
+    summed_error_pic = torch.zeros_like(torch.Tensor(dataloader.dataset[0][0][0]))
 
     for inputs, labels in dataloader:
         len_batch = inputs.shape[0]
@@ -144,43 +143,20 @@ def plt_avg_error_pixelwise(model: UNet, dataloader: DataLoader, device: str, pl
 
     avg_inference_time = avg_inference_time / current_id
     summed_error_pic = summed_error_pic / current_id
-    _plot_avg_pixel_error(summed_error_pic, plot_name, extent_highs)
+    return avg_inference_time, summed_error_pic
+
+def plt_avg_error_cellwise(model: UNet, dataloader: DataLoader, device: str, plot_name: str = "default"):
+    # plot avg error cellwise AND return time measurements for inference
+
+    avg_inference_time, summed_error_pic = infer_all_and_summed_pic(model, dataloader, device)
+
+    info = dataloader.dataset.dataset.info
+    extent_highs = (np.array(info["CellsSize"][:2]) * dataloader.dataset[0][0][0].shape)
+    _plot_avg_error(summed_error_pic, plot_name, extent_highs)
 
     return avg_inference_time
 
-def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: modules.loss._Loss = MSELoss()):
-
-    norm = dataloader.dataset.dataset.norm
-    model.eval()
-    mse_loss = 0.0
-    mse_closs = 0.0
-    mae_loss = 0.0
-    mae_closs = 0.0
-
-    for x, y in dataloader:
-        x = x.to(device)
-        y = y.to(device)
-        y_pred = model(x).to(device)
-        mse_loss += loss_func(y_pred, y).detach().item()
-        mae_loss = torch.mean(torch.abs(y_pred - y)).detach().item()
-
-        y = torch.swapaxes(y, 0, 1)
-        y_pred = torch.swapaxes(y_pred, 0, 1)
-        y = norm.reverse(y.detach().cpu(),"Labels")
-        y_pred = norm.reverse(y_pred.detach().cpu(),"Labels")
-        mse_closs += loss_func(y_pred, y).detach().item()
-        mae_closs = torch.mean(torch.abs(y_pred - y)).detach().item()
-        
-    mse_loss /= len(dataloader)
-    mse_closs /= len(dataloader)
-    mae_loss /= len(dataloader)
-    mae_closs /= len(dataloader)
-    # print("closs", mse_closs, "loss", mse_loss)
-
-    return {"mean squared error": mse_loss, "mean squared error in [°C^2]": mse_closs, 
-            "mean absolute error": mae_loss, "mean absolute error in [°C]": mae_closs}
-
-def _plot_avg_pixel_error(data, plot_name:str, extent_highs:tuple):
+def _plot_avg_error(data, plot_name:str, extent_highs:tuple):
     extent = (0,int(extent_highs[0]),int(extent_highs[1]),0)
     plt.figure()
     plt.imshow(data.T, cmap="RdBu_r", extent=extent)

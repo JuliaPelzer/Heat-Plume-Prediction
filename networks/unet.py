@@ -69,6 +69,29 @@ class UNet(nn.Module):
             nn.ReLU(inplace=True),
         )
 
+    def print_params(self):
+        number_parameter = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        print(f"UNet: Number of parameters: {number_parameter}")
+
+    def compare(self, model_2):
+        # source: https://discuss.pytorch.org/t/check-if-models-have-same-weights/4351/3
+        try:
+            # can handle both: model2 being only a state_dict or a full model
+            model_2 = model_2.state_dict()
+        except:
+            pass    
+        models_differ = 0
+        for key_item_1, key_item_2 in zip(self.state_dict().items(), model_2.items()):
+            if torch.equal(key_item_1[1], key_item_2[1]):
+                pass
+            else:
+                models_differ += 1
+                if (key_item_1[0] == key_item_2[0]):
+                    print('Mismatch found at', key_item_1[0])
+                else:
+                    raise Exception
+        if models_differ == 0:  print('Models match perfectly! :)')
+
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find("Conv") != -1:

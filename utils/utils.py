@@ -26,7 +26,7 @@ def beep(case:str="end"):
         freq = 640  # Hz
         os.system(f"play -nq -t alsa synth {duration} sine {freq}")
 
-def set_paths(dataset_name: str, inputs_prep:str = "", name_extension: str = "", case_2hp: bool = False):
+def set_paths(dataset_name: str, inputs_prep:str = "", case_2hp: bool = False):
     if os.path.exists("paths.yaml"):
         with open("paths.yaml", "r") as f:
             paths = yaml.load(f, Loader=yaml.SafeLoader)
@@ -39,7 +39,7 @@ def set_paths(dataset_name: str, inputs_prep:str = "", name_extension: str = "",
         default_raw_dir = "/home/pelzerja/Development/simulation_groundtruth_pflotran/Phd_simulation_groundtruth/datasets/1hp_boxes"
         datasets_prepared_dir = "/home/pelzerja/Development/datasets_prepared/1HP_NN"
     
-    dataset_prepared_path = os.path.join(datasets_prepared_dir, dataset_name+"_"+inputs_prep+name_extension)
+    dataset_prepared_path = os.path.join(datasets_prepared_dir, dataset_name+" inputs_"+inputs_prep)
     if case_2hp:
         dataset_prepared_path = os.path.join(datasets_prepared_dir, dataset_name)
         print(dataset_prepared_path)

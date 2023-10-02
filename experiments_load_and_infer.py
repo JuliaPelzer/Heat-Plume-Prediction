@@ -7,9 +7,9 @@ import time
 from tqdm.auto import tqdm
 import yaml
 import torch
+from networks.unet import UNet
 
 from data_stuff.utils import SettingsTraining, SettingsPrepare
-from networks.models import load_model
 from prepare_dataset import prepare_dataset
 from utils.utils import set_paths
 from main import set_paths
@@ -56,7 +56,8 @@ def load_and_infer(settings: SettingsTraining, datapoint_name:str, model_path: s
     datapoint = torch.load(os.path.join(settings.datasets_path, settings.dataset_name, "Inputs", datapoint_name))
     datapoint = torch.unsqueeze(torch.Tensor(datapoint), 0).to(device)
 
-    model = load_model({"model_choice": settings.model_choice, "in_channels": len(settings.inputs_prep)}, model_path, "model", device)
+    model = UNet(in_channels=len(settings.inputs_prep), out_channels=1, depth=3, kernel_size=5).float()
+    model.load_state_dict(torch.load(f"{model_path}/model.pt", map_location=torch.device(device)))
     model.to(device)
     start_inference = time.perf_counter()
     y_out = model(datapoint).to(device)
