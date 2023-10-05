@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class UNet(nn.Module):
-    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=4, kernel_size=5):
+    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
         super().__init__()
         features = init_features
         self.encoders = nn.ModuleList()

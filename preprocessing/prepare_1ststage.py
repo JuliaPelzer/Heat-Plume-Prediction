@@ -15,7 +15,7 @@ from data_stuff.transforms import (ComposeTransform, NormalizeTransform,
                              SignedDistanceTransform, ToTensorTransform)
 from data_stuff.utils import SettingsPrepare
 
-def pre_prepare_dataset(args, default_raw_dir:str, dataset_prepared_full_path:str):
+def prepare_dataset_for_1st_stage(args, default_raw_dir:str, dataset_prepared_full_path:str):
     if args.case_2hp:
         raise NotImplementedError("dataset needs to be prepared manually for 2HP case")
     time_begin = time.perf_counter()

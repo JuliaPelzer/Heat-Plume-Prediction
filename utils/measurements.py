@@ -7,6 +7,8 @@ import yaml
 from typing import Dict
 
 from networks.unet import UNet
+from solver import Solver
+from data_stuff.utils import SettingsTraining
 
 def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: modules.loss._Loss = MSELoss()):
 
@@ -39,8 +41,8 @@ def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: mo
     return {"mean squared error": mse_loss, "mean squared error in [°C^2]": mse_closs, 
             "mean absolute error": mae_loss, "mean absolute error in [°C]": mae_closs}
 
-def save_all_measurements(settings, len_dataset, solver, times, errors:Dict={}):
-    with open(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, f"measurements_{settings.case}2.yaml"), "w") as f:
+def save_all_measurements(settings:SettingsTraining, len_dataset, solver:Solver, times, errors:Dict={}):
+    with open(os.path.join(os.getcwd(), "runs", settings.destination_folder, f"measurements_{settings.case}2.yaml"), "w") as f:
         for key, value in times.items():
             f.write(f"{key}: {value}\n")
         f.write(f"timestamp of end: {time.ctime()}\n")
@@ -49,18 +51,18 @@ def save_all_measurements(settings, len_dataset, solver, times, errors:Dict={}):
             f.write(f"duration of initializations in seconds: {times['time_initializations']-times['time_begin']}\n")
             f.write(f"duration of training in seconds: {times['time_training']-times['time_initializations']}\n")
 
-        f.write(f"input params: {settings.inputs_prep}\n")
-        f.write(f"dataset location: {settings.datasets_path}\n")
-        f.write(f"dataset name: {settings.dataset_name}\n")
+        f.write(f"input params: {settings.inputs}\n")
+        f.write(f"dataset location: {settings.datasets_folder}\n")
+        f.write(f"dataset name: {settings.dataset}\n")
         f.write(f"case: {settings.case}\n")
         f.write(f"number of datapoints: {len_dataset}\n")
-        f.write(f"name_destination_folder: {settings.name_folder_destination}\n")
+        f.write(f"name_destination_folder: {settings.destination_folder}\n")
         f.write(f"number epochs: {settings.epochs}\n")
 
         for key, value in errors.items():
             f.write(f"{key}: {value}\n")
         if settings.case in ["test", "finetune"]: 
-            f.write(f"path to pretrained model: {settings.path_to_model}\n")
+            f.write(f"path to pretrained model: {settings.model_path}\n")
             f.write(f"best model found after epoch: {solver.best_model_params['epoch']}\n")
             f.write(f"best model found with val loss: {solver.best_model_params['loss']}\n")
             f.write(f"best model found with train loss: {solver.best_model_params['train loss']}\n")

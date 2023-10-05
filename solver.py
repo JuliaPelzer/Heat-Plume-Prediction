@@ -46,7 +46,7 @@ class Solver(object):
 
         start_time = time.perf_counter()
         # initialize tensorboard
-        writer = SummaryWriter(f"runs/{settings.name_folder_destination}")
+        writer = SummaryWriter(f"runs/{settings.destination_folder}")
         device = settings.device
         self.model = self.model.to(device)
         # writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
@@ -150,9 +150,9 @@ class Solver(object):
         if not os.path.exists(path):
             logging.warning(f"Could not find lr-schedule at {path}. Using default lr-schedule instead.")
             if not case_2hp:
-                path = os.path.join(os.getcwd(), "default_lr_schedule.csv")
+                path = os.path.join(os.getcwd(), "networks/default_lr_schedule.csv")
             else:
-                path = os.path.join(os.getcwd(), "default_lr_schedule_2hp.csv")
+                path = os.path.join(os.getcwd(), "networks/default_lr_schedule_2hp.csv")
 
         with open(path, "r") as f:
             for line in f:

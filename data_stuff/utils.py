@@ -19,28 +19,29 @@ def save_yaml(settings: Dict, path: str, name_file: str = "settings"):
 
 @dataclass
 class SettingsTraining:
-    dataset_name: str
-    inputs_prep: str
+    dataset: str
+    inputs: str
     device: str
     epochs: int
-    name_folder_destination: str
-    datasets_path: str = "/home/pelzerja/Development/dataset_generation_pflotran/Phd_simulation_groundtruth/datasets"
+    destination_folder: str
+    datasets_folder: str = "/home/pelzerja/Development/dataset_generation_pflotran/Phd_simulation_groundtruth/datasets"
     case: str = "train"
     finetune: bool = False
-    path_to_model: str = None
+    model_path: str = None
     test: bool = False
     case_2hp: bool = False
+    visualize: bool = False
     
     def __post_init__(self):
         if not self.case_2hp: 
-            self.dataset_name += " inputs_"+self.inputs_prep
+            self.dataset += " inputs_"+self.inputs
 
-        self.path_to_model = os.path.join("runs", self.path_to_model)
+        self.model_path = os.path.join("runs", self.model_path)
 
         if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:
             self.finetune = True
             self.case = "finetune"
-            assert self.path_to_model is not None, "Path to model is not defined"
+            assert self.model_path is not None, "Path to model is not defined"
         elif self.case in ["test", "testing", "Test", "Testing", "TEST"]:
             self.case = "test"
             self.test = True
@@ -56,14 +57,14 @@ class SettingsTraining:
 
     def save(self):
         save_yaml(self.__dict__, os.path.join(
-            "runs", self.name_folder_destination), "settings_training")
+            "runs", self.destination_folder), "settings_training")
         
     def set_destination(self):
-        if self.name_folder_destination == "":
-            self.name_folder_destination = self.dataset_name + " case_" + self.case
+        if self.destination_folder == "":
+            self.destination_folder = self.dataset + " case_" + self.case
 
     def make_destination_dir(self):
-        destination_dir = pathlib.Path(os.getcwd(), "runs", self.name_folder_destination)
+        destination_dir = pathlib.Path(os.getcwd(), "runs", self.destination_folder)
         destination_dir.mkdir(parents=True, exist_ok=True)
 
 @dataclass

@@ -3,7 +3,7 @@ import os
 import numpy as np
 from torch.nn import MSELoss, modules
 import sys
-from utils.visualize_data import _aligned_colorbar
+from utils.visualization import _aligned_colorbar
 import matplotlib.pyplot as plt
 
 sys.path.append("/home/pelzerja/pelzerja/test_nn/2HPs_demonstrator")  # remote version
