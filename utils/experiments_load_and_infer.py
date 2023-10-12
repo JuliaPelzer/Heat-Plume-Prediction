@@ -12,7 +12,7 @@ from networks.unet import UNet
 from data_stuff.utils import SettingsTraining, SettingsPrepare
 from preprocessing.prepare_1ststage import prepare_dataset
 from utils.utils import set_paths
-from main import set_paths
+from main import set_paths_1hpnn
 
 def run(settings: SettingsTraining):
     timestamp_begin = time.ctime()
@@ -24,10 +24,10 @@ def run(settings: SettingsTraining):
     avg_inference_times = 0
     avg_load_inference_times = 0
     num_dp = 0
-    path_inputs = os.path.join(settings.datasets_folder, settings.dataset, "Inputs")
+    path_inputs = os.path.join(settings.datasets_dir, settings.dataset_raw, "Inputs")
     # for datapoint in tqdm(os.listdir(path_inputs), desc="Loading and inferring"):
     for datapoint in os.listdir(path_inputs):
-        _, time_inference, time_load_inference = load_and_infer(settings, datapoint, settings.model_path, settings.device)
+        _, time_inference, time_load_inference = load_and_infer(settings, datapoint, settings.model, settings.device)
         avg_inference_times += time_inference
         avg_load_inference_times += time_load_inference
         #include visualisation in timing?
@@ -36,16 +36,16 @@ def run(settings: SettingsTraining):
     avg_inference_times = avg_inference_times / num_dp
     avg_load_inference_times = avg_load_inference_times / num_dp
     # save measurements
-    with open(os.path.join(os.getcwd(), "runs", settings.destination_folder, f"measurements_{settings.case}.yaml"), "w") as f:
+    with open(os.path.join(os.getcwd(), "runs", settings.destination_dir, f"measurements_{settings.case}.yaml"), "w") as f:
         f.write(f"timestamp of beginning: {timestamp_begin}\n")
         f.write(f"timestamp of end: {time.ctime()}\n")
         f.write(f"model: {settings.model_choice}\n")
         f.write(f"number of input-channels: {len(settings.inputs)}\n")
         f.write(f"input params: {settings.inputs}\n")
-        f.write(f"dataset location: {settings.datasets_folder}\n")
-        f.write(f"dataset name: {settings.dataset}\n")
+        f.write(f"dataset location: {settings.datasets_dir}\n")
+        f.write(f"dataset name: {settings.dataset_raw}\n")
         f.write(f"number of datapoints: {len(os.listdir(path_inputs))}\n")
-        f.write(f"name_destination_folder: {settings.destination_folder}\n")
+        f.write(f"name_destination_folder: {settings.destination_dir}\n")
         f.write(f"number epochs: {settings.epochs}\n")
         f.write(f"avg loading+inference times in seconds: {avg_load_inference_times}\n")
         f.write(f"avg inference times in seconds: {avg_inference_times}\n")
@@ -53,7 +53,7 @@ def run(settings: SettingsTraining):
 
 def load_and_infer(settings: SettingsTraining, datapoint_name:str, model_path: str, device: str = "cuda:3"):
     start_time = time.perf_counter()
-    datapoint = torch.load(os.path.join(settings.datasets_folder, settings.dataset, "Inputs", datapoint_name))
+    datapoint = torch.load(os.path.join(settings.datasets_dir, settings.dataset_raw, "Inputs", datapoint_name))
     datapoint = torch.unsqueeze(torch.Tensor(datapoint), 0).to(device)
 
     model = UNet(in_channels=len(settings.inputs)).float()
@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
     args.name_folder_destination = "experiments"+args.path_to_model[7:]
     
-    default_raw_dir, datasets_prepared_dir, dataset_prepared_full_path = set_paths(args.dataset_name, args.inputs_prep, args.name_extension, args.case_2hp)
+    default_raw_dir, datasets_prepared_dir, dataset_prepared_full_path = set_paths_1hpnn(args.dataset_name, args.inputs_prep, args.name_extension, args.case_2hp)
     args.datasets_path = datasets_prepared_dir
 
     # prepare dataset if not done yet
@@ -106,9 +106,9 @@ if __name__ == "__main__":
         args.dataset_name += "_"+args.inputs_prep + args.name_extension
 
     settings = SettingsTraining(**vars(args))
-    if settings.destination_folder == "":
-        settings.destination_folder = f"current_{settings.model_choice}_{settings.dataset}"
-    destination_dir = pathlib.Path(os.getcwd(), "runs", settings.destination_folder)
+    if settings.destination_dir == "":
+        settings.destination_dir = f"current_{settings.model_choice}_{settings.dataset_raw}"
+    destination_dir = pathlib.Path(os.getcwd(), "runs", settings.destination_dir)
     destination_dir.mkdir(parents=True, exist_ok=True)
 
     settings.save()

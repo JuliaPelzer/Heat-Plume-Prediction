@@ -8,43 +8,22 @@ import h5py
 import numpy as np
 import torch
 import yaml
+from typing import Union
 from tqdm.auto import tqdm
 
 from data_stuff.transforms import (ComposeTransform, NormalizeTransform,
                              PowerOfTwoTransform, ReduceTo2DTransform,
                              SignedDistanceTransform, ToTensorTransform)
-from data_stuff.utils import SettingsPrepare
+from data_stuff.utils import SettingsTraining
+from utils.prepare_paths import Paths1HP, Paths2HP
 
-def prepare_dataset_for_1st_stage(args, default_raw_dir:str, dataset_prepared_full_path:str):
-    if args.case_2hp:
-        raise NotImplementedError("dataset needs to be prepared manually for 2HP case")
-    time_begin = time.perf_counter()
-    args_prep = {"raw_dir": default_raw_dir,
-        "datasets_dir": args.datasets_path,
-        "dataset_name": args.dataset_name,
-        "inputs_prep": args.inputs_prep}
-    args_prep = SettingsPrepare(**args_prep)
-
-    if args.case == "test":
-        # get info of training
-        with open(os.path.join(os.getcwd(), "runs", args.path_to_model, "info.yaml"), "r") as file:
-            info = yaml.safe_load(file)
-        prepare_dataset(args_prep, dataset_prepared_full_path, info=info)
-    else:
-        info = prepare_dataset(args_prep, dataset_prepared_full_path)
-        if args.case == "train":
-            # store info of training
-            with open(os.path.join(os.getcwd(), "runs", args.name_folder_destination, "info.yaml"), "w") as file:
-                yaml.safe_dump(info, file)
-
-    time_end = time.perf_counter() - time_begin
-    with open(dataset_prepared_full_path + "/preparation_time.yaml", "w") as file:
-        yaml.safe_dump(
-            {"timestamp of end": time.ctime(), 
-                "duration of whole process in seconds": time_end}, file)
-        
-
-def prepare_dataset(args: SettingsPrepare, dataset_prepared_path:str, power2trafo: bool = True, info:dict = None):
+def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, info_file: str = "info.yaml"):
+    # get info of training
+    with open(os.path.join(os.getcwd(), settings.model, info_file), "r") as file:
+        info = yaml.safe_load(file)
+    prepare_dataset(paths, settings.dataset_raw, settings.inputs, info=info)
+    
+def prepare_dataset(paths: Union[Paths1HP, Paths2HP], dataset_name: str, inputs: str, power2trafo: bool = True, info:dict = None):
     """
     Create a dataset from the raw pflotran data in raw_data_path.
     The saved dataset is normalized using the mean and standard deviation, which are saved to info.yaml in the new dataset folder.
@@ -59,69 +38,40 @@ def prepare_dataset(args: SettingsPrepare, dataset_prepared_path:str, power2traf
             Name of the raw data. This will also be the name of the new dataset.
         input_variables : str
             String of characters, each of which is either x, y, z, p, t, k, i, s, g.
-            TODO make g (pressure gradient cell-size independent?)
     """
-    time_start = time.perf_counter()
-    full_raw_path = check_for_dataset(args.raw_dir, args.dataset_name)
-    # dataset_prepared_path = args.datasets_dir.joinpath(args.dataset_name+"_"+args.inputs_prep+args.name_extension)
-    dataset_prepared_path = pathlib.Path(dataset_prepared_path)
+    full_raw_path = check_for_dataset(paths.raw_dir, dataset_name)
+    dataset_prepared_path = pathlib.Path(paths.dataset_1st_prep_path)
     dataset_prepared_path.mkdir(parents=True, exist_ok=True)
     dataset_prepared_path.joinpath("Inputs").mkdir(parents=True, exist_ok=True)
     dataset_prepared_path.joinpath("Labels").mkdir(parents=True, exist_ok=True)
 
     transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo)
-    args.inputs = expand_property_names(args.inputs_prep)
+    inputs = expand_property_names(inputs)
     time_first = "   0 Time  0.00000E+00 y"
-    time_final = "   3 Time  5.00000E+00 y"
     time_steady_state = "   4 Time  2.75000E+01 y"
     pflotran_settings = get_pflotran_settings(full_raw_path)
     dims = np.array(pflotran_settings["grid"]["ncells"])
     total_size = np.array(pflotran_settings["grid"]["size"])
     cell_size = total_size/dims
 
-    if info is None: calc = WelfordStatistics()
     tensor_transform = ToTensorTransform()
     output_variables = ["Temperature [C]"]
     datapaths, runs = detect_datapoints(full_raw_path)
     total = len(datapaths)
     for datapath, run in tqdm(zip(datapaths, runs), desc="Converting", total=total):
-        x = load_data(datapath, time_first, args.inputs, dims)
+        x = load_data(datapath, time_first, inputs, dims)
         y = load_data(datapath, time_steady_state, output_variables, dims)
         loc_hp = get_hp_location(x)
         x = transforms(x, loc_hp=loc_hp)
-        if info is None: calc.add_data(x) 
         x = tensor_transform(x)
         y = transforms(y, loc_hp=loc_hp)
-        if info is None: calc.add_data(y)
         y = tensor_transform(y)
         torch.save(x, os.path.join(dataset_prepared_path, "Inputs", f"{run}.pt"))
         torch.save(y, os.path.join(dataset_prepared_path, "Labels", f"{run}.pt"))
         
-    if info is not None: 
-        info["CellsNumberPrior"] = info["CellsNumber"]
-        info["PositionHPPrior"] = info["PositionLastHP"]
-        assert info["CellsSize"][:2] == cell_size.tolist()[:2], f"Cell size changed between given info.yaml {info['CellsSize']} and data {cell_size.tolist()}"
-    else:
-        info = dict()
-        means = calc.mean()
-        stds = calc.std()
-        mins = calc.min()
-        maxs = calc.max()
-        info["Inputs"] = {key: {"mean": means[key],
-                                "std": stds[key],
-                                "min": mins[key],
-                                "max": maxs[key],
-                                "norm": get_normalization_type(key),
-                                "index": n}
-                        for n, key in enumerate(args.inputs)}
-        info["Labels"] = {key: {"mean": means[key],
-                                "std": stds[key],
-                                "min": mins[key],
-                                "max": maxs[key],
-                                "norm": get_normalization_type(key),
-                                "index": n}
-                        for n, key in enumerate(output_variables)}
-        
+    info["CellsNumberPrior"] = info["CellsNumber"]
+    info["PositionHPPrior"] = info["PositionLastHP"]
+    assert info["CellsSize"][:2] == cell_size.tolist()[:2], f"Cell size changed between given info.yaml {info['CellsSize']} and data {cell_size.tolist()}"        
     info["CellsSize"] = cell_size.tolist()
     # change of size possible; order of tensor is in any case the other way around
     assert 1 in y.shape, "y is not expected to have several output parameters"
@@ -129,16 +79,10 @@ def prepare_dataset(args: SettingsPrepare, dataset_prepared_path:str, power2traf
     dims = list(y.shape)[1:]
     info["CellsNumber"] = dims
     info["PositionLastHP"] = loc_hp.tolist()
-    # info["PositionLastHP"] = get_hp_location_from_tensor(x, info)
     with open(os.path.join(dataset_prepared_path, "info.yaml"), "w") as file:
         yaml.dump(info, file)
 
     normalize(dataset_prepared_path, info, total)
-    
-    time_end = time.perf_counter()
-    with open(os.path.join(dataset_prepared_path, "args.yaml"), "w") as f:
-        yaml.dump(vars(args), f, default_flow_style=False)
-        f.write(f"Duration for preparation in sec: {time_end-time_start}")
 
     return info
 

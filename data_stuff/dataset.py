@@ -13,11 +13,12 @@ class SimulationDataset(Dataset):
     def __init__(self, path):
         Dataset.__init__(self)
         self.path = pathlib.Path(path)
+        print(self.path)
         self.input_names = []
         self.label_names = []
-        for filename in os.listdir(self.path.joinpath("Inputs")):
+        for filename in os.listdir(self.path / "Inputs"):
             self.input_names.append(filename)
-        for filename in os.listdir(self.path.joinpath("Labels")):
+        for filename in os.listdir(self.path / "Labels"):
             self.label_names.append(filename)
         self.input_names.sort()
         self.label_names.sort()
