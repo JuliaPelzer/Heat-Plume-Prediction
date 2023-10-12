@@ -21,7 +21,7 @@
 - run main.py:
 
     ```
-    python main.py --dataset NAME_OF_DATASET --case test --path_to_model PATH_TO_MODEL (after "runs/")
+    python main.py --dataset NAME_OF_DATASET --case test --model PATH_TO_MODEL (after "runs/")
     
     optional arguments:
     --inputs: make sure, they are the same as in the model (default `gksi`)
@@ -29,6 +29,17 @@
     ```
 ## Training a 2nd stage model (2HP-NN):
 - for running a 2HP-NN you need the prepared 2HP-dataset in datasets_prepared_dir_2hp
+- for preparing 2HP-NN: expects that 1HP-NN exists and trained on; for 2HP-NN (including preparation) run main.py with the following arguments:
+
+    ```
+    python main.py --dataset NAME_OF_DATASET --case_2hp True --model PATH_TO_1HPNN_MODEL (after "runs/") --inputs INPUTS (rather preparation case from 1HP-NN)
+    ```
+    more information on required arguments:
+    --inputs: make sure, they are the same as in the model (default `gksi`) + the number of datapoints (e.g. gksi_1000dp)
+
+    optional arguments:
+    --visualize: visualize the results (default `False`)
+    --case: `test`, `train` or `finetune` (default `train`)
 
 #TODO
 

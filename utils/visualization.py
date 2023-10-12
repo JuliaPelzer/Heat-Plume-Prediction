@@ -54,8 +54,8 @@ class DataToVisualize:
             self.name = "Permeability in [m$^2$]"
         elif self.name == "SDF":
             self.name = "SDF-transformed position in [-]"
-
-def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: int = inf, plot_name: str = "default"):
+    
+def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: int = inf, plot_name: str = "default", pic_format: str = "png"):
     logging.warning("Plotting...")
 
     if amount_plots > len(dataloader.dataset):
@@ -100,14 +100,11 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
 
             name_pic = f"runs/{plot_name}_{current_id}"
             figsize_x = extent_highs[0]/extent_highs[1]*3
-            _plot_datafields(dict_to_plot, name_pic=name_pic, figsize_x=figsize_x)
-            # _plot_isolines(dict_to_plot, name_pic=name_pic, figsize_x=figsize_x)
+            _plot_datafields(dict_to_plot, name_pic=name_pic, figsize_x=figsize_x, pic_format=pic_format)
+            # _plot_isolines(dict_to_plot, name_pic=name_pic, figsize_x=figsize_x, pic_format=pic_format)
             # _isolines_measurements(dict_to_plot, name_pic=name_pic, figsize_x=figsize_x)
-            # _plot_temperature_field(dict_to_plot, name_pic=name_pic, figsize_x=figsize_x)
+            # _plot_temperature_field(dict_to_plot, name_pic=name_pic, figsize_x=figsize_x, pic_format=pic_format)
 
-            # if (current_id > 0 and current_id % 6 == 0) or current_id >= amount_plots-1:
-            #     plt.close("all")
-        
             if current_id >= amount_plots-1:
                 return None
             current_id += 1
@@ -168,7 +165,7 @@ def _plot_avg_error(data, plot_name:str, extent_highs:tuple):
     plt.savefig(f"runs/{plot_name}_pixelwise_avg_error.pgf", format="pgf")
     plt.savefig(f"runs/{plot_name}_pixelwise_avg_error.png")
 
-def _plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, figsize_x: float = 38.4):
+def _plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, figsize_x: float = 38.4, pic_format: str = "png"):
     n_subplots = len(data)
     fig, axes = plt.subplots(n_subplots, 1, sharex=True) #, figsize=(figsize_x, 3*(n_subplots)))
     fig.set_figheight(n_subplots)
@@ -183,19 +180,15 @@ def _plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, figsize_x:
         plt.gca().invert_yaxis()
 
         plt.ylabel("x [m]")
-        _aligned_colorbar() #label=datapoint.name) #, ticks=[10.6, 11.6, 12.6, 13.6, 14.6, 15.6])
+        _aligned_colorbar()
 
     plt.sca(axes[-1])
     plt.xlabel("y [m]")
     plt.tight_layout()
     # plt.suptitle("Datafields: Inputs, Output, Error")
+    plt.savefig(f"{name_pic}.{pic_format}", format=pic_format)
 
-    # plt.show()
-    plt.savefig(f"{name_pic}.pgf", format="pgf")
-    # plt.savefig(f"{name_pic}.png")
-    # plt.savefig(f"{name_pic}.svg")
-
-def _plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, figsize_x: float = 38.4):
+def _plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, figsize_x: float = 38.4, pic_format: str = "png"):
     # helper function to plot isolines of temperature out
     
     if "Original Temperature [C]" in data.keys():
@@ -221,20 +214,16 @@ def _plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, figsize_x: f
     plt.xlabel("y [m]")
     plt.tight_layout()
 
-    # plt.suptitle(f"Isolines of Temperature [°C]")
-    plt.savefig(f"{name_pic}_isolines.pgf", format="pgf")
-    # plt.savefig(f"{name_pic}_isolines.png")
+    plt.savefig(f"{name_pic}_isolines.{pic_format}", format=pic_format)
 
-def _isolines_measurements(data: Dict[str, DataToVisualize], name_pic: str, figsize_x: float = 38.4):
+def _isolines_measurements(data: Dict[str, DataToVisualize]):
     # helper function to plot isolines of temperature out
     
-    max_temp = 16 
-    min_temp = 10 
     lengths = {}
     widths = {}
     T_gwf = 10.6
 
-    _, axes = plt.subplots(4, 1, sharex=True, figsize=(figsize_x, 3*2))
+    _, axes = plt.subplots(4, 1, sharex=True)
     for index, key in enumerate(["t_true", "t_out"]):
         plt.sca(axes[index])
         datapoint = data[key]
@@ -254,7 +243,6 @@ def _isolines_measurements(data: Dict[str, DataToVisualize], name_pic: str, figs
                     lower_bound = min(lower_bound, seg[:,1].min())
         lengths[key] = max(right_bound - left_bound, 0)
         widths[key] = max(upper_bound - lower_bound, 0)
-        # print(f"{key} length (max y): {lengths[key]}, width (max x): {widths[key]}, max temp: {datapoint.data.max()}")
         print(f"lengths_{key[2:]}.append({lengths[key]})")
         print(f"widths_{key[2:]}.append({widths[key]})")
         print(f"max_temps_{key[2:]}.append({datapoint.data.max()})")
@@ -264,7 +252,7 @@ def _isolines_measurements(data: Dict[str, DataToVisualize], name_pic: str, figs
     plt.close("all")
     return lengths, widths
 
-def _plot_temperature_field(data: Dict[str, DataToVisualize], name_pic:str, figsize_x: float = 38.4):
+def _plot_temperature_field(data: Dict[str, DataToVisualize], name_pic:str, figsize_x: float = 38.4, pic_format: str = "png"):
     """
     Plot the temperature field. 
     almost-copy of other_models/analytical_models/utils_and_visu
@@ -285,8 +273,7 @@ def _plot_temperature_field(data: Dict[str, DataToVisualize], name_pic:str, figs
 
     T_gwf_plus1, T_gwf_plusdiff = datapoint.contourargs["levels"]
     plt.suptitle(f"Temperature field and isolines of {T_gwf_plus1} and {T_gwf_plusdiff} °C")
-    plt.savefig(f"{name_pic}_combined.pgf", format="pgf")
-    # plt.savefig(f"{name_pic}_combined.svg")
+    plt.savefig(f"{name_pic}_combined.{pic_format}", format=pic_format)
 
 def _aligned_colorbar(*args, **kwargs):
     cax = make_axes_locatable(plt.gca()).append_axes(

@@ -19,29 +19,28 @@ def save_yaml(settings: Dict, path: str, name_file: str = "settings"):
 
 @dataclass
 class SettingsTraining:
-    dataset: str
+    dataset_raw: str
     inputs: str
     device: str
     epochs: int
-    destination_folder: str
-    datasets_folder: str = "/home/pelzerja/Development/dataset_generation_pflotran/Phd_simulation_groundtruth/datasets"
+    destination_dir: str 
+    datasets_dir: str = ""
+    dataset_prep: str = ""
     case: str = "train"
     finetune: bool = False
-    model_path: str = None
+    model: str = None
     test: bool = False
     case_2hp: bool = False
     visualize: bool = False
     
     def __post_init__(self):
-        if not self.case_2hp: 
-            self.dataset += " inputs_"+self.inputs
 
-        self.model_path = os.path.join("runs", self.model_path)
+        self.model = os.path.join("runs", self.model)
 
         if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:
             self.finetune = True
             self.case = "finetune"
-            assert self.model_path is not None, "Path to model is not defined"
+            assert self.model is not None, "Path to model is not defined"
         elif self.case in ["test", "testing", "Test", "Testing", "TEST"]:
             self.case = "test"
             self.test = True
@@ -51,25 +50,25 @@ class SettingsTraining:
             assert self.finetune is False, "Finetune is not possible in train mode"
             assert self.test is False, "Test is not possible in train mode"
 
+        if self.case in ["test", "finetune"]:
+            assert self.model != "runs/default", "Please specify model path for testing or finetuning"
+
         self.set_destination()
         self.make_destination_dir()
-        self.save()
 
     def save(self):
         save_yaml(self.__dict__, os.path.join(
-            "runs", self.destination_folder), "settings_training")
+            "runs", self.destination_dir), "command_line_arguments")
         
     def set_destination(self):
-        if self.destination_folder == "":
-            self.destination_folder = self.dataset + " case_" + self.case
+        if self.destination_dir == "":
+            if not self.case_2hp:
+                extension = " inputs_"+self.inputs + " case_"+self.case
+            else:
+                extension = " case_"+self.case
+                # TODO
+            self.destination_dir = self.dataset_raw + extension
 
     def make_destination_dir(self):
-        destination_dir = pathlib.Path(os.getcwd(), "runs", self.destination_folder)
+        destination_dir = pathlib.Path(os.getcwd(), "runs", self.destination_dir)
         destination_dir.mkdir(parents=True, exist_ok=True)
-
-@dataclass
-class SettingsPrepare:
-    raw_dir: str
-    datasets_dir: str
-    dataset_name: str
-    inputs_prep: str
