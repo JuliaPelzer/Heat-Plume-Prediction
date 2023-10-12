@@ -9,8 +9,8 @@ import time
 import torch
 from torch import save
 from torch.utils.data import DataLoader, random_split
-from torch.utils.tensorboard import SummaryWriter
 # tensorboard --logdir=runs/ --host localhost --port 8088
+# from torch.utils.tensorboard import SummaryWriter
 from torch.nn import MSELoss
 
 from data_stuff.dataset import SimulationDataset, _get_splits
