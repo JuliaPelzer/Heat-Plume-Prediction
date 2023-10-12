@@ -62,13 +62,8 @@ class SettingsTraining:
         
     def set_destination(self):
         if self.destination_dir == "":
-            if not self.case_2hp:
-                extension = " inputs_"+self.inputs + " case_"+self.case
-            else:
-                extension = " case_"+self.case
-                # TODO
-            self.destination_dir = self.dataset_raw + extension
+            self.destination_dir = self.dataset_raw + " inputs_"+self.inputs + " case_"+self.case
 
     def make_destination_dir(self):
-        destination_dir = pathlib.Path(os.getcwd(), "runs", self.destination_dir)
-        destination_dir.mkdir(parents=True, exist_ok=True)
+        self.destination_dir = pathlib.Path(os.getcwd()) / "runs" / self.destination_dir
+        self.destination_dir.mkdir(parents=True, exist_ok=True)

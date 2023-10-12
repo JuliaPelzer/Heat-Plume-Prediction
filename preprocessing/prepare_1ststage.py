@@ -18,11 +18,27 @@ from data_stuff.utils import SettingsTraining
 from utils.prepare_paths import Paths1HP, Paths2HP
 
 def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, info_file: str = "info.yaml"):
-    # get info of training
-    with open(os.path.join(os.getcwd(), settings.model, info_file), "r") as file:
-        info = yaml.safe_load(file)
-    prepare_dataset(paths, settings.dataset_raw, settings.inputs, info=info)
-    
+    time_begin = time.perf_counter()
+
+    if settings.case == "test" or settings.case_2hp:
+        # get info of training
+        with open(os.path.join(os.getcwd(), settings.model, info_file), "r") as file:
+            info = yaml.safe_load(file)
+        prepare_dataset(paths, settings.dataset_raw, settings.inputs, info=info)
+    else:
+        info = prepare_dataset(paths, settings.dataset_raw, settings.inputs)
+        if settings.case == "train":
+            # store info of training
+            with open(os.path.join(os.getcwd(), "runs", settings.destination_dir, info_file), "w") as file:
+                yaml.safe_dump(info, file)
+
+    time_end = time.perf_counter() - time_begin
+    with open(paths.dataset_1st_prep_path / "preparation_time.yaml", "w") as file:
+        yaml.safe_dump(
+            {"timestamp of end": time.ctime(), 
+                "duration of whole process in seconds": time_end}, file)
+        
+
 def prepare_dataset(paths: Union[Paths1HP, Paths2HP], dataset_name: str, inputs: str, power2trafo: bool = True, info:dict = None):
     """
     Create a dataset from the raw pflotran data in raw_data_path.

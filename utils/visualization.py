@@ -55,7 +55,7 @@ class DataToVisualize:
         elif self.name == "SDF":
             self.name = "SDF-transformed position in [-]"
     
-def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: int = inf, plot_name: str = "default", pic_format: str = "png"):
+def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: int = inf, plot_path: str = "default", pic_format: str = "png"):
     logging.warning("Plotting...")
 
     if amount_plots > len(dataloader.dataset):
@@ -98,7 +98,7 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
                 dict_to_plot[physical_var] = DataToVisualize(
                     x[index], physical_var,extent_highs)
 
-            name_pic = f"runs/{plot_name}_{current_id}"
+            name_pic = f"{plot_path}_{current_id}"
             figsize_x = extent_highs[0]/extent_highs[1]*3
             _plot_datafields(dict_to_plot, name_pic=name_pic, figsize_x=figsize_x, pic_format=pic_format)
             # _plot_isolines(dict_to_plot, name_pic=name_pic, figsize_x=figsize_x, pic_format=pic_format)

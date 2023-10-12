@@ -7,7 +7,6 @@ import time
 import yaml
 
 from torch import tensor, stack, load
-from torch import device as torch_device
 from tqdm.auto import tqdm
 
 from data_stuff.utils import load_yaml
@@ -30,6 +29,7 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, dataset_name: str, inputs_1hp
     - 1hpnn is trained
     - cell sizes of 1hp-boxes and domain are the same
     - boundaries of boxes around at least one hp is within domain
+    - device: attention, all stored need to be produced on cpu for later pin_memory=True and all other can be gpu
     """
     
     timestamp_begin = time.ctime()
@@ -39,8 +39,8 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, dataset_name: str, inputs_1hp
     ## load model from 1st stage
     time_start_prep_domain = time.perf_counter()
     model_1HP = UNet(in_channels=len(inputs_1hp)).float()
-    model_1HP.load_state_dict(load(f"{paths.model_1hp_path}/model.pt", map_location=torch_device(device)))
-    model_1HP.to(device)
+    model_1HP.load_state_dict(load(f"{paths.model_1hp_path}/model.pt", map_location=device))
+    # model_1HP.to(device)
     
     ## prepare 2hp dataset for 1st stage
     if not os.path.exists(paths.dataset_1st_prep_path):        
@@ -56,13 +56,13 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, dataset_name: str, inputs_1hp
     list_runs = os.listdir(os.path.join(paths.dataset_1st_prep_path, "Inputs"))
     for run_file in tqdm(list_runs, desc="2HP prepare", total=len(list_runs)):
         run_id = f'{run_file.split(".")[0]}_'
-        domain = Domain(paths.dataset_1st_prep_path, stitching_method="max", file_name=run_file, device=device)
+        domain = Domain(paths.dataset_1st_prep_path, stitching_method="max", file_name=run_file)
         ## generate 1hp-boxes and extract information like perm and ids etc.
         if domain.skip_datapoint:
             logging.warning(f"Skipping {run_id}")
             continue
 
-        single_hps = domain.extract_hp_boxes(device)
+        single_hps = domain.extract_hp_boxes()
         # apply learned NN to predict the heat plumes
         hp: HeatPump
         for hp in single_hps:
