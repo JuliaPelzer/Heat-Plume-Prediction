@@ -2,6 +2,7 @@ import torch
 
 from domain_classes.domain import Domain
 from utils.prepare_paths import set_paths_2hpnn
+from preprocessing.prepare_2ndstage import main_merge_inputs
 
 
 # def test_norm():
@@ -27,3 +28,7 @@ from utils.prepare_paths import set_paths_2hpnn
 #     result = dummy_domain.reverse_norm(dummy_domain.norm(test_value))
 
 #     assert torch.allclose(result, test_value)
+
+def test_merged_inputs():
+    main_merge_inputs("dataset_2hps_1fixed_10dp inputs_gki100 boxes", True)
+

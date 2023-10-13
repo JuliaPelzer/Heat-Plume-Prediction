@@ -150,23 +150,17 @@ def merge_inputs_for_2HPNN(path_separate_inputs:pathlib.Path, path_merged_inputs
     save_yaml(measurements, path=path_merged_inputs, name_file="measurements")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", type=str, default="dataset_2hps_1fixed_10dp_2hp_gksi_1000dp")
-    parser.add_argument("--merge_inputs", type=bool, default=False)
-    args = parser.parse_args()
-
+def main_merge_inputs(dataset: str, merge: bool):
     #get dir of prepare_2HP_separate_inputs
     paths = yaml.load(open("paths.yaml", "r"), Loader=yaml.FullLoader)
-    dir_separate_inputs = paths["datasets_prepared_2hp_dir"]
-    path_separate_inputs = pathlib.Path(dir_separate_inputs) / args.dataset
+    dir_separate_inputs = pathlib.Path(paths["datasets_prepared_dir_2hp"])
+    path_separate_inputs = dir_separate_inputs / dataset
 
-    if args.merge_inputs:
-
-        path_merged_inputs = pathlib.Path(dir_separate_inputs) / (args.dataset+"_merged")
+    if merge:
+        path_merged_inputs = dir_separate_inputs / f"{dataset}_merged"
         path_merged_inputs.mkdir(exist_ok=True)
-        # copy "Labels" folder from separate to merged
-        os.system(f"cp -r {path_separate_inputs/'Labels'} {path_merged_inputs}")
+        # labels are the same as for separate inputs
+        os.system(f"cp -r '{path_separate_inputs/'Labels'}' '{path_merged_inputs}'")
 
         if os.path.exists(path_separate_inputs):
             merge_inputs_for_2HPNN(path_separate_inputs, path_merged_inputs, stitching_method="max")
@@ -177,3 +171,13 @@ if __name__ == "__main__":
             print("You need to set --merge_inputs=True to merge inputs otherwise you're done. Your separate inputs are already prepared.")
         else:
             print(f"Could not find prepared dataset with separate inputs at {path_separate_inputs}. Please go to file main.py for that.")
+
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", type=str, default="dataset_2hps_1fixed_10dp inputs_gki100 boxes")
+    parser.add_argument("--merge", type=bool, default=False)
+    args = parser.parse_args()
+
+    main_merge_inputs(args.dataset, args.merge)
