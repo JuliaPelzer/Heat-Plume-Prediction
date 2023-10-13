@@ -16,6 +16,7 @@ from preprocessing.prepare_1ststage import prepare_dataset
 sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN")  # relevant for remote
 sys.path.append("/home/pelzerja/Development/1HP_NN")  # relevant for local
 sys.path.append("/home/pelzerja/pelzerja/test_nn/2HPs_demonstrator")  # relevant for remote
+sys.path.append("/home/pelzerja/Development/2HPs_demonstrator/2HPs_demonstrator")  # relevant for remote
 from domain import Domain
 from heat_pump import HeatPump
 from utils_2hp import save_config_of_separate_inputs
