@@ -1,8 +1,6 @@
-import pytest
 import torch
 
-import networks.losses
-from data.transforms import ComposeTransform, SignedDistanceTransform
+from data_stuff.transforms import ComposeTransform, SignedDistanceTransform
 
 
 def test_sdf_transform():

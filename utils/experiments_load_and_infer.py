@@ -36,7 +36,7 @@ def run(settings: SettingsTraining):
     avg_inference_times = avg_inference_times / num_dp
     avg_load_inference_times = avg_load_inference_times / num_dp
     # save measurements
-    with open(os.path.join(os.getcwd(), "runs", settings.destination_dir, f"measurements_{settings.case}.yaml"), "w") as f:
+    with open(os.path.join(os.getcwd(), "runs", settings.destination, f"measurements_{settings.case}.yaml"), "w") as f:
         f.write(f"timestamp of beginning: {timestamp_begin}\n")
         f.write(f"timestamp of end: {time.ctime()}\n")
         f.write(f"model: {settings.model_choice}\n")
@@ -45,7 +45,7 @@ def run(settings: SettingsTraining):
         f.write(f"dataset location: {settings.datasets_dir}\n")
         f.write(f"dataset name: {settings.dataset_raw}\n")
         f.write(f"number of datapoints: {len(os.listdir(path_inputs))}\n")
-        f.write(f"name_destination_folder: {settings.destination_dir}\n")
+        f.write(f"name_destination_folder: {settings.destination}\n")
         f.write(f"number epochs: {settings.epochs}\n")
         f.write(f"avg loading+inference times in seconds: {avg_load_inference_times}\n")
         f.write(f"avg inference times in seconds: {avg_inference_times}\n")
@@ -106,9 +106,9 @@ if __name__ == "__main__":
         args.dataset_name += "_"+args.inputs_prep + args.name_extension
 
     settings = SettingsTraining(**vars(args))
-    if settings.destination_dir == "":
-        settings.destination_dir = f"current_{settings.model_choice}_{settings.dataset_raw}"
-    destination_dir = pathlib.Path(os.getcwd(), "runs", settings.destination_dir)
+    if settings.destination == "":
+        settings.destination = f"current_{settings.model_choice}_{settings.dataset_raw}"
+    destination_dir = pathlib.Path(os.getcwd(), "runs", settings.destination)
     destination_dir.mkdir(parents=True, exist_ok=True)
 
     settings.save()

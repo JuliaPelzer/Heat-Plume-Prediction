@@ -2,24 +2,19 @@ import argparse
 import logging
 import os
 import pathlib
-import sys
+import torch
 import time
 import yaml
 
-from torch import tensor, stack, load
+from torch import stack, load
 from tqdm.auto import tqdm
 
-from data_stuff.utils import load_yaml
 from networks.unet import UNet
 from preprocessing.prepare_1ststage import prepare_dataset
-
-sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN")  # relevant for remote
-sys.path.append("/home/pelzerja/Development/1HP_NN")  # relevant for local
-sys.path.append("/home/pelzerja/pelzerja/test_nn/2HPs_demonstrator")  # relevant for remote
-sys.path.append("/home/pelzerja/Development/2HPs_demonstrator/2HPs_demonstrator")  # relevant for remote
-from domain import Domain
-from heat_pump import HeatPump
-from utils_2hp import save_config_of_separate_inputs
+from domain_classes.domain import Domain
+from domain_classes.heat_pump import HeatPump
+from domain_classes.utils_2hp import save_config_of_separate_inputs, save_config_of_merged_inputs, save_yaml
+from domain_classes.stitching import Stitching
 from utils.prepare_paths import Paths2HP
 
 
@@ -40,7 +35,7 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, dataset_name: str, inputs_1hp
     ## load model from 1st stage
     time_start_prep_domain = time.perf_counter()
     model_1HP = UNet(in_channels=len(inputs_1hp)).float()
-    model_1HP.load_state_dict(load(f"{paths.model_1hp_path}/model.pt", map_location=device))
+    model_1HP.load(paths.model_1hp_path, device)
     # model_1HP.to(device)
     
     ## prepare 2hp dataset for 1st stage
@@ -49,7 +44,7 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, dataset_name: str, inputs_1hp
         with open(os.path.join(os.getcwd(), paths.dataset_model_trained_with_prep_path, "info.yaml"), "r") as file:
             info = yaml.safe_load(file)
         prepare_dataset(paths, dataset_name, inputs_1hp, info=info, power2trafo=False)
-    print(f"Domain {paths.dataset_1st_prep_path} prepared")
+    print(f"Domain prepared ({paths.dataset_1st_prep_path})")
 
 # prepare dataset for 2nd stage
     time_start_prep_2hp = time.perf_counter()
@@ -89,7 +84,7 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, dataset_name: str, inputs_1hp
     save_config_of_separate_inputs(domain.info, path=paths.datasets_boxes_prep_path)
 
     # save measurements
-    with open(os.path.join(os.getcwd(), "runs", paths.datasets_boxes_prep_path, f"measurements.yaml"), "w") as f:
+    with open(paths.datasets_boxes_prep_path / "measurements.yaml", "w") as f:
         f.write(f"timestamp of beginning: {timestamp_begin}\n")
         f.write(f"timestamp of end: {time.ctime()}\n")
         f.write(f"model 1HP: {paths.model_1hp_path}\n")
@@ -105,3 +100,86 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, dataset_name: str, inputs_1hp
         f.write(f"duration of preparing 2HP in seconds: {(time_end-time_start_prep_2hp)}\n")
         f.write(f"duration of preparing 2HP /run in seconds: {(time_end-time_start_prep_2hp)/len(list_runs)}\n")
         f.write(f"duration of whole process in seconds: {(time_end-time_begin)}\n")
+
+    return domain, single_hps, domain.info
+
+
+def merge_inputs_for_2HPNN(path_separate_inputs:pathlib.Path, path_merged_inputs:pathlib.Path, stitching_method:str="max"):
+    begin = time.perf_counter()
+    assert stitching_method == "max", "Other than max stitching required reasonable background temp and therefor potentially norming."
+    stitching = Stitching(stitching_method, background_temperature=0)
+    
+    (path_merged_inputs/"Inputs").mkdir(exist_ok=True)
+
+    begin_prep = time.perf_counter()
+    # get separate inputs if exist
+    for file in (path_separate_inputs/"Inputs").iterdir():
+        input = torch.load(file)
+        # merge inputs via stitching
+        input = stitching(input[0], input[1])
+        # save merged inputs
+        input = torch.unsqueeze(torch.Tensor(input), 0)
+        torch.save(input, path_merged_inputs/"Inputs"/file.name)
+    end_prep = time.perf_counter()
+
+    # save config of merged inputs
+    info_separate = yaml.load(open(path_separate_inputs/"info.yaml", "r"), Loader=yaml.FullLoader)
+    save_config_of_merged_inputs(info_separate, path_merged_inputs)
+
+    # save command line arguments
+    cla = {
+        "dataset_separate": path_separate_inputs.name,
+        "command": "prepare_2HP_merged_inputs.py"
+    }
+    save_yaml(cla, path=path_merged_inputs, name_file="command_line_args")
+    end = time.perf_counter()
+
+    # save times in measurements.yaml (also copy relevant ones from separate)
+    measurements_prep_separate = yaml.load(open(path_separate_inputs/"measurements.yaml", "r"), Loader=yaml.FullLoader)
+    num_dp = len(list((path_separate_inputs/"Inputs").iterdir()))
+    duration_prep = end_prep - begin_prep
+    duration_prep_avg = duration_prep / num_dp
+    measurements = {
+        "duration of preparation in seconds": duration_prep,
+        "duration of preparing 2HP /run in seconds": duration_prep_avg,
+        "duration total in seconds": end - begin,
+        "number of datapoints": num_dp,
+        "separate-preparation": {"duration of preparing domain in seconds": measurements_prep_separate["duration of preparing domain in seconds"],
+                                    "duration of preparing 2HP /run in seconds": measurements_prep_separate["duration of preparing 2HP /run in seconds"],
+                                    "duration of preparing 2HP in seconds": measurements_prep_separate["duration of preparing 2HP in seconds"],
+                                    "duration of whole process in seconds": measurements_prep_separate["duration of whole process in seconds"]},
+    }
+    save_yaml(measurements, path=path_merged_inputs, name_file="measurements")
+
+
+def main_merge_inputs(dataset: str, merge: bool):
+    #get dir of prepare_2HP_separate_inputs
+    paths = yaml.load(open("paths.yaml", "r"), Loader=yaml.FullLoader)
+    dir_separate_inputs = pathlib.Path(paths["datasets_prepared_dir_2hp"])
+    path_separate_inputs = dir_separate_inputs / dataset
+
+    if merge:
+        path_merged_inputs = dir_separate_inputs / f"{dataset}_merged"
+        path_merged_inputs.mkdir(exist_ok=True)
+        # labels are the same as for separate inputs
+        os.system(f"cp -r '{path_separate_inputs/'Labels'}' '{path_merged_inputs}'")
+
+        if os.path.exists(path_separate_inputs):
+            merge_inputs_for_2HPNN(path_separate_inputs, path_merged_inputs, stitching_method="max")
+        else:
+            print(f"Could not find prepared dataset with separate inputs at {path_separate_inputs}.")
+    else:
+        if os.path.exists(path_separate_inputs):
+            print("You need to set --merge_inputs=True to merge inputs otherwise you're done. Your separate inputs are already prepared.")
+        else:
+            print(f"Could not find prepared dataset with separate inputs at {path_separate_inputs}. Please go to file main.py for that.")
+
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", type=str, default="dataset_2hps_1fixed_10dp inputs_gki100 boxes")
+    parser.add_argument("--merge", type=bool, default=False)
+    args = parser.parse_args()
+
+    main_merge_inputs(args.dataset, args.merge)

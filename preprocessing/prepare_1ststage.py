@@ -22,14 +22,14 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
 
     if settings.case == "test" or settings.case_2hp:
         # get info of training
-        with open(os.path.join(os.getcwd(), settings.model, info_file), "r") as file:
+        with open(settings.model / info_file, "r") as file:
             info = yaml.safe_load(file)
         prepare_dataset(paths, settings.dataset_raw, settings.inputs, info=info)
     else:
         info = prepare_dataset(paths, settings.dataset_raw, settings.inputs)
         if settings.case == "train":
             # store info of training
-            with open(os.path.join(os.getcwd(), "runs", settings.destination_dir, info_file), "w") as file:
+            with open(settings.destination, info_file, "w") as file:
                 yaml.safe_dump(info, file)
 
     time_end = time.perf_counter() - time_begin

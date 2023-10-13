@@ -23,7 +23,7 @@ class SettingsTraining:
     inputs: str
     device: str
     epochs: int
-    destination_dir: str 
+    destination: str 
     datasets_dir: str = ""
     dataset_prep: str = ""
     case: str = "train"
@@ -34,9 +34,6 @@ class SettingsTraining:
     visualize: bool = False
     
     def __post_init__(self):
-
-        self.model = os.path.join("runs", self.model)
-
         if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:
             self.finetune = True
             self.case = "finetune"
@@ -53,17 +50,18 @@ class SettingsTraining:
         if self.case in ["test", "finetune"]:
             assert self.model != "runs/default", "Please specify model path for testing or finetuning"
 
-        self.set_destination()
-        self.make_destination_dir()
+        self.set_destination_name()
 
     def save(self):
-        save_yaml(self.__dict__, os.path.join(
-            "runs", self.destination_dir), "command_line_arguments")
+        save_yaml(self.__dict__, self.destination, "command_line_arguments")
         
-    def set_destination(self):
-        if self.destination_dir == "":
-            self.destination_dir = self.dataset_raw + " inputs_"+self.inputs + " case_"+self.case
+    def set_destination_name(self):
+        if self.destination == "":
+            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case
 
-    def make_destination_dir(self):
-        self.destination_dir = pathlib.Path(os.getcwd()) / "runs" / self.destination_dir
-        self.destination_dir.mkdir(parents=True, exist_ok=True)
+    def make_destination_path(self, destination_dir: pathlib.Path):
+        self.destination = destination_dir / self.destination
+        self.destination.mkdir(exist_ok=True)
+
+    def make_model_path(self, destination_dir: pathlib.Path):
+        self.model = destination_dir / self.model
