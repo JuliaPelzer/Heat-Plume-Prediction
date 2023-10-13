@@ -35,7 +35,7 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, dataset_name: str, inputs_1hp
     ## load model from 1st stage
     time_start_prep_domain = time.perf_counter()
     model_1HP = UNet(in_channels=len(inputs_1hp)).float()
-    model_1HP.load_state_dict(load(f"{paths.model_1hp_path}/model.pt", map_location=device))
+    model_1HP.load(paths.model_1hp_path, device)
     # model_1HP.to(device)
     
     ## prepare 2hp dataset for 1st stage
@@ -84,7 +84,7 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, dataset_name: str, inputs_1hp
     save_config_of_separate_inputs(domain.info, path=paths.datasets_boxes_prep_path)
 
     # save measurements
-    with open(os.path.join(os.getcwd(), "runs", paths.datasets_boxes_prep_path, f"measurements.yaml"), "w") as f:
+    with open(paths.datasets_boxes_prep_path / "measurements.yaml", "w") as f:
         f.write(f"timestamp of beginning: {timestamp_begin}\n")
         f.write(f"timestamp of end: {time.ctime()}\n")
         f.write(f"model 1HP: {paths.model_1hp_path}\n")
@@ -100,6 +100,8 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, dataset_name: str, inputs_1hp
         f.write(f"duration of preparing 2HP in seconds: {(time_end-time_start_prep_2hp)}\n")
         f.write(f"duration of preparing 2HP /run in seconds: {(time_end-time_start_prep_2hp)/len(list_runs)}\n")
         f.write(f"duration of whole process in seconds: {(time_end-time_begin)}\n")
+
+    return domain, single_hps, domain.info
 
 
 def merge_inputs_for_2HPNN(path_separate_inputs:pathlib.Path, path_merged_inputs:pathlib.Path, stitching_method:str="max"):

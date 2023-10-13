@@ -8,7 +8,6 @@ import shutil
 import time
 
 import torch
-from torch import save
 from torch.utils.data import DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
 # tensorboard --logdir=runs/ --host localhost --port 8088
@@ -55,7 +54,7 @@ def run(settings: SettingsTraining):
     # model
     model = UNet(in_channels=dataset.input_channels).float()
     if settings.case in ["test", "finetune"]:
-        model.load_state_dict(torch.load(f"{settings.model}/model.pt", map_location=torch.device(settings.device)))
+        model.load(settings.model, settings.device)
     model.to(settings.device)
 
     solver = None
@@ -64,33 +63,33 @@ def run(settings: SettingsTraining):
         # training
         solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn, finetune=settings.finetune)
         try:
-            solver.load_lr_schedule(settings.destination_dir / "learning_rate_history.csv", settings.case_2hp)
+            solver.load_lr_schedule(settings.destination / "learning_rate_history.csv", settings.case_2hp)
             times["time_initializations"] = time.perf_counter()
-            solver.train(settings, settings.destination_dir)
+            solver.train(settings, settings.destination)
             times["time_training"] = time.perf_counter()
         except KeyboardInterrupt:
             times["time_training"] = time.perf_counter()
             logging.warning(f"Manually stopping training early with best model found in epoch {solver.best_model_params['epoch']}.")
         finally:
-            solver.save_lr_schedule(settings.destination_dir / "learning_rate_history.csv")
+            solver.save_lr_schedule(settings.destination / "learning_rate_history.csv")
             print("Training finished")
 
     # save model
-    save(model.state_dict(), settings.destination_dir / "model.pt")
+    model.save(settings.destination)
 
     # visualization
     if settings.visualize:
         which_dataset = "val"
         pic_format = "png"
-        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination_dir / f"plot_{which_dataset}", amount_plots=1, pic_format=pic_format)
+        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_plots=1, pic_format=pic_format)
         times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
-        plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination_dir, "format": pic_format})
+        plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         errors = measure_loss(model, dataloaders[which_dataset], settings.device)
         print("Visualizations finished")
         
     times["time_end"] = time.perf_counter()
-    save_all_measurements(settings, len(dataset), times, solver, errors)
-    print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination_dir}")
+    save_all_measurements(settings, len(dataset), times, solver) #, errors)
+    print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination}")
 
 
 if __name__ == "__main__":
@@ -102,7 +101,7 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=10000)
     parser.add_argument("--case", type=str, default="train") # alternatives: test finetune
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
-    parser.add_argument("--destination_dir", type=str, default="")
+    parser.add_argument("--destination", type=str, default="")
     parser.add_argument("--inputs", type=str, default="gksi")
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=False)
@@ -110,26 +109,30 @@ if __name__ == "__main__":
 
     if not settings.case_2hp:
         paths: Paths1HP
-        paths, dataset_prep = set_paths_1hpnn(settings.dataset_raw, settings.inputs) 
-        settings.datasets_dir = paths.datasets_prepared_dir
-        settings.dataset_prep = dataset_prep
+        paths, dataset_prep_path = set_paths_1hpnn(settings.dataset_raw, settings.inputs) 
+        settings.dataset_prep = dataset_prep_path
 
+    else:
+        paths: Paths2HP
+        paths, inputs_1hp, dataset_prep_2hp_path = set_paths_2hpnn(settings.dataset_raw, settings.inputs)
+        settings.dataset_prep = dataset_prep_2hp_path
+    settings.datasets_dir = paths.datasets_prepared_dir 
+    settings.make_destination_path(paths.destination_dir)
+    settings.make_model_path(paths.destination_dir)
+
+    if not settings.case_2hp:
         # prepare dataset if not done yet OR if test=case do it anyways because of potentially different std,mean,... values than trained with
         if not os.path.exists(paths.dataset_1st_prep_path) or settings.case == "test":
             prepare_dataset_for_1st_stage(paths, settings)
         print(f"Dataset {paths.dataset_1st_prep_path} prepared")
-    else:
-        paths: Paths2HP
-        paths, inputs_1hp, dataset_prep = set_paths_2hpnn(settings.dataset_raw, settings.inputs)
-        settings.datasets_dir = paths.datasets_prepared_dir 
-        settings.dataset_prep = dataset_prep
 
+    else:
         if not os.path.exists(paths.datasets_boxes_prep_path):
             prepare_dataset_for_2nd_stage(paths, settings.dataset_raw, inputs_1hp, settings.device)
         print(f"Dataset prepared ({paths.datasets_boxes_prep_path})")
 
     if settings.case == "train":
-        shutil.copyfile(pathlib.Path(paths.datasets_prepared_dir) / paths.dataset_1st_prep_path / "info.yaml", settings.destination_dir / "info.yaml")
+        shutil.copyfile(paths.dataset_1st_prep_path / "info.yaml", settings.destination / "info.yaml")
     settings.save()
 
     run(settings)
