@@ -78,7 +78,9 @@ def run(settings: SettingsTraining):
 
     # visualization
     if settings.visualize:
-        plot_sample(model, dataloaders["val"], settings.device, plot_path=settings.destination_dir / "plot_val", amount_plots=5, pic_format="png")
+        which_dataset = "val"
+        pic_format = "png"
+        plot_sample(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination_dir / f"plot_{which_dataset}", amount_plots=1, pic_format=pic_format)
 
     times["time_end"] = time.perf_counter()
     print(f"Experiment took {(times['time_end']-times['time_begin'])//60} minutes {(times['time_end']-times['time_begin'])%60} seconds")
