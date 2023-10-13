@@ -80,7 +80,7 @@ def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: mo
             "mean absolute error": mae_loss, "mean absolute error in [°C]": mae_closs}
 
 def save_all_measurements(settings:SettingsTraining, len_dataset, times, solver:Solver=None, errors:Dict={}):
-    with open(os.path.join(os.getcwd(), "runs", settings.destination_dir, f"measurements_{settings.case}.yaml"), "w") as f:
+    with open(os.path.join(os.getcwd(), "runs", settings.destination, f"measurements_{settings.case}.yaml"), "w") as f:
         for key, value in times.items():
             f.write(f"{key}: {value}\n")
         f.write(f"timestamp of end: {time.ctime()}\n")
@@ -94,7 +94,7 @@ def save_all_measurements(settings:SettingsTraining, len_dataset, times, solver:
         f.write(f"dataset name: {settings.dataset_raw}\n")
         f.write(f"case: {settings.case}\n")
         f.write(f"number of datapoints: {len_dataset}\n")
-        f.write(f"name_destination_folder: {settings.destination_dir}\n")
+        f.write(f"name_destination_folder: {settings.destination}\n")
         f.write(f"number epochs: {settings.epochs}\n")
 
         for key, value in errors.items():
