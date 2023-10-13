@@ -90,7 +90,7 @@ def run(settings: SettingsTraining):
         
     times["time_end"] = time.perf_counter()
     save_all_measurements(settings, len(dataset), times, solver, errors)
-    print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutputs in {settings.destination_dir}")
+    print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination_dir}")
 
 
 if __name__ == "__main__":
