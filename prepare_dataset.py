@@ -53,7 +53,7 @@ def prepare_dataset(args: SettingsPrepare, power2trafo: bool = True, info:dict =
 
     if info is None: calc = WelfordStatistics()
     tensor_transform = ToTensorTransform()
-    output_variables = ["Temperature [C]"]
+    output_variables = ["Temperature [C]"] # TODO for all outputs add: , "Velocity-x [m/s]", "Velocity-y [m/s]", "Pressure [Pa]"
     datapaths, runs = detect_datapoints(full_raw_path)
     total = len(datapaths)
     for datapath, run in tqdm(zip(datapaths, runs), desc="Converting", total=total):

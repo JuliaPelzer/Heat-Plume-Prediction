@@ -69,7 +69,7 @@ def run(settings: SettingsTraining):
 
     if settings.case in ["train", "finetune"]:
         # parameters of training
-        loss_fn_str = "MSE"
+        loss_fn_str = settings.loss
         loss_fn = create_loss_fn(loss_fn_str, dataloaders)
         # training
         solver = Solver(model, dataloaders["train"], dataloaders["val"],
@@ -185,7 +185,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100datapoints")
     # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
-    parser.add_argument("--device", type=str, default="cuda:3")
+    parser.add_argument("--device", type=str, default="cuda:2")
     parser.add_argument("--epochs", type=int, default=25000)
     parser.add_argument("--case", type=str, default="train") # test finetune
     parser.add_argument("--path_to_model", type=str, default="benchmarkPLUSdataset_2d_100dp_vary_hp_loc/unet_inputs_pk_MatID_noPowerOf2") # for finetuning or testing
@@ -194,6 +194,7 @@ if __name__ == "__main__":
     parser.add_argument("--inputs_prep", type=str, default="pksi")
     parser.add_argument("--name_extension", type=str, default="") # _grad_p
     parser.add_argument("--case_2hp", type=bool, default=False)
+    parser.add_argument("--loss", type=str, default="data") # physical mixed
     args = parser.parse_args()
     
     default_raw_dir, datasets_prepared_dir, dataset_prepared_full_path = set_paths(args.dataset_name, args.inputs_prep, args.name_extension, args.case_2hp)

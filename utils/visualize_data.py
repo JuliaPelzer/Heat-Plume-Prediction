@@ -61,6 +61,7 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
             x = inputs[datapoint_id].to(device)
             x = torch.unsqueeze(x, 0)
             y_out = model(x).to(device)
+            y_out = y_out[:,0:1,:,:]
 
             # reverse transform for plotting real values
             y = labels[datapoint_id]

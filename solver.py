@@ -51,7 +51,7 @@ class Solver(object):
         self.model = self.model.to(device)
         # writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
 
-        epochs = tqdm(range(settings.epochs), desc="epochs", disable=True)
+        epochs = tqdm(range(settings.epochs), desc="epochs", disable=False)
         for epoch in epochs:
             try:
                 # Set lr according to schedule
@@ -127,7 +127,7 @@ class Solver(object):
             y_pred = self.model(x)
 
             loss = None
-            loss = self.loss_func(y_pred, y)
+            loss = self.loss_func(x, y_pred, y, dataloader)
 
             if self.model.training:
                 loss.backward()
