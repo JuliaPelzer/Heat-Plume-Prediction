@@ -10,16 +10,28 @@ from tqdm.auto import tqdm
 
 from domain_classes.domain import Domain
 from domain_classes.heat_pump import HeatPump
-from domain_classes.utils_2hp import check_all_datasets_prepared, set_paths_2hpnn
+from domain_classes.utils_2hp import check_all_datasets_prepared
 from data_stuff.utils import SettingsTraining, load_yaml
 from networks.unet import UNet
 from utils.prepare_paths import Paths2HP, set_paths_2hpnn
 from utils.utils import beep
-from preprocessing.prepare_2ndstage import prepare_dataset_for_2nd_stage
+from preprocessing.prepare_2ndstage import prepare_dataset_for_2nd_stage, prepare_hp_boxes
 
 
+def create_domain_heatpumps(paths: Paths2HP, model_1HP: UNet, run_id: int = 0):
+    domain = Domain(paths.dataset_1st_prep_path, stitching_method="max", file_name=f"RUN_{run_id}.pt")
+    if domain.skip_datapoint:
+        raise ValueError(f"Skipping run {run_id}")
 
-def demonstrator(dataset_large_name: str, preparation_case: str, model_name_2HP: str = None, device: str = "cuda:0", stages: int = 2, destination_dir: str = "", visualize: bool = False):
+    single_hps = domain.extract_hp_boxes()
+    # apply learned NN to predict the heat plumes
+    single_hps, _ = prepare_hp_boxes(paths, model_1HP, single_hps, domain, run_id, save_bool=False)
+    # TODO replace with loading from file    
+
+    return domain, single_hps
+
+
+def demonstrator(dataset_large_name: str, preparation_case: str, model_name_2HP: str = None, device: str = "cuda:0", destination_demo: str = "", visualize: bool = False):
     """
     assumptions:
     - 1hp-boxes are generated already
@@ -32,17 +44,22 @@ def demonstrator(dataset_large_name: str, preparation_case: str, model_name_2HP:
     time_begin = time.perf_counter()
 
     paths: Paths2HP
-    paths, inputs_1hp, dataset_2hp_prep = set_paths_2hpnn(dataset_large_name, preparation_case, model_name_2HP)
+    paths, inputs_1hp, models_2hp_dir = set_paths_2hpnn(dataset_large_name, preparation_case)
+    model_path = models_2hp_dir / model_name_2HP
+    destination_demo = pathlib.Path("runs/default") if destination_demo == "" else pathlib.Path("runs")/destination_demo
+    destination_demo.mkdir(exist_ok=True, parents=True)
 
     if not os.path.exists(paths.datasets_boxes_prep_path):
         domain, single_hps, info = prepare_dataset_for_2nd_stage(paths, dataset_large_name, inputs_1hp, device)
-    # else:
-    #     domain, single_hps, info = load_todo(paths.datasets_boxes_prep_path)
+    else:
+        with open(paths.dataset_model_trained_with_prep_path / "info.yaml", "r") as file:
+            info = yaml.safe_load(file) # TODO this info required or the one from the second stage?
+        domain, single_hps = create_domain_heatpumps(paths, model_1HP, run_id=0)
     print(f"Dataset prepared ({paths.datasets_boxes_prep_path})")
 
     # load 2ndstage model
     model = UNet(in_channels=2).float()
-    model.load(paths.destination_dir, device)
+    model.load(model_path, device)
     model.to(device)
     model.eval()
 
@@ -140,7 +157,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--preparation_case", type=str, default="gksi100")
     parser.add_argument("--dataset_large", type=str, default="benchmark_dataset_2d_2hps_iso_perm") # TODO defaults
-    parser.add_argument("--destination_dir", type=str, default="")
+    parser.add_argument("--destination", type=str, default="")
     parser.add_argument("--model_2hp", type=str, default=None)
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--visualize", type=bool, default=False)
@@ -151,7 +168,6 @@ if __name__ == "__main__":
         preparation_case=args.preparation_case,
         model_name_2HP=args.model_2hp,
         device=args.device,
-        stages=2,
-        destination_dir=args.destination_dir,
+        destination_demo=args.destination,
         visualize=args.visualize,
     )

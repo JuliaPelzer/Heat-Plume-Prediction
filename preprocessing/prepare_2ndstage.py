@@ -2,11 +2,11 @@ import argparse
 import logging
 import os
 import pathlib
-import torch
+from typing import List
 import time
 import yaml
 
-from torch import stack, load
+from torch import stack, load, unsqueeze, save, Tensor
 from tqdm.auto import tqdm
 
 from networks.unet import UNet
@@ -18,7 +18,7 @@ from domain_classes.stitching import Stitching
 from utils.prepare_paths import Paths2HP
 
 
-def prepare_dataset_for_2nd_stage(paths: Paths2HP, dataset_name: str, inputs_1hp: str, device: str = "cuda:0"):
+def prepare_dataset_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, device: str = "cuda:0"):
     """
     assumptions:
     - 1hp-boxes are generated already
@@ -41,16 +41,17 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, dataset_name: str, inputs_1hp
     ## prepare 2hp dataset for 1st stage
     if not os.path.exists(paths.dataset_1st_prep_path):        
         # norm with data from dataset that NN was trained with!!
-        with open(os.path.join(os.getcwd(), paths.dataset_model_trained_with_prep_path, "info.yaml"), "r") as file:
+        with open(paths.dataset_model_trained_with_prep_path / "info.yaml", "r") as file:
             info = yaml.safe_load(file)
-        prepare_dataset(paths, dataset_name, inputs_1hp, info=info, power2trafo=False)
+        prepare_dataset(paths, inputs_1hp, info=info, power2trafo=False)
     print(f"Domain prepared ({paths.dataset_1st_prep_path})")
 
 # prepare dataset for 2nd stage
     time_start_prep_2hp = time.perf_counter()
     avg_time_inference_1hp = 0
-    list_runs = os.listdir(os.path.join(paths.dataset_1st_prep_path, "Inputs"))
+    list_runs = os.listdir(paths.dataset_1st_prep_path / "Inputs")
     for run_file in tqdm(list_runs, desc="2HP prepare", total=len(list_runs)):
+        # for each run, load domain and 1hp-boxes
         run_id = f'{run_file.split(".")[0]}_'
         domain = Domain(paths.dataset_1st_prep_path, stitching_method="max", file_name=run_file)
         ## generate 1hp-boxes and extract information like perm and ids etc.
@@ -60,23 +61,8 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, dataset_name: str, inputs_1hp
 
         single_hps = domain.extract_hp_boxes()
         # apply learned NN to predict the heat plumes
-        hp: HeatPump
-        for hp in single_hps:
-            time_start_run_1hp = time.perf_counter()
-            hp.primary_temp_field = hp.apply_nn(model_1HP)
-            avg_time_inference_1hp += time.perf_counter() - time_start_run_1hp
-            hp.primary_temp_field = domain.reverse_norm(hp.primary_temp_field, property="Temperature [C]")
-        avg_time_inference_1hp /= len(single_hps)
-
-        for hp in single_hps:
-            hp.get_other_temp_field(single_hps)
-
-        for hp in single_hps:
-            hp.primary_temp_field = domain.norm(hp.primary_temp_field, property="Temperature [C]")
-            hp.other_temp_field = domain.norm(hp.other_temp_field, property="Temperature [C]")
-            inputs = stack([hp.primary_temp_field, hp.other_temp_field])
-            hp.save(run_id=run_id, dir=paths.datasets_boxes_prep_path, inputs_all=inputs,)
-
+        single_hps, avg_time_inference_1hp = prepare_hp_boxes(paths, model_1HP, single_hps, domain, run_id, avg_time_inference_1hp, save_bool=True)
+        
     time_end = time.perf_counter()
     avg_inference_times = avg_time_inference_1hp / len(list_runs)
 
@@ -92,7 +78,7 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, dataset_name: str, inputs_1hp
         f.write(f"separate inputs: {True}\n")
         f.write(f"location of prepared domain dataset: {paths.dataset_1st_prep_path}\n")
         f.write(f"name of dataset prepared with: {paths.dataset_model_trained_with_prep_path}\n")
-        f.write(f"name of dataset domain: {dataset_name}\n")
+        f.write(f"name of dataset domain: {paths.raw_path.name}\n")
         f.write(f"name_destination_folder: {paths.datasets_boxes_prep_path}\n")
         f.write(f"avg inference times for 1HP-NN in seconds: {avg_inference_times}\n")
         f.write(f"device: {device}\n")
@@ -103,6 +89,25 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, dataset_name: str, inputs_1hp
 
     return domain, single_hps, domain.info
 
+def prepare_hp_boxes(paths:Paths2HP, model_1HP:UNet, single_hps:List[HeatPump], domain:Domain, run_id:int, avg_time_inference_1hp:float=0, save_bool:bool=True):
+    hp: HeatPump
+    for hp in single_hps:
+        time_start_run_1hp = time.perf_counter()
+        hp.primary_temp_field = hp.apply_nn(model_1HP)
+        avg_time_inference_1hp += time.perf_counter() - time_start_run_1hp
+        hp.primary_temp_field = domain.reverse_norm(hp.primary_temp_field, property="Temperature [C]")
+    avg_time_inference_1hp /= len(single_hps)
+
+    for hp in single_hps:
+        hp.get_other_temp_field(single_hps)
+
+    for hp in single_hps:
+        hp.primary_temp_field = domain.norm(hp.primary_temp_field, property="Temperature [C]")
+        hp.other_temp_field = domain.norm(hp.other_temp_field, property="Temperature [C]")
+        inputs = stack([hp.primary_temp_field, hp.other_temp_field])
+        if save_bool:
+            hp.save(run_id=run_id, dir=paths.datasets_boxes_prep_path, inputs_all=inputs,)
+    return single_hps, avg_time_inference_1hp
 
 def merge_inputs_for_2HPNN(path_separate_inputs:pathlib.Path, path_merged_inputs:pathlib.Path, stitching_method:str="max"):
     begin = time.perf_counter()
@@ -114,12 +119,12 @@ def merge_inputs_for_2HPNN(path_separate_inputs:pathlib.Path, path_merged_inputs
     begin_prep = time.perf_counter()
     # get separate inputs if exist
     for file in (path_separate_inputs/"Inputs").iterdir():
-        input = torch.load(file)
+        input = load(file)
         # merge inputs via stitching
         input = stitching(input[0], input[1])
         # save merged inputs
-        input = torch.unsqueeze(torch.Tensor(input), 0)
-        torch.save(input, path_merged_inputs/"Inputs"/file.name)
+        input = unsqueeze(Tensor(input), 0)
+        save(input, path_merged_inputs/"Inputs"/file.name)
     end_prep = time.perf_counter()
 
     # save config of merged inputs

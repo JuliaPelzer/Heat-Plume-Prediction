@@ -8,21 +8,16 @@ from utils.utils import re_split_number_text
 # Data classes for paths
 @dataclass
 class Paths1HP:
-    raw_dir: pathlib.Path # boxes
-    datasets_prepared_dir: pathlib.Path
+    raw_path: pathlib.Path # boxes
     dataset_1st_prep_path: pathlib.Path
-    destination_dir: pathlib.Path
 
 @dataclass
 class Paths2HP:
-    raw_dir: pathlib.Path # domain
+    raw_path: pathlib.Path # domain
     dataset_model_trained_with_prep_path: pathlib.Path # 1hp-boxes
     dataset_1st_prep_path: pathlib.Path # domain
     model_1hp_path: pathlib.Path
-    datasets_prepared_dir: pathlib.Path # 2hp-boxes
     datasets_boxes_prep_path: pathlib.Path # 2hp-boxes
-    destination_dir: pathlib.Path
-    model_2hp_path: typing.Optional[pathlib.Path] = None
 
 # Functions for setting paths
 def set_paths_1hpnn(dataset_name: str, inputs:str = "")-> Paths1HP:
@@ -36,12 +31,14 @@ def set_paths_1hpnn(dataset_name: str, inputs:str = "")-> Paths1HP:
     default_raw_dir = pathlib.Path(paths["default_raw_dir"])
     destination_dir = pathlib.Path(paths["models_1hp_dir"])
     datasets_prepared_dir = pathlib.Path(paths["datasets_prepared_dir"])
+
+    dataset_raw_path = default_raw_dir / dataset_name
     dataset_prep = f"{dataset_name} inputs_{inputs}"
     dataset_prepared_full_path = datasets_prepared_dir / dataset_prep
 
-    return Paths1HP(default_raw_dir, datasets_prepared_dir, dataset_prepared_full_path, destination_dir), dataset_prep
+    return Paths1HP(dataset_raw_path, dataset_prepared_full_path), destination_dir
 
-def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name_2hp: str = None):
+def set_paths_2hpnn(dataset_name: str, preparation_case: str):
     paths_file = "paths.yaml"
     
     if not os.path.exists(paths_file):
@@ -64,22 +61,19 @@ def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name_2hp: st
             elif "dataset" in path.name:
                 dataset_model_trained_with_prep_path = prepared_1hp_dir / path.name
     
+    dataset_raw_path = datasets_raw_domain_dir / dataset_name
     inputs = re_split_number_text(str(preparation_case))[0]
     dataset_1st_prep_path = datasets_prepared_domain_dir / f"{dataset_name} inputs_{inputs}"
     dataset_prep_2hp_path = f"{dataset_name} inputs_{preparation_case} boxes"
     datasets_boxes_prep_path = datasets_prepared_2hp_dir / dataset_prep_2hp_path
-    model_2hp_path = destination_dir / model_name_2hp if model_name_2hp is not None else None
 
     return Paths2HP(
-        datasets_raw_domain_dir,
+        dataset_raw_path,
         dataset_model_trained_with_prep_path,
         dataset_1st_prep_path,
         model_1hp_path,
-        datasets_prepared_2hp_dir,
         datasets_boxes_prep_path,
-        destination_dir,
-        model_2hp_path
-        ), inputs, dataset_prep_2hp_path
+        ), inputs, destination_dir
 
 def check_validity_preparation(preparation_case:str):
     # Check that preparation_case is valid

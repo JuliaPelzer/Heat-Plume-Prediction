@@ -58,11 +58,11 @@ class DataToVisualize:
         elif self.name == "SDF":
             self.name = "SDF-transformed position in [-]"
     
-def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_plots: int = inf, plot_path: str = "default", pic_format: str = "png"):
+def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png"):
     print("Visualizing...", end="\r")
 
-    if amount_plots > len(dataloader.dataset):
-        amount_plots = len(dataloader.dataset)
+    if amount_datapoints_to_visu > len(dataloader.dataset):
+        amount_datapoints_to_visu = len(dataloader.dataset)
 
     norm = dataloader.dataset.dataset.norm
     info = dataloader.dataset.dataset.info
@@ -86,7 +86,7 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_plot
             plot_isolines(dict_to_plot, settings_pic)
             # measure_len_width_1K_isoline(dict_to_plot)
 
-            if current_id >= amount_plots-1:
+            if current_id >= amount_datapoints_to_visu-1:
                 return None
             current_id += 1
 

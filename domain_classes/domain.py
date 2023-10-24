@@ -85,11 +85,10 @@ class Domain:
             #     p_related_field.max() <= 1 and p_related_field.min() >= 0
             # ), f"{p_related_name} not in range (0,1) but {p_related_field.max(), p_related_field.min()}"
 
-    def save(self, folder: str = "", name: str = "test"):
-        pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
-        save(self.prediction, os.path.join(folder, f"{name}prediction.pt"))
-        save(self.label, os.path.join(folder, f"{name}label.pt"))
-        save(self.inputs, os.path.join(folder, f"{name}inputs.pt"))
+    def save(self, folder: pathlib.Path = "", name: str = "test"):
+        save(self.prediction, folder / "Prediction" / f"{name}.pt")
+        save(self.label, folder / "Label" / f"{name}.pt")
+        save(self.inputs, folder / "Inputs" / f"{name}.pt")
 
     def load_datapoint(
         self, dataset_domain_path: str, case: str = "Inputs", file_name="RUN_0.pt"

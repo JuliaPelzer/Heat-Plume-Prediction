@@ -5,7 +5,7 @@ from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
-from torch import tensor, save, unsqueeze, ones, cat, maximum
+from torch import tensor, save, load, unsqueeze, ones, cat, maximum
 from torch import long as torch_long
 
 from data_stuff.transforms import SignedDistanceTransform
@@ -61,7 +61,6 @@ class HeatPump:
                 end2 = tensor(self.other_temp_field.shape) - maximum(-rel_pos, zeros2)
                 self.other_temp_field[offset2[0] : end2[0], offset2[1] : end2[1]] = maximum(self.other_temp_field[offset2[0] : end2[0], offset2[1] : end2[1]], tmp_2nd_hp)
 
-    
     def save(self, run_id: str = "", dir: str = "HP-Boxes", additional_inputs: tensor = None, inputs_all: tensor = None,):
         # dir_in = dir / "Inputs"
         # dir_in.mkdir(parents=True, exist_ok=True)
