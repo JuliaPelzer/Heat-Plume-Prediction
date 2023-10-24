@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from torch.nn import Module, MSELoss, modules
 from torch.optim import Adam, Optimizer
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
 from data_stuff.utils import SettingsTraining
@@ -46,7 +46,7 @@ class Solver(object):
 
         start_time = time.perf_counter()
         # initialize tensorboard
-        writer = SummaryWriter(settings.destination)
+        # writer = SummaryWriter(f"runs/{settings.destination_folder}")
         device = settings.device
         self.model = self.model.to(device)
         # writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
@@ -68,10 +68,10 @@ class Solver(object):
                 val_epoch_loss = self.run_epoch(self.val_dataloader, device)
 
                 # Logging
-                writer.add_scalar("train_loss", train_epoch_loss, epoch)
-                writer.add_scalar("val_loss", val_epoch_loss, epoch)
-                writer.add_scalar(
-                    "learning_rate", self.opt.param_groups[0]["lr"], epoch)
+                # writer.add_scalar("train_loss", train_epoch_loss, epoch)
+                # writer.add_scalar("val_loss", val_epoch_loss, epoch)
+                # writer.add_scalar(
+                #     "learning_rate", self.opt.param_groups[0]["lr"], epoch)
                 epochs.set_postfix_str(
                     f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
                 
