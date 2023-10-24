@@ -23,8 +23,7 @@ class SettingsTraining:
     inputs: str
     device: str
     epochs: int
-    destination: str 
-    datasets_dir: str = ""
+    destination: pathlib.Path = ""
     dataset_prep: str = ""
     case: str = "train"
     finetune: bool = False
@@ -50,16 +49,15 @@ class SettingsTraining:
         if self.case in ["test", "finetune"]:
             assert self.model != "runs/default", "Please specify model path for testing or finetuning"
 
-        self.set_destination_name()
+        if self.destination == "":
+            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case
 
     def save(self):
         save_yaml(self.__dict__, self.destination, "command_line_arguments")
         
-    def set_destination_name(self):
+    def make_destination_path(self, destination_dir: pathlib.Path):
         if self.destination == "":
             self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case
-
-    def make_destination_path(self, destination_dir: pathlib.Path):
         self.destination = destination_dir / self.destination
         self.destination.mkdir(exist_ok=True)
 
