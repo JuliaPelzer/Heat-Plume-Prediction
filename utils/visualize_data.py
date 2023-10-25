@@ -61,25 +61,33 @@ def plot_sample(model: UNet, dataloader: DataLoader, device: str, amount_plots: 
             x = inputs[datapoint_id].to(device)
             x = torch.unsqueeze(x, 0)
             y_out = model(x).to(device)
-            y_out = y_out[:,0:1,:,:]
 
             # reverse transform for plotting real values
             y = labels[datapoint_id]
             x = norm.reverse(x.detach().cpu().squeeze(), "Inputs")
-            y = norm.reverse(y.detach().cpu(),"Labels")[0]
-            y_out = norm.reverse(y_out.detach().cpu()[0],"Labels")[0]
+            y = norm.reverse(y.detach().cpu(),"Labels")
+            y_out = norm.reverse(y_out.detach().cpu()[0],"Labels")
+            index_temp = info["Labels"]["Temperature [C]"]["index"]
+            index_press = info["Labels"]["Liquid Pressure [Pa]"]["index"]
+            temp_out = y_out[1]
+            press_out = y_out[0]
             logging.info(datapoint_id)
-            loc_max = y_out.argmax()
-            logging.info(f"Max temp: {y_out.max()} at {(loc_max%100, torch.div(loc_max,100)%1280, torch.div(torch.div(loc_max,100),1280)%5)}")
+            loc_max = temp_out.argmax()
+            logging.info(f"Max temp: {temp_out.max()} at {(loc_max%100, torch.div(loc_max,100)%1280, torch.div(torch.div(loc_max,100),1280)%5)}")
 
             # plot temperature true, temperature out, error, physical variables
-            temp_max = max(y.max(), y_out.max())
-            temp_min = min(y.min(), y_out.min())
-            extent_highs = (np.array(info["CellsSize"][:2]) * y.shape)
+            temp_max = max(y[index_temp].max(), temp_out.max())
+            temp_min = min(y[index_temp].min(), temp_out.min())
+            press_max = max(y[index_press].max(), press_out.max())
+            press_min = min(y[index_press].min(), press_out.min())
+            extent_highs = (np.array(info["CellsSize"][:2]) * y.shape[1:])
             dict_to_plot = {
-                "t_true": DataToVisualize(y, "Temperature True [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-                "t_out": DataToVisualize(y_out, "Temperature Out [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-                "error": DataToVisualize(torch.abs(y-y_out), "Abs. Error [°C]",extent_highs),
+                "t_true": DataToVisualize(y[index_temp], "Temperature True [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+                "t_out": DataToVisualize(temp_out, "Temperature Out [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+                "t_error": DataToVisualize(torch.abs(y[index_temp]-temp_out), "Temperature Abs. Error [°C]",extent_highs),
+                "press_true": DataToVisualize(y[index_press], "Pressure True [Pa]",extent_highs, {"vmax": press_max, "vmin": press_min}),
+                "press_out": DataToVisualize(press_out, "Pressure Out [Pa]",extent_highs, {"vmax": press_max, "vmin": press_min}),
+                "press_error": DataToVisualize(torch.abs(y[index_press]-press_out), "Pressure Abs. Error [°Pa]",extent_highs),
             }
             physical_vars = info["Inputs"].keys()
             for physical_var in physical_vars:

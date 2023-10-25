@@ -53,7 +53,7 @@ def prepare_dataset(args: SettingsPrepare, power2trafo: bool = True, info:dict =
 
     if info is None: calc = WelfordStatistics()
     tensor_transform = ToTensorTransform()
-    output_variables = ["Temperature [C]"] # TODO for all outputs add: , "Velocity-x [m/s]", "Velocity-y [m/s]", "Pressure [Pa]"
+    output_variables = ['Liquid Pressure [Pa]', "Temperature [C]"]
     datapaths, runs = detect_datapoints(full_raw_path)
     total = len(datapaths)
     for datapath, run in tqdm(zip(datapaths, runs), desc="Converting", total=total):
@@ -96,7 +96,7 @@ def prepare_dataset(args: SettingsPrepare, power2trafo: bool = True, info:dict =
         
     info["CellsSize"] = cell_size.tolist()
     # change of size possible; order of tensor is in any case the other way around
-    assert 1 in y.shape, "y is not expected to have several output parameters"
+    assert 2 in y.shape, "y is not expected to have several output parameters"
     assert len(y.shape) == 3, "y is expected to be 2D"
     dims = list(y.shape)[1:]
     info["CellsNumber"] = dims
