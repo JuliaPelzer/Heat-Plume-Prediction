@@ -42,6 +42,36 @@ def init_data(settings: SettingsTraining, seed=1):
     return dataset, dataloaders
 
 
+def prepare_data_and_paths(settings:SettingsTraining):
+    if not settings.case_2hp:
+        paths: Paths1HP
+        paths, destination_dir = set_paths_1hpnn(settings.dataset_raw, settings.inputs) 
+        settings.dataset_prep = paths.dataset_1st_prep_path
+
+    else:
+        paths: Paths2HP
+        paths, inputs_1hp, destination_dir = set_paths_2hpnn(settings.dataset_raw, settings.inputs)
+        settings.dataset_prep = paths.datasets_boxes_prep_path
+    settings.make_destination_path(destination_dir)
+    settings.make_model_path(destination_dir)
+
+    if not settings.case_2hp:
+        # prepare dataset if not done yet OR if test=case do it anyways because of potentially different std,mean,... values than trained with
+        if not paths.dataset_1st_prep_path.exists() or settings.case == "test":
+            prepare_dataset_for_1st_stage(paths, settings)
+        print(f"Dataset {paths.dataset_1st_prep_path} prepared")
+
+    else:
+        if not paths.datasets_boxes_prep_path.exists(): # TODO settings.case == "test"?
+            prepare_dataset_for_2nd_stage(paths, inputs_1hp, settings.device)
+        print(f"Dataset prepared ({paths.datasets_boxes_prep_path})")
+
+    if settings.case == "train":
+        shutil.copyfile(paths.dataset_1st_prep_path / "info.yaml", settings.destination / "info.yaml")
+    settings.save()
+    return settings
+
+
 def run(settings: SettingsTraining):
     multiprocessing.set_start_method("spawn", force=True)
     
@@ -107,31 +137,6 @@ if __name__ == "__main__":
     parser.add_argument("--visualize", type=bool, default=False)
     settings = SettingsTraining(**vars(parser.parse_args()))
 
-    if not settings.case_2hp:
-        paths: Paths1HP
-        paths, destination_dir = set_paths_1hpnn(settings.dataset_raw, settings.inputs) 
-        settings.dataset_prep = paths.dataset_1st_prep_path
-
-    else:
-        paths: Paths2HP
-        paths, inputs_1hp, destination_dir = set_paths_2hpnn(settings.dataset_raw, settings.inputs)
-        settings.dataset_prep = paths.datasets_boxes_prep_path
-    settings.make_destination_path(destination_dir)
-    settings.make_model_path(destination_dir)
-
-    if not settings.case_2hp:
-        # prepare dataset if not done yet OR if test=case do it anyways because of potentially different std,mean,... values than trained with
-        if not paths.dataset_1st_prep_path.exists() or settings.case == "test":
-            prepare_dataset_for_1st_stage(paths, settings)
-        print(f"Dataset {paths.dataset_1st_prep_path} prepared")
-
-    else:
-        if not paths.datasets_boxes_prep_path.exists(): # TODO settings.case == "test"?
-            prepare_dataset_for_2nd_stage(paths, inputs_1hp, settings.device)
-        print(f"Dataset prepared ({paths.datasets_boxes_prep_path})")
-
-    if settings.case == "train":
-        shutil.copyfile(paths.dataset_1st_prep_path / "info.yaml", settings.destination / "info.yaml")
-    settings.save()
+    settings = prepare_data_and_paths(settings)
 
     run(settings)
