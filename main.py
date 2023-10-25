@@ -95,7 +95,7 @@ def run(settings: SettingsTraining):
         try:
             solver.load_lr_schedule(settings.destination / "learning_rate_history.csv", settings.case_2hp)
             times["time_initializations"] = time.perf_counter()
-            solver.train(settings, settings.destination)
+            solver.train(settings)
             times["time_training"] = time.perf_counter()
         except KeyboardInterrupt:
             times["time_training"] = time.perf_counter()
