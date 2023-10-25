@@ -18,7 +18,7 @@ from data_stuff.utils import SettingsTraining
 from networks.unet import UNet
 from preprocessing.prepare_1ststage import prepare_dataset_for_1st_stage
 from preprocessing.prepare_2ndstage import prepare_dataset_for_2nd_stage
-from solver import Solver
+from solvers.solver import Solver
 from utils.prepare_paths import set_paths_1hpnn, Paths1HP, Paths2HP, set_paths_2hpnn
 from utils.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
 from utils.measurements import measure_loss, save_all_measurements

@@ -8,7 +8,7 @@ from typing import Dict
 import matplotlib.pyplot as plt
 
 from networks.unet import UNet
-from solver import Solver
+from solvers.solver import Solver
 from data_stuff.utils import SettingsTraining
 
 def measure_len_width_1K_isoline(data: Dict[str, "DataToVisualize"]):
