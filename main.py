@@ -1,16 +1,14 @@
 import argparse
 import logging
-import os
 import multiprocessing
 import numpy as np
-import pathlib
 import shutil
 import time
 
 import torch
 from torch.utils.data import DataLoader, random_split
 # tensorboard --logdir=runs/ --host localhost --port 8088
-# from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 from torch.nn import MSELoss
 
 from data_stuff.dataset import SimulationDataset, _get_splits
