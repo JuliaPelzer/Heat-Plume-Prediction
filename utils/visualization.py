@@ -175,7 +175,7 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str):
 
     current_id = 0
     avg_inference_time = 0
-    summed_error_pic = torch.zeros_like(torch.Tensor(dataloader.dataset[0][0][0]))
+    summed_error_pic = torch.zeros_like(torch.Tensor(dataloader.dataset[0][0][0])).cpu()
 
     for inputs, labels in dataloader:
         len_batch = inputs.shape[0]
@@ -188,9 +188,9 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str):
             y = labels[datapoint_id]
 
             # reverse transform for plotting real values
-            x = norm.reverse(x.detach().cpu().squeeze(), "Inputs")
-            y = norm.reverse(y.detach().cpu(),"Labels")[0]
-            y_out = norm.reverse(y_out.detach().cpu()[0],"Labels")[0]
+            x = norm.reverse(x.cpu().detach().squeeze(), "Inputs")
+            y = norm.reverse(y.cpu().detach(),"Labels")[0]
+            y_out = norm.reverse(y_out.cpu().detach()[0],"Labels")[0]
             avg_inference_time += (time.perf_counter() - start_time)
             summed_error_pic += abs(y-y_out)
 
