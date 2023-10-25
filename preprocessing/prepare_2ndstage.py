@@ -36,7 +36,6 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, device: str 
     time_start_prep_domain = time.perf_counter()
     model_1HP = UNet(in_channels=len(inputs_1hp)).float()
     model_1HP.load(paths.model_1hp_path, device)
-    # model_1HP.to(device)
     
     ## prepare 2hp dataset for 1st stage
     if not os.path.exists(paths.dataset_1st_prep_path):        
@@ -59,7 +58,7 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, device: str 
             logging.warning(f"Skipping {run_id}")
             continue
 
-        single_hps = domain.extract_hp_boxes()
+        single_hps = domain.extract_hp_boxes(device)
         # apply learned NN to predict the heat plumes
         single_hps, avg_time_inference_1hp = prepare_hp_boxes(paths, model_1HP, single_hps, domain, run_id, avg_time_inference_1hp, save_bool=True)
         
@@ -87,7 +86,19 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, device: str 
         f.write(f"duration of preparing 2HP /run in seconds: {(time_end-time_start_prep_2hp)/len(list_runs)}\n")
         f.write(f"duration of whole process in seconds: {(time_end-time_begin)}\n")
 
-    return domain, single_hps, domain.info
+    return domain, single_hps
+
+def load_and_prepare_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, run_id: int, device: str = "cpu"):
+    model_1HP = UNet(in_channels=len(inputs_1hp)).float()
+    model_1HP.load(paths.model_1hp_path, device)
+    model_1HP.eval()
+
+    domain = Domain(paths.dataset_1st_prep_path, stitching_method="max", file_name=f"RUN_{run_id}.pt")
+    single_hps = domain.extract_hp_boxes(device)
+    single_hps, _ = prepare_hp_boxes(paths, model_1HP, single_hps, domain, run_id, save_bool=False) # apply 1HP-NN to predict the heat plumes
+
+    # TODO replace with loading from file  - requires saving the position of a hp within its domain and the connection domain - single hps  
+    return domain, single_hps
 
 def prepare_hp_boxes(paths:Paths2HP, model_1HP:UNet, single_hps:List[HeatPump], domain:Domain, run_id:int, avg_time_inference_1hp:float=0, save_bool:bool=True):
     hp: HeatPump

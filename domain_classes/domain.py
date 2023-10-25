@@ -33,9 +33,9 @@ class Domain:
         self.inputs: tensor = self.load_datapoint(info_path, case="Inputs", file_name=file_name)
         self.label: tensor = self.load_datapoint(info_path, case="Labels", file_name=file_name)
         self.prediction: tensor = (ones(self.size) * self.background_temperature).to(device)
-        self.prediction_2HP: tensor = (ones(self.size) * self.background_temperature).to(device)
+        # self.prediction_1HPNN: tensor = (ones(self.size) * self.background_temperature).to(device)
         self.stitching: Stitching = Stitching(stitching_method, self.background_temperature)
-        self.normed: bool = True
+        self.normed_label: bool = True
         self.file_name: str = file_name
         if (self.get_input_field_from_name("Permeability X [m^2]").max() > 1
             or self.get_input_field_from_name("Permeability X [m^2]").min() < 0):
@@ -86,9 +86,9 @@ class Domain:
             # ), f"{p_related_name} not in range (0,1) but {p_related_field.max(), p_related_field.min()}"
 
     def save(self, folder: pathlib.Path = "", name: str = "test"):
-        save(self.prediction, folder / "Prediction" / f"{name}.pt")
-        save(self.label, folder / "Label" / f"{name}.pt")
-        save(self.inputs, folder / "Inputs" / f"{name}.pt")
+        save(self.prediction, folder / f"domain_prediction_{name}.pt")
+        save(self.label, folder / f"domain_label_{name}.pt")
+        save(self.inputs, folder / f"domain_inputs_{name}.pt")
 
     def load_datapoint(
         self, dataset_domain_path: str, case: str = "Inputs", file_name="RUN_0.pt"
@@ -115,10 +115,7 @@ class Domain:
         norm_fct, max_val, min_val, mean_val, std_val = self.get_norm_info(property)
 
         if norm_fct == "Rescale":
-            out_min, out_max = (
-                0,
-                1,
-            )  # TODO Achtung! Hardcoded, values same as in transforms.NormalizeTransform.out_min/max
+            out_min, out_max = (0, 1)  # TODO Achtung! Hardcoded, values same as in transforms.NormalizeTransform.out_min/max
             delta = max_val - min_val
             data = (data - min_val) / delta * (out_max - out_min) + out_min
         elif norm_fct == "Standardize":
@@ -171,6 +168,7 @@ class Domain:
         distance_hp_corner = tensor([self.info["PositionHPPrior"][1], self.info["PositionHPPrior"][0]-2])
         hp_boxes = []
         pos_hps = stack(list(where(material_ids == max(material_ids))), dim=0).T
+        names_inputs = [self.get_name_from_index(i) for i in range(self.inputs.shape[0])]
 
         for idx in range(len(pos_hps)):
             try:
@@ -186,7 +184,7 @@ class Domain:
                         if (tmp_pos[1:2] != distance_hp_corner).all():
                             tmp_input[tmp_pos[0], tmp_pos[1], tmp_pos[2]] = 0
 
-                tmp_hp = HeatPump(id=idx, pos=pos_hp, orientation=0, inputs=tmp_input, dist_corner_hp=distance_hp_corner, label=tmp_label, device=device,)
+                tmp_hp = HeatPump(id=idx, pos=pos_hp, orientation=0, inputs=tmp_input, names=names_inputs, dist_corner_hp=distance_hp_corner, label=tmp_label, device=device,)
                 if "SDF" in self.info["Inputs"]:
                     tmp_hp.recalc_sdf(self.info)
 
@@ -200,22 +198,13 @@ class Domain:
         return hp_boxes
 
     def add_hp(self, hp: "HeatPump", prediction_field: tensor):
+        prediction_field = self.reverse_norm(prediction_field, property="Temperature [C]") # for adding to domain
         # compose learned fields into large domain with list of ids, pos, orientations
         for i in range(prediction_field.shape[0]):
             for j in range(prediction_field.shape[1]):
-                x, y = self.coord_trafo(
-                    hp.pos,
-                    (i - hp.dist_corner_hp[0], j - hp.dist_corner_hp[1]),
-                    hp.orientation,
-                )
-                if (
-                    0 <= x < self.prediction.shape[0]
-                    and 0 <= y < self.prediction.shape[1]
-                ):
-                    self.prediction[x, y] = self.stitching(
-                        self.prediction[x, y], prediction_field[i, j]
-                    ) # TODO TODO changed stitching to pointwise max (np.maximum instead of max) - does this break now!
-                    # TODO TODO or problem with np vs torch?
+                x, y = self.coord_trafo(hp.pos, (i - hp.dist_corner_hp[0], j - hp.dist_corner_hp[1]), hp.orientation,)
+                if (0 <= x < self.prediction.shape[0] and 0 <= y < self.prediction.shape[1]):
+                    self.prediction[x, y] = self.stitching(self.prediction[x, y], prediction_field[i, j])
 
     def coord_trafo(self, fixpoint: tuple, position: tuple, orientation: float):
         """
@@ -233,7 +222,7 @@ class Domain:
         )
         return x, y
 
-    def plot(self, fields: str = "t", folder: str = "", name: str = "test"):
+    def plot(self, fields: str = "t", folder: str = "", name: str = "test", format_fig: str = "pgf"):
         properties = expand_property_names(fields)
         n_subplots = len(properties)
         if "t" in fields:
@@ -243,38 +232,39 @@ class Domain:
         for property in properties:
             plt.subplot(n_subplots, 1, idx)
             if property == "Temperature [C]":
-                plt.imshow(self.prediction.T)
+                plt.imshow(self.prediction.detach().numpy().T)
                 plt.gca().invert_yaxis()
                 plt.xlabel("x [cells]")
                 plt.ylabel("y [cells]")
                 _aligned_colorbar(label=f"Predicted {property}")
                 idx += 1
                 plt.subplot(n_subplots, 1, idx)
-                if self.normed:
+                if self.normed_label:
                     self.label = self.reverse_norm(self.label, property)
-                    self.normed = False
-                plt.imshow(abs(self.prediction.T - squeeze(self.label.T)))
+                    self.normed_label = False
+                plt.imshow(abs(self.prediction.T - squeeze(self.label).T).detach().numpy())
                 plt.gca().invert_yaxis()
                 plt.xlabel("x [cells]")
                 plt.ylabel("y [cells]")
                 _aligned_colorbar(label=f"Absolute error in {property}")
                 idx += 1
                 plt.subplot(n_subplots, 1, idx)
-                plt.imshow(self.label.T)
-            elif property == "Original Temperature [C]":
-                field = self.prediction_2HP
-                property = "1st Prediction of Temperature [C]"
-                plt.imshow(field.T)
+                plt.imshow(self.label.detach().numpy().T)
+            # elif property == "Original Temperature [C]":
+            #     field = self.prediction_1HPNN
+            #     property = "1st Prediction of Temperature [C]"
+            #     plt.imshow(field.detach().numpy().T)
             else:
                 field = self.get_input_field_from_name(property)
                 field = self.reverse_norm(field, property)
-                plt.imshow(field.T)
+                plt.imshow(field.detach().numpy().T)
             plt.gca().invert_yaxis()
             plt.xlabel("x [cells]")
             plt.ylabel("y [cells]")
             _aligned_colorbar(label=property)
             idx += 1
-        plt.savefig(f"{folder}/{name}.pgf", format="pgf")
+        plt.savefig(f"{folder}/{name}.{format_fig}", format=format_fig)
+        logging.warning(f"Saving plot to {folder}/{name}.{format_fig}")
 
 
 def get_box_corners(pos_hp, size_hp_box, distance_hp_corner, domain_shape, run_name: str = "unknown"):

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-import numpy as np
+from torch import maximum
 
 @dataclass
 class Stitching:
@@ -7,8 +7,8 @@ class Stitching:
     background_temperature: float
 
     def __call__(self, current_value: float, additional_value: float):
-        if self.method == "max":
-            return np.maximum(current_value, additional_value)
+        if self.method == "max": # elementwise maximum
+            return maximum(current_value, additional_value)
         elif self.method == "add":
             if current_value == self.background_temperature:
                 return additional_value

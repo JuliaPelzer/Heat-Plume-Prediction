@@ -71,7 +71,8 @@ class UNet(nn.Module):
         )
     
     def load(self, model_path:pathlib.Path, device:str = "cpu", model_name: str = "model.pt"):
-        self.load_state_dict(load(model_path/model_name, map_location=torch_device(device)))
+        self.load_state_dict(load(model_path/model_name))
+        self.to(device)
 
     def save(self, path:pathlib.Path, model_name: str = "model.pt"):
         save(self.state_dict(), path/model_name)
