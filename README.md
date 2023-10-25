@@ -67,3 +67,7 @@
     sudo modprobe nvidia_uvm`
 
     if it does not help, you have to reboot
+
+# important commits
+- directly after paper submission (Oct. '23): cdc41426184756b9b1870e5c0f52d399bee0fae0
+- after clean up, one month after paper submission (Oct. '23): eb13bcd6e48bf339641d050ea21493bfe99d1b35
