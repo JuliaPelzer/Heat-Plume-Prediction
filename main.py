@@ -55,12 +55,12 @@ def prepare_data_and_paths(settings:SettingsTraining):
 
     if not settings.case_2hp:
         # prepare dataset if not done yet OR if test=case do it anyways because of potentially different std,mean,... values than trained with
-        if not paths.dataset_1st_prep_path.exists() or settings.case == "test":
+        if not paths.dataset_1st_prep_path.exists(): # or settings.case == "test":
             prepare_dataset_for_1st_stage(paths, settings)
-        print(f"Dataset {paths.dataset_1st_prep_path} prepared")
+        print(f"Dataset prepared ({paths.dataset_1st_prep_path})")
 
     else:
-        if not paths.datasets_boxes_prep_path.exists(): # TODO settings.case == "test"?
+        if not paths.datasets_boxes_prep_path.exists() or not paths.dataset_1st_prep_path: # TODO settings.case == "test"?
             prepare_dataset_for_2nd_stage(paths, inputs_1hp, settings.device)
         print(f"Dataset prepared ({paths.datasets_boxes_prep_path})")
 

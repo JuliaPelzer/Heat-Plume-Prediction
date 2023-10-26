@@ -67,13 +67,14 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
     norm = dataloader.dataset.dataset.norm
     info = dataloader.dataset.dataset.info
     model.eval()
-    settings_pic = {"format": pic_format}
+    settings_pic = {"format": pic_format,
+                    "dpi": 300,}
 
     current_id = 0
     for inputs, labels in dataloader:
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
-            settings_pic["name"] = f"{plot_path}_{current_id}"
+            name_pic = f"{plot_path}_{current_id}"
 
             x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
             y = labels[datapoint_id]
@@ -82,8 +83,8 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
             x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
             dict_to_plot = prepare_data_to_plot(x, y, y_out, info)
 
-            plot_datafields(dict_to_plot, settings_pic)
-            plot_isolines(dict_to_plot, settings_pic)
+            plot_datafields(dict_to_plot, name_pic, settings_pic)
+            plot_isolines(dict_to_plot, name_pic, settings_pic)
             # measure_len_width_1K_isoline(dict_to_plot)
 
             if current_id >= amount_datapoints_to_visu-1:
@@ -115,7 +116,7 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
 
     return dict_to_plot
 
-def plot_datafields(data: Dict[str, DataToVisualize], settings_pic: dict):
+def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
     # plot datafields (temperature true, temperature out, error, physical variables (inputs))
 
     num_subplots = len(data)
@@ -141,9 +142,9 @@ def plot_datafields(data: Dict[str, DataToVisualize], settings_pic: dict):
     plt.sca(axes[-1])
     plt.xlabel("y [m]")
     plt.tight_layout()
-    plt.savefig(f"{settings_pic['name']}.{settings_pic['format']}", format=settings_pic['format'])
+    plt.savefig(f"{name_pic}.{settings_pic['format']}", **settings_pic)
 
-def plot_isolines(data: Dict[str, DataToVisualize], settings_pic: dict):
+def plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
     # plot isolines of temperature fields
     num_subplots = 3 if "Original Temperature [C]" in data.keys() else 2
     fig, axes = plt.subplots(num_subplots, 1, sharex=True)
@@ -163,7 +164,7 @@ def plot_isolines(data: Dict[str, DataToVisualize], settings_pic: dict):
     plt.sca(axes[-1])
     plt.xlabel("y [m]")
     plt.tight_layout()
-    plt.savefig(f"{settings_pic['name']}_isolines.{settings_pic['format']}", format=settings_pic['format'])
+    plt.savefig(f"{name_pic}_isolines.{settings_pic['format']}", format=settings_pic['format'])
 
 def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str):
     '''

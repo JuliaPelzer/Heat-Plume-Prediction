@@ -42,7 +42,7 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, device: str 
         # norm with data from dataset that NN was trained with!!
         with open(paths.dataset_model_trained_with_prep_path / "info.yaml", "r") as file:
             info = yaml.safe_load(file)
-        prepare_dataset(paths, inputs_1hp, info=info, power2trafo=False)
+        prepare_dataset(paths, inputs_1hp, info=info, power2trafo=False) # for using unet on whole domain required: power2trafo=True
     print(f"Domain prepared ({paths.dataset_1st_prep_path})")
 
 # prepare dataset for 2nd stage

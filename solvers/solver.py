@@ -89,9 +89,14 @@ class Solver(object):
                         "training time in sec": (time.perf_counter() - start_time),
                     }
                 if log_val_epoch:
-                    if epoch in [250, 500, 1000, 2500, 5000, 10000, 15000, 20000, 24999]:
+                    if epoch in [1, 250, 500, 1000, 2500, 5000, 10000, 15000, 20000, 24999]:
                         csv_writer.writerow([epoch, val_epoch_loss, train_epoch_loss])
                         csv_writer_best.writerow([epoch, self.best_model_params["loss"], self.best_model_params["train loss"]])
+                        for name, param in self.model.named_parameters():
+                            writer.add_histogram(name, param, epoch)
+                    if epoch == 1:
+                        for name, param in self.model.named_parameters():
+                            print(name, param.shape)
 
             except KeyboardInterrupt:
                 try:
