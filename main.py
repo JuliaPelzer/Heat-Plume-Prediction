@@ -29,7 +29,7 @@ def init_data(settings: SettingsTraining, seed=1):
 
     if settings.case in ["train", "finetune"]:
         datasets = random_split(
-            dataset, _get_splits(len(dataset), [0.2, 0.2, 0.6]), generator=generator)
+            dataset, _get_splits(len(dataset), [0.2, 0.2, 0.6]), generator=generator) # TODO change back
     elif settings.case == "test":
         datasets = random_split(
             dataset, _get_splits(len(dataset), [0, 0, 1.0]), generator=generator)

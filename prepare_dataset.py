@@ -187,7 +187,7 @@ def get_normalization_type(property:str):
         None: Do not normalize the data
     """
     types = {
-        "default": "Rescale", #Standardize
+        "default": None, #Standardize
         # "Material ID": "Rescale",
         "SDF": None,
         "Original Temperature [C]": None,

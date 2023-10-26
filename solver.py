@@ -105,7 +105,7 @@ class Solver(object):
                     if log_val_epoch:
                         file.close()
 
-        # Apply best model params to model
+        # Apply best model params to model TODO change back
         # self.model = self.model.load_state_dict(
         #     self.best_model_params["state_dict"])
         # self.opt = self.opt.load_state_dict(
