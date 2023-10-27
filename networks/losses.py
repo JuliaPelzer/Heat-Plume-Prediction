@@ -116,7 +116,7 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and differen
     def __init__(self, device="cuda:2"):
         super().__init__(device)
         self.MSE = MSELoss()
-        self.weight = [1.0, 0.01]
+        self.weight = [1.0, 0.001]
 
     def __call__(self, input, output, target, dataloader): # permeability index 1 of input, temperature index 1 and pressure index 0 of label
         dataset = dataloader.dataset.dataset
@@ -150,7 +150,7 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and differen
         continuity_error[:, :, hp_pos[1]-1, hp_pos[0]-1] -= source_continuity
         energy_error[:, :, hp_pos[1]-1, hp_pos[0]-1] -= source_energy
 
-        physics_loss = self.weight[0] * torch.mean(torch.pow(continuity_error, 2)) + self.weight[1] * torch.mean(torch.pow(energy_error, 2))
+        physics_loss = self.weight[0] * torch.mean(torch.pow(continuity_error, 4)) + self.weight[1] * torch.mean(torch.pow(energy_error, 4))
         # continuity_error_dx = self.central_differences_x(continuity_error, cell_width)
         # continuity_error_dy = self.central_differences_y(continuity_error, cell_width)
         # energy_error_dx = self.central_differences_x(energy_error, cell_width)
