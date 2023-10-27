@@ -1,6 +1,6 @@
 import csv
 import logging
-import os
+import pathlib
 import time
 from dataclasses import dataclass
 
@@ -34,22 +34,22 @@ class Solver(object):
         if not self.finetune:
             self.model.apply(weights_init)
 
-    def train(self, settings: SettingsTraining, destination_dir:str = ""):
+    def train(self, settings: SettingsTraining):
         log_val_epoch = True
         if log_val_epoch:
-            file = open(os.path.join(os.getcwd(), "runs", destination_dir, "log_loss_per_epoch.csv"), 'w', newline='')
+            file = open(settings.destination / "log_loss_per_epoch.csv", 'w', newline='')
             csv_writer = csv.writer(file)
             csv_writer.writerow(["epoch", "val loss", "train loss"])
-            file = open(os.path.join(os.getcwd(), "runs", destination_dir, "log_best_loss_per_epoch.csv"), 'w', newline='')
+            file = open(settings.destination / "log_best_loss_per_epoch.csv", 'w', newline='')
             csv_writer_best = csv.writer(file)
             csv_writer_best.writerow(["epoch", "val loss", "train loss"])
 
         start_time = time.perf_counter()
         # initialize tensorboard
-        writer = SummaryWriter(f"runs/{settings.name_folder_destination}")
+        writer = SummaryWriter(settings.destination)
         device = settings.device
         self.model = self.model.to(device)
-        # writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
+        writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
 
         epochs = tqdm(range(settings.epochs), desc="epochs", disable=False)
         for epoch in epochs:
@@ -144,13 +144,14 @@ class Solver(object):
             for epoch, lr in self.lr_schedule.items():
                 f.write(f"{epoch},{lr}\n")
 
-    def load_lr_schedule(self, path: str):
+    def load_lr_schedule(self, path: pathlib.Path, case_2hp:bool=False):
         """ read lr-schedule from csv file"""
         # check if path contains lr-schedule, else use default one
-        if not os.path.exists(path):
-            logging.warning(
-                f"Could not find lr-schedule at {path}. Using default lr-schedule instead.")
-            path = os.path.join(os.getcwd(), "default_lr_schedule.csv")
+        if not path.exists():
+            logging.warning(f"Could not find lr-schedule at {path}. Using default lr-schedule instead.")
+            path = pathlib.Path.cwd() / "networks"
+            lr_schedule_file = "default_lr_schedule.csv" if not case_2hp else "default_lr_schedule_2hp.csv"
+            path = path / lr_schedule_file
 
         with open(path, "r") as f:
             for line in f:

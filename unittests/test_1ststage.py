@@ -1,8 +1,6 @@
-import pytest
 import torch
 
-import networks.losses
-from data.transforms import ComposeTransform, SignedDistanceTransform
+from data_stuff.transforms import ComposeTransform, SignedDistanceTransform
 
 
 def test_sdf_transform():
@@ -26,52 +24,6 @@ def test_sdf_transform():
     # Test
     assert torch.allclose(data["SDF"], expected, atol=1e-4)
     assert data["SDF"][1,1,0] == 1
-
-# def test_normalize_transform():
-#     # TODO
-#     pass
-#     # data = utils.PhysicalVariables(time="now", properties=["test"])
-#     # data["test"] = Tensor(np.array([[[[-2, -1, -1],[-1, 0, -1], [-1, -1, -1]]]]))
-#     # mean_val = {"test": -1}
-#     # std_val = {"test": 0.5}
-#     # data_norm = Tensor(np.array([[[[-2, 0, 0],[0, 2, 0], [0, 0, 0]]]]))
-#     # transform = trans.NormalizeTransform()
-#     # tensor_eq = eq(transform(data, mean_val, std_val)["test"].value, data_norm).flatten
-#     # assert tensor_eq
-
-# def test_reduceto2d_transform():
-#     # TODO
-#     pass
-#     # data = utils.PhysicalVariables(time="now", properties=["test"])
-#     # data["test"] = zeros([4,2,4])
-#     # data_reduced = zeros([1,2,4])
-#     # # Actual result
-#     # data_actual = trans.ReduceTo2DTransform()(data, loc_hp=[0,1,1])
-#     # # Test
-#     # assert data_actual["test"].value.shape == data_reduced.shape
-#     # tensor_eq = eq(data_actual["test"].value, data_reduced).flatten
-#     # assert tensor_eq
-
-# def test_visualize_data():
-#     pass
-
-# def test_train_model():
-#     pass
-#     """ Test input format etc. of train_model"""
-
-def test_mselossexcludenotchangedtemp():
-    import torch
-
-    # Fixture
-    tensor1 = torch.tensor([[10.6, 12], [12, 10.6]])
-    tensor2 = torch.tensor([[10.6, 12], [10.6, 12]])
-    # Expected result
-    expected_value = torch.tensor(1.30666667)
-    # Actual result
-    value = networks.losses.MSELossExcludeNotChangedTemp(ignore_temp=10.6)(tensor1, tensor2)
-    # Test
-    assert expected_value == pytest.approx(value)
-
 
 if __name__ == "__main__":
     test_sdf_transform()

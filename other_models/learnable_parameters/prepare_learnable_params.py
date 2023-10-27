@@ -11,9 +11,9 @@ from torch.utils.data import DataLoader
 sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN") # relevant for remote
 sys.path.append("/home/pelzerja/Development/1HP_NN")  
 
-from data.dataset import SimulationDataset
-from data.utils import load_yaml
-from utils.visualize_data import DataToVisualize
+from data_stuff.dataset import SimulationDataset
+from data_stuff.utils import load_yaml
+from utils.visualization import DataToVisualize
 
 
 def main_learnable_params(dataset_path: str):

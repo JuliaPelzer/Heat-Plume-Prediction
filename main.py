@@ -1,250 +1,144 @@
 import argparse
-import datetime as dt
 import logging
-import os
-import pathlib
+import multiprocessing
+import numpy as np
+import shutil
 import time
-import yaml
 
 import torch
-from torch import cuda, save
 from torch.utils.data import DataLoader, random_split
+# tensorboard --logdir=runs/ --host localhost --port 8088
 from torch.utils.tensorboard import SummaryWriter
+from torch.nn import MSELoss
 
 from data_stuff.dataset import SimulationDataset, _get_splits
-from data_stuff.utils import SettingsTraining, SettingsPrepare
+from data_stuff.utils import SettingsTraining
+from networks.unet import UNet
 from networks.losses import create_loss_fn
-from networks.models import compare_models, create_model, load_model
-from prepare_dataset import prepare_dataset
-from solver import Solver
-from utils.utils import beep, set_paths
-from utils.utils_networks import append_results_to_csv, count_parameters
-from utils.visualize_data import error_measurements, plot_sample
-# from torchsummary import summary
+from preprocessing.prepare_1ststage import prepare_dataset_for_1st_stage
+from preprocessing.prepare_2ndstage import prepare_dataset_for_2nd_stage
+from solvers.solver import Solver
+from utils.prepare_paths import set_paths_1hpnn, Paths1HP, Paths2HP, set_paths_2hpnn
+from utils.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
+from utils.measurements import measure_loss, save_all_measurements
 
 
 def init_data(settings: SettingsTraining, seed=1):
-    dataset = SimulationDataset(os.path.join(settings.datasets_path, settings.dataset_name))
+    dataset = SimulationDataset(settings.dataset_prep)
     generator = torch.Generator().manual_seed(seed)
 
-    if settings.case in ["train", "finetune"]:
-        datasets = random_split(
-            dataset, _get_splits(len(dataset), [0.2, 0.2, 0.6]), generator=generator) # TODO change back
-    elif settings.case == "test":
-        datasets = random_split(
-            dataset, _get_splits(len(dataset), [0, 0, 1.0]), generator=generator)
+    split_ratios = [0.7, 0.2, 0.1]
+    # split_ratios = [0.0, 0.0, 1.0] 
+    datasets = random_split(dataset, _get_splits(len(dataset), split_ratios), generator=generator)
 
     dataloaders = {}
-    if settings.case in ["train", "finetune"]:
-        dataloaders["train"] = DataLoader(datasets[0], batch_size=1000, shuffle=True, num_workers=8, pin_memory=True)
-        dataloaders["val"] = DataLoader(datasets[1], batch_size=1000, shuffle=True, num_workers=8, pin_memory=True)
-    dataloaders["test"] = DataLoader(datasets[2], batch_size=1000, shuffle=True, num_workers=8, pin_memory=True)
+    try:
+        dataloaders["train"] = DataLoader(datasets[0], batch_size=1000, shuffle=True, num_workers=0)
+        dataloaders["val"] = DataLoader(datasets[1], batch_size=1000, shuffle=True, num_workers=0)
+    except: pass
+    dataloaders["test"] = DataLoader(datasets[2], batch_size=1000, shuffle=True, num_workers=0)
 
     return dataset, dataloaders
 
 
+def prepare_data_and_paths(settings:SettingsTraining):
+    if not settings.case_2hp:
+        paths: Paths1HP
+        paths, destination_dir = set_paths_1hpnn(settings.dataset_raw, settings.inputs) 
+        settings.dataset_prep = paths.dataset_1st_prep_path
+
+    else:
+        paths: Paths2HP
+        paths, inputs_1hp, destination_dir = set_paths_2hpnn(settings.dataset_raw, settings.inputs)
+        settings.dataset_prep = paths.datasets_boxes_prep_path
+    settings.make_destination_path(destination_dir)
+    settings.make_model_path(destination_dir)
+
+    if not settings.case_2hp:
+        # prepare dataset if not done yet OR if test=case do it anyways because of potentially different std,mean,... values than trained with
+        if not paths.dataset_1st_prep_path.exists() or settings.case == "test":
+            prepare_dataset_for_1st_stage(paths, settings)
+        print(f"Dataset {paths.dataset_1st_prep_path} prepared")
+
+    else:
+        if not paths.datasets_boxes_prep_path.exists(): # TODO settings.case == "test"?
+            prepare_dataset_for_2nd_stage(paths, inputs_1hp, settings.device)
+        print(f"Dataset prepared ({paths.datasets_boxes_prep_path})")
+
+    if settings.case == "train":
+        shutil.copyfile(paths.dataset_1st_prep_path / "info.yaml", settings.destination / "info.yaml")
+    settings.save()
+    return settings
+
+
 def run(settings: SettingsTraining):
-    time_begin = time.perf_counter()
-    timestamp_begin = time.ctime()
+    multiprocessing.set_start_method("spawn", force=True)
+    
+    times = {}
+    times["time_begin"] = time.perf_counter()
+    times["timestamp_begin"] = time.ctime()
 
     dataset, dataloaders = init_data(settings)
 
-    if settings.device is None:
-        settings.device = "cuda" if cuda.is_available() else "cpu"
-    logging.warning(f"Using {settings.device} device")
-
-    # model choice
-    in_channels = dataset.input_channels
+    # model
+    model = UNet(in_channels=dataset.input_channels).float()
     if settings.case in ["test", "finetune"]:
-        model = load_model({"model_choice": settings.model_choice,
-                           "in_channels": in_channels}, settings.path_to_model)
-    else:
-        model = create_model(settings.model_choice, in_channels)
+        model.load(settings.model, settings.device)
     model.to(settings.device)
 
-    # summary(model, (4, 256, 16))
-    number_parameter = count_parameters(model)
-    logging.warning(
-        f"Model {settings.model_choice} with number of parameters: {number_parameter}")
-
+    solver = None
     if settings.case in ["train", "finetune"]:
         # parameters of training
         loss_fn_str = settings.loss
         loss_fn = create_loss_fn(loss_fn_str, dataloaders)
         # training
-        solver = Solver(model, dataloaders["train"], dataloaders["val"],
-                        loss_func=loss_fn, finetune=settings.finetune)
+        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn, finetune=settings.finetune)
         try:
-            solver.load_lr_schedule(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "learning_rate_history.csv"))
-            time_initializations = time.perf_counter()
-            solver.train(settings, settings.name_folder_destination)
-            time_training = time.perf_counter()
+            solver.load_lr_schedule(settings.destination / "learning_rate_history.csv", settings.case_2hp)
+            times["time_initializations"] = time.perf_counter()
+            solver.train(settings)
+            times["time_training"] = time.perf_counter()
         except KeyboardInterrupt:
-            time_training = time.perf_counter()
-            logging.warning("Stopping training early")
-            logging.warning(f"Best model was found in epoch {solver.best_model_params['epoch']}.")
-            compare_models(model, solver.best_model_params["state_dict"])
-            
+            times["time_training"] = time.perf_counter()
+            logging.warning(f"Manually stopping training early with best model found in epoch {solver.best_model_params['epoch']}.")
         finally:
-            solver.save_lr_schedule(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "learning_rate_history.csv"))
-    else:
-        # load model (for application only)
-        model = load_model({"model_choice": settings.model_choice, "in_channels": in_channels}, os.path.join(settings.path_to_model), "model", settings.device)
-        model.to(settings.device)
+            solver.save_lr_schedule(settings.destination / "learning_rate_history.csv")
+            print("Training finished")
 
     # save model
-    save(model.state_dict(), os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "model.pt"))
+    model.save(settings.destination)
 
     # visualization
-    try:
-        avg_inference_times = []
-        if settings.case in ["train", "finetune"]:
-            plot_sample(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val_sample", amount_plots=10,)
-            errors_val, avg_inference_time = error_measurements(model, dataloaders["val"], settings.device, plot_name=settings.name_folder_destination + "/plot_val")
-            avg_inference_times.append(avg_inference_time)
+    if settings.visualize:
+        which_dataset = "val"
+        pic_format = "png"
+        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=1, pic_format=pic_format)
+        times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
+        plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
+        errors = measure_loss(model, dataloaders[which_dataset], settings.device)
+        print("Visualizations finished")
+        
+    times["time_end"] = time.perf_counter()
+    save_all_measurements(settings, len(dataset), times, solver) #, errors)
+    print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
 
-            plot_sample(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train_sample", amount_plots=2,)
-            errors_train, avg_inference_time = error_measurements(model, dataloaders["train"], settings.device, plot_name=settings.name_folder_destination + "/plot_train")
-            avg_inference_times.append(avg_inference_time)
-        else:
-            plot_sample(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test_sample", amount_plots=10,)
-            errors_test, avg_inference_time = error_measurements(model, dataloaders["test"], settings.device, plot_name=settings.name_folder_destination + "/plot_test")
-            avg_inference_times.append(avg_inference_time)
-    except:
-        pass 
-
-    time_end = time.perf_counter()
-    duration = f"{(time_end-time_begin)//60} minutes {(time_end-time_begin)%60} seconds"
-    print(f"Experiment took {duration}")
-
-    # save measurements
-    with open(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, f"measurements_{settings.case}.yaml"), "w") as f:
-        f.write(f"timestamp of beginning: {timestamp_begin}\n")
-        f.write(f"timestamp of end: {time.ctime()}\n")
-        f.write(f"duration of whole process including visualisation in seconds: {(time_end-time_begin)}\n")
-        if settings.case in ["train", "finetune"]: 
-            f.write(f"duration of initializations in seconds: {time_initializations-time_begin}\n")
-            f.write(f"duration of training in seconds: {time_training-time_initializations}\n")
-        f.write(f"model: {settings.model_choice}\n")
-        f.write(f"number of input-channels: {in_channels}\n")
-        f.write(f"input params: {settings.inputs_prep}\n")
-        f.write(f"dataset location: {settings.datasets_path}\n")
-        f.write(f"dataset name: {settings.dataset_name}\n")
-        f.write(f"number of datapoints: {len(dataset)}\n")
-        f.write(f"name_destination_folder: {settings.name_folder_destination}\n")
-        f.write(f"number epochs: {settings.epochs}\n")
-        try:
-            if settings.case in ["train", "finetune"]: 
-                f.write(f"errors train: {errors_train}\n")
-                f.write(f"errors val: {errors_val}\n")
-            else:
-                f.write(f"errors test: {errors_test}\n")
-            f.write(f"avg inference times in seconds: {avg_inference_times}\n")
-        except:
-            pass
-        f.write(f"number parameters: {number_parameter}\n")
-        f.write(f"device: {settings.device}\n")
-        f.write(f"case: {settings.case}\n")
-        if settings.case in ["test", "finetune"]: 
-            f.write(f"path to pretrained model: {settings.path_to_model}\n")
-        if settings.case in ["train", "finetune"]: 
-            f.write(f"loss function: {loss_fn_str}\n")
-            f.write(f"best model found after epoch: {solver.best_model_params['epoch']}\n")
-            f.write(f"best model found with val loss: {solver.best_model_params['loss']}\n")
-            f.write(f"best model found with train loss: {solver.best_model_params['train loss']}\n")
-            f.write(f"best model found with val RMSE: {solver.best_model_params['val RMSE']}\n")
-            f.write(f"best model found with train RMSE: {solver.best_model_params['train RMSE']}\n")
-            f.write(f"best model found after training time in seconds: {solver.best_model_params['training time in sec']}\n")
-
-
-def finetune_2HP_NN():
-    logging.basicConfig(level=logging.WARNING)
-    args = {}
-    args["device"] = "cuda:3"
-    args["epochs"] = 10000
-    args["model_choice"] = "unet"
-    args["case"] = "finetune"
-    args["path_to_model"] = "current_unet_benchmark_dataset_2d_100datapoints_input_empty_T_0"
-    args["datasets_path"] = "/home/pelzerja/pelzerja/test_nn/datasets_prepared/2HP_NN"
-    args["inputs_prep"] = "gksio"
-    args["dataset_name"] = "dataset_2hps_1fixed_100dp_2hp"
-    args["name_folder_destination"] = "2HP_NN_finetune_100dp" #f"current_{settings.model_choice}_{settings.dataset_name}"
-
-    settings = SettingsTraining(**args)
-
-    destination_dir = pathlib.Path(os.getcwd(), "runs", settings.name_folder_destination)
-    destination_dir.mkdir(parents=True, exist_ok=True)
-
-    settings.save()
-    run(settings)
 
 if __name__ == "__main__":
-    # level: DEBUG, INFO, WARNING, ERROR, CRITICAL
     logging.basicConfig(level=logging.WARNING)
         
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_name", type=str, default="benchmark_dataset_2d_100datapoints")
-    # benchmark_dataset_2d_20dp_2hps benchmark_testcases_4 benchmark_dataset_2d_100dp_vary_hp_loc benchmark_dataset_2d_100datapoints dataset3D_100dp_perm_vary dataset3D_100dp_perm_iso
-    parser.add_argument("--device", type=str, default="cuda:2")
-    parser.add_argument("--epochs", type=int, default=25000)
-    parser.add_argument("--case", type=str, default="train") # test finetune
-    parser.add_argument("--path_to_model", type=str, default="benchmarkPLUSdataset_2d_100dp_vary_hp_loc/unet_inputs_pk_MatID_noPowerOf2") # for finetuning or testing
-    parser.add_argument("--model_choice", type=str, default="unet")
-    parser.add_argument("--name_folder_destination", type=str, default="")
-    parser.add_argument("--inputs_prep", type=str, default="pksi")
-    parser.add_argument("--name_extension", type=str, default="") # _grad_p
+    parser.add_argument("--dataset_raw", type=str, default="dataset_2d_small_1000dp", help="Name of the raw dataset (without inputs)")
+    parser.add_argument("--device", type=str, default="cuda:3")
+    parser.add_argument("--epochs", type=int, default=10000)
+    parser.add_argument("--case", type=str, default="train") # alternatives: test finetune
+    parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
+    parser.add_argument("--destination", type=str, default="")
+    parser.add_argument("--inputs", type=str, default="gksi")
     parser.add_argument("--case_2hp", type=bool, default=False)
+    parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--loss", type=str, default="data") # physical mixed
-    args = parser.parse_args()
-    
-    default_raw_dir, datasets_prepared_dir, dataset_prepared_full_path = set_paths(args.dataset_name, args.inputs_prep, args.name_extension, args.case_2hp)
-    args.datasets_path = datasets_prepared_dir
+    settings = SettingsTraining(**vars(parser.parse_args()))
 
-    # prepare dataset if not done yet OR if test=case do it anyways because of potentially different std,mean,... values than trained with
-    if not os.path.exists(dataset_prepared_full_path) or args.case == "test":
-        time_begin = time.perf_counter()
-        args_prep = {"raw_dir": default_raw_dir,
-            "datasets_dir": datasets_prepared_dir,
-            "dataset_name": args.dataset_name,
-            "inputs_prep": args.inputs_prep,
-            "name_extension": args.name_extension}
-        args_prep = SettingsPrepare(**args_prep)
+    settings = prepare_data_and_paths(settings)
 
-        if args.case == "test":
-            # get info of training
-            with open(os.path.join(os.getcwd(), "runs", args.path_to_model, "info.yaml"), "r") as file:
-                info = yaml.safe_load(file)
-            prepare_dataset(args=args_prep, info=info)
-        else:
-            info = prepare_dataset(args=args_prep)
-            if args.case == "train":
-                # store info of training
-                with open(os.path.join(os.getcwd(), "runs", args.name_folder_destination, "info.yaml"), "w") as file:
-                    yaml.safe_dump(info, file)
-
-        time_end = time.perf_counter() - time_begin
-        with open(dataset_prepared_full_path + "/preparation_time.yaml", "w") as file:
-            yaml.safe_dump(
-                {"timestamp of end": time.ctime(), 
-                 "duration of whole process in seconds": time_end}
-            , file)
-            
-        print(f"Dataset {dataset_prepared_full_path} prepared")
-
-    else:
-        print(f"Dataset {dataset_prepared_full_path} already prepared")
-
-    if not args.case_2hp:
-        args.dataset_name += "_"+args.inputs_prep + args.name_extension
-
-    settings = SettingsTraining(**vars(args))
-    if settings.name_folder_destination == "":
-        settings.name_folder_destination = f"current_{settings.model_choice}_{settings.dataset_name}"
-    destination_dir = pathlib.Path(os.getcwd(), "runs", settings.name_folder_destination)
-    destination_dir.mkdir(parents=True, exist_ok=True)
-
-    settings.save()
     run(settings)
-
-    # beep()
-    # tensorboard --logdir=runs/ --host localhost --port 8088

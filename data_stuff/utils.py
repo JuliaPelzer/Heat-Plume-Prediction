@@ -2,9 +2,7 @@ import os
 import pathlib
 from dataclasses import dataclass
 from typing import Dict
-
 import yaml
-from torch import Tensor
 
 
 def load_yaml(path: str, file_name="settings") -> Dict:
@@ -21,27 +19,25 @@ def save_yaml(settings: Dict, path: str, name_file: str = "settings"):
 
 @dataclass
 class SettingsTraining:
-    dataset_name: str
-    inputs_prep: str
+    dataset_raw: str
+    inputs: str
     device: str
     epochs: int
-    model_choice: str
-    name_folder_destination: str
-    datasets_path: str = "/home/pelzerja/Development/dataset_generation_pflotran/Phd_simulation_groundtruth/datasets"
+    destination: pathlib.Path = ""
+    dataset_prep: str = ""
     case: str = "train"
     finetune: bool = False
-    path_to_model: str = None
+    model: str = None
     test: bool = False
-    name_extension: str = "" # extension of dataset name, e.g. _grad_p
     case_2hp: bool = False
+    visualize: bool = False
     loss: str = "data"
     
     def __post_init__(self):
-        self.path_to_model = os.path.join("runs", self.path_to_model)
         if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:
             self.finetune = True
             self.case = "finetune"
-            assert self.path_to_model is not None, "Path to model is not defined"
+            assert self.model is not None, "Path to model is not defined"
         elif self.case in ["test", "testing", "Test", "Testing", "TEST"]:
             self.case = "test"
             self.test = True
@@ -51,14 +47,20 @@ class SettingsTraining:
             assert self.finetune is False, "Finetune is not possible in train mode"
             assert self.test is False, "Test is not possible in train mode"
 
+        if self.case in ["test", "finetune"]:
+            assert self.model != "runs/default", "Please specify model path for testing or finetuning"
+
+        if self.destination == "":
+            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case
+
     def save(self):
-        save_yaml(self.__dict__, os.path.join(
-            "runs", self.name_folder_destination), "settings_training")
+        save_yaml(self.__dict__, self.destination, "command_line_arguments")
         
-@dataclass
-class SettingsPrepare:
-    raw_dir: str
-    datasets_dir: str
-    dataset_name: str
-    inputs_prep: str
-    name_extension: str = ""
+    def make_destination_path(self, destination_dir: pathlib.Path):
+        if self.destination == "":
+            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case
+        self.destination = destination_dir / self.destination
+        self.destination.mkdir(exist_ok=True)
+
+    def make_model_path(self, destination_dir: pathlib.Path):
+        self.model = destination_dir / self.model
