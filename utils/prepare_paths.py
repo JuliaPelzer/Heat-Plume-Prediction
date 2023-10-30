@@ -38,7 +38,7 @@ def set_paths_1hpnn(dataset_name: str, inputs:str = "")-> Paths1HP:
 
     return Paths1HP(dataset_raw_path, dataset_prepared_full_path), destination_dir
 
-def set_paths_2hpnn(dataset_name: str, preparation_case: str):
+def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name: str = None)-> typing.Tuple[Paths2HP, str, pathlib.Path]:
     paths_file = "paths.yaml"
     
     if not os.path.exists(paths_file):
@@ -54,12 +54,16 @@ def set_paths_2hpnn(dataset_name: str, preparation_case: str):
     check_validity_preparation(preparation_case)
 
     prepared_1hp_dir = prepared_1hp_dir / preparation_case
-    for path in prepared_1hp_dir.iterdir():
-        if path.is_dir():
-            if "current" in path.name: # TODO change to "model"
-                model_1hp_path = prepared_1hp_dir / path.name
-            elif "dataset" in path.name:
-                dataset_model_trained_with_prep_path = prepared_1hp_dir / path.name
+    if not model_name:
+        for path in prepared_1hp_dir.iterdir():
+            if path.is_dir():
+                if "current" in path.name: # TODO change to "model"
+                    model_1hp_path = prepared_1hp_dir / path.name
+                elif "dataset" in path.name:
+                    dataset_model_trained_with_prep_path = prepared_1hp_dir / path.name
+    else:
+        model_1hp_path = pathlib.Path(paths["models_1hp_dir"]) / model_name
+        dataset_model_trained_with_prep_path = model_1hp_path
     
     dataset_raw_path = datasets_raw_domain_dir / dataset_name
     inputs = re_split_number_text(str(preparation_case))[0]

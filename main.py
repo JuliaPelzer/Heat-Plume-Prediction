@@ -106,13 +106,16 @@ def run(settings: SettingsTraining):
     model.save(settings.destination)
 
     # visualization
+    which_dataset = "val"
+    pic_format = "png"
+    if settings.case == "test":
+        settings.visualize = True
+        which_dataset = "test"
     if settings.visualize:
-        which_dataset = "val"
-        pic_format = "png"
         visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=1, pic_format=pic_format)
         times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
         plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
-        errors = measure_loss(model, dataloaders[which_dataset], settings.device)
+        # errors = measure_loss(model, dataloaders[which_dataset], settings.device)
         print("Visualizations finished")
         
     times["time_end"] = time.perf_counter()

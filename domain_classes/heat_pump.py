@@ -5,7 +5,7 @@ from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
-from torch import tensor, zeros_like, save, load, unsqueeze, ones, cat, maximum
+from torch import tensor, zeros_like, save, load, unsqueeze, ones, cat, maximum, is_tensor
 from torch import long as torch_long
 
 from data_stuff.transforms import SignedDistanceTransform
@@ -64,14 +64,12 @@ class HeatPump:
                 self.other_temp_field[offset2[0] : end2[0], offset2[1] : end2[1]] = maximum(self.other_temp_field[offset2[0] : end2[0], offset2[1] : end2[1]], tmp_2nd_hp)
 
     def save(self, run_id: str = "", dir: str = "HP-Boxes", additional_inputs: tensor = None, inputs_all: tensor = None,):
-        # dir_in = dir / "Inputs"
-        # dir_in.mkdir(parents=True, exist_ok=True)
         pathlib.Path(dir, "Inputs").mkdir(parents=True, exist_ok=True)
         pathlib.Path(dir, "Labels").mkdir(parents=True, exist_ok=True)
         # TODO NEXT
         if inputs_all != None:
             inputs = inputs_all
-        elif (additional_inputs != None).any():
+        elif is_tensor(additional_inputs):
             inputs = cat(self.inputs, additional_inputs, dim=0)
         else:
             inputs = self.inputs

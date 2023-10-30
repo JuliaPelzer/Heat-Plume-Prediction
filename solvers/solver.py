@@ -11,7 +11,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
 from data_stuff.utils import SettingsTraining
-from networks.unet import weights_init
+from networks.unet import weights_init, UNet
 
 
 @dataclass
@@ -99,6 +99,10 @@ class Solver(object):
                             print(name, param.shape)
 
             except KeyboardInterrupt:
+                model_tmp = UNet(in_channels=len(settings.inputs), out_channels=1)
+                model_tmp.load_state_dict(self.best_model_params["state_dict"])
+                model_tmp.save(settings.destination, model_name=f"interim_model_epoche{epoch}.pt")
+
                 try:
                     new_lr = float(input("\nNew learning rate: "))
                 except ValueError as e:
@@ -111,10 +115,8 @@ class Solver(object):
                         file.close()
 
         # Apply best model params to model
-        self.model = self.model.load_state_dict(
-            self.best_model_params["state_dict"])
-        self.opt = self.opt.load_state_dict(
-            self.best_model_params["optimizer"])
+        self.model.load_state_dict(self.best_model_params["state_dict"]) #self.model = 
+        self.opt.load_state_dict(self.best_model_params["optimizer"]) #self.opt =
         print(f"Best model was found in epoch {self.best_model_params['epoch']}.")
 
         if log_val_epoch:
