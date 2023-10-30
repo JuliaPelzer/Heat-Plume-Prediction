@@ -59,6 +59,9 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, device: str 
             continue
 
         single_hps = domain.extract_hp_boxes(device)
+        # for hp in single_hps:
+        #     # save hp
+        #     hp.save(run_id=run_id, dir=paths.datasets_boxes_prep_path, inputs_all=None,)
         # apply learned NN to predict the heat plumes
         single_hps, avg_time_inference_1hp = prepare_hp_boxes(paths, model_1HP, single_hps, domain, run_id, avg_time_inference_1hp, save_bool=True)
         
