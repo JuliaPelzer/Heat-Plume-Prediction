@@ -268,8 +268,13 @@ class Domain:
 
 
 def get_box_corners(pos_hp, size_hp_box, distance_hp_corner, domain_shape, run_name: str = "unknown"):
-    corner_ll = (pos_hp - distance_hp_corner).to(dtype=torch_long)  # corner lower left
-    corner_ur = (pos_hp + size_hp_box - distance_hp_corner).to(dtype=torch_long) # corner upper right
+    corner_ll = (pos_hp - distance_hp_corner) # corner lower left
+    corner_ur = (pos_hp + size_hp_box - distance_hp_corner) # corner upper right
+    try:
+        corner_ll = corner_ll.to(dtype=torch_long) 
+        corner_ur = corner_ur.to(dtype=torch_long) 
+    except:
+        pass
     # if corner_ll[0] < 0 or corner_ur[0] >= domain_shape[0] or corner_ll[1] < 0 or corner_ur[1] >= domain_shape[1]:
     #     # move file from "Inputs" to "broken/Inputs"
     #     logging.warning(f"HP BOX at {pos_hp} is with x=({corner_ll[0]}, {corner_ur[0]}) in x-direction (0, {domain_shape[0]}) or y=({corner_ll[1]}, {corner_ur[1]}) in y-direction (0, {domain_shape[1]}) not in domain for {run_name}")
