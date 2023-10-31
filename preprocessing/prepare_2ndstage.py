@@ -15,7 +15,7 @@ from domain_classes.domain import Domain
 from domain_classes.heat_pump import HeatPump
 from domain_classes.utils_2hp import save_config_of_separate_inputs, save_config_of_merged_inputs, save_yaml
 from domain_classes.stitching import Stitching
-from utils.prepare_paths import Paths2HP
+from preprocessing.prepare_paths import Paths2HP
 
 
 def prepare_dataset_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, device: str = "cuda:0"):

@@ -15,7 +15,7 @@ from data_stuff.transforms import (ComposeTransform, NormalizeTransform,
                              PowerOfTwoTransform, ReduceTo2DTransform,
                              SignedDistanceTransform, ToTensorTransform)
 from data_stuff.utils import SettingsTraining
-from utils.prepare_paths import Paths1HP, Paths2HP
+from preprocessing.prepare_paths import Paths1HP, Paths2HP
 
 def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, info_file: str = "info.yaml"):
     time_begin = time.perf_counter()

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import os
 import pathlib
+import shutil
 import typing
 import yaml
 from utils.utils import re_split_number_text
@@ -20,7 +21,7 @@ class Paths2HP:
     datasets_boxes_prep_path: pathlib.Path # 2hp-boxes
 
 # Functions for setting paths
-def set_paths_1hpnn(dataset_name: str, inputs:str = "")-> Paths1HP:
+def set_paths_1hpnn(dataset_name: str, inputs:str = "", dataset_prep:str = "")-> Paths1HP:
     paths_file = "paths.yaml"
     if not os.path.exists(paths_file):
         raise FileNotFoundError(f"{paths_file} not found")
@@ -33,12 +34,13 @@ def set_paths_1hpnn(dataset_name: str, inputs:str = "")-> Paths1HP:
     datasets_prepared_dir = pathlib.Path(paths["datasets_prepared_dir"])
 
     dataset_raw_path = default_raw_dir / dataset_name
-    dataset_prep = f"{dataset_name} inputs_{inputs}"
+    if dataset_prep == "":
+        dataset_prep = f"{dataset_name} inputs_{inputs}"
     dataset_prepared_full_path = datasets_prepared_dir / dataset_prep
 
     return Paths1HP(dataset_raw_path, dataset_prepared_full_path), destination_dir
 
-def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name: str = None)-> typing.Tuple[Paths2HP, str, pathlib.Path]:
+def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name: str = None, dataset_prep:str = None)-> typing.Tuple[Paths2HP, str, pathlib.Path]:
     paths_file = "paths.yaml"
     
     if not os.path.exists(paths_file):
@@ -51,7 +53,6 @@ def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name: str = 
     prepared_1hp_dir = pathlib.Path(paths["prepared_1hp_best_models_and_data_dir"])
     destination_dir = pathlib.Path(paths["models_2hp_dir"])
     datasets_prepared_2hp_dir = pathlib.Path(paths["datasets_prepared_dir_2hp"])
-    check_validity_preparation(preparation_case)
 
     prepared_1hp_dir = prepared_1hp_dir / preparation_case
     if not model_name:
@@ -68,7 +69,8 @@ def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name: str = 
     dataset_raw_path = datasets_raw_domain_dir / dataset_name
     inputs = re_split_number_text(str(preparation_case))[0]
     dataset_1st_prep_path = datasets_prepared_domain_dir / f"{dataset_name} inputs_{inputs}"
-    dataset_prep_2hp_path = f"{dataset_name} inputs_{preparation_case} boxes"
+    if dataset_prep == "":
+        dataset_prep_2hp_path = f"{dataset_name} inputs_{preparation_case} boxes"
     datasets_boxes_prep_path = datasets_prepared_2hp_dir / dataset_prep_2hp_path
 
     return Paths2HP(
@@ -78,8 +80,3 @@ def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name: str = 
         model_1hp_path,
         datasets_boxes_prep_path,
         ), inputs, destination_dir
-
-def check_validity_preparation(preparation_case:str):
-    # Check that preparation_case is valid
-    assert preparation_case in ["gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100"], "preparation_case must be one of ['gksi100', 'ogksi1000', 'gksi1000', 'pksi100', 'pksi1000', 'ogksi1000_finetune', 'gki100']"
-    
