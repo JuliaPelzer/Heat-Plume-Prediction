@@ -27,8 +27,9 @@ def init_data(settings: SettingsTraining, seed=1):
     dataset = SimulationDataset(settings.dataset_prep)
     generator = torch.Generator().manual_seed(seed)
 
-    # split_ratios = [0.7, 0.2, 0.1]
-    split_ratios = [0.0, 0.0, 1.0] 
+    split_ratios = [0.7, 0.2, 0.1]
+    if settings.case == "test": # TODO change back
+        split_ratios = [0.0, 0.0, 1.0] 
     datasets = random_split(dataset, _get_splits(len(dataset), split_ratios), generator=generator)
 
     dataloaders = {}
@@ -60,7 +61,7 @@ def run(settings: SettingsTraining):
     if settings.case in ["train", "finetune"]:
         loss_fn = MSELoss()
         # training
-        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn, finetune=settings.finetune)
+        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn)
         try:
             solver.load_lr_schedule(settings.destination / "learning_rate_history.csv", settings.case_2hp)
             times["time_initializations"] = time.perf_counter()
@@ -83,7 +84,7 @@ def run(settings: SettingsTraining):
         settings.visualize = True
         which_dataset = "test"
     if settings.visualize:
-        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=1, pic_format=pic_format)
+        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
         times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
         plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         # errors = measure_loss(model, dataloaders[which_dataset], settings.device)

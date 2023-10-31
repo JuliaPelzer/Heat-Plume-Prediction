@@ -1,0 +1,8 @@
+- change to "paths.yaml" in prepare_paths.py
+- python3 main.py --dataset_raw domain_1hp_1dp --case test --destination test --inputs pksi --visu True --model "dataset_2d_small_100dp inputs_pksi case_train"
+- python3 preprocessing/prepare_domain_sdf.py --domain "domain_1hp_10dp inputs_gksi"
+- change to "paths_sdf.yaml" in prepare_paths.py
+
+- python3 main.py --dataset_prep "domain_1hp_1dp inputs_pksi sdf_modified" --case test --destination model_padding_zeros_pksi --inputs pksi --visu True --model ../paper23/best_models_1hpnn/pksi1000/current_unet_dataset_2d_small_1000dp_pksi_v1
+or
+- python3 main.py --dataset_prep "domain_1hp_10dp inputs_gksi sdf_modified" --case test --destination model_padding_zeros_gksi --inputs gksi --visu True --model ../paper23/best_models_1hpnn/gksi1000/current_unet_dataset_2d_small_1000dp_gksi_v7

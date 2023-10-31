@@ -231,8 +231,7 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
                     dimensions_of_datapoint, order='F')).float()
             except KeyError:
                 if key == "SDF":
-                    data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(
-                        dimensions_of_datapoint, order='F')).float()
+                    data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(dimensions_of_datapoint, order='F')).float()
                 elif key == "Pressure Gradient [-]":
                     empty_field = torch.ones(list(dimensions_of_datapoint)).float()
                     pressure_grad = get_pressure_gradient(data_path)
@@ -316,7 +315,10 @@ class WelfordStatistics:
     def var(self):
         result = dict()
         for key in self.__ns:
-            result[key] = (self.__m2s[key]/(self.__ns[key]-1)).mean()
+            if self.__ns[key] < 2:
+                result[key] = 0
+            else:
+                result[key] = (self.__m2s[key]/(self.__ns[key]-1)).mean()
         return result
 
     def std(self):

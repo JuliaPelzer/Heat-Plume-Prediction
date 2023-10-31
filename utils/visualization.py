@@ -5,8 +5,8 @@ from dataclasses import dataclass, field
 from math import inf
 from typing import Dict
 
-import matplotlib as mpl
-mpl.use('pgf')
+# import matplotlib as mpl
+# mpl.use('pgf')
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -19,8 +19,8 @@ from data_stuff.transforms import NormalizeTransform
 from networks.unet import UNet
 from utils.measurements import measure_len_width_1K_isoline
 
-mpl.rcParams.update({'figure.max_open_warning': 0})
-plt.rcParams['figure.figsize'] = [8, 2.5]
+# mpl.rcParams.update({'figure.max_open_warning': 0})
+# plt.rcParams['figure.figsize'] = [16, 5]
 
 # TODO: look at vispy library for plotting 3D data
 
@@ -68,7 +68,7 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
     info = dataloader.dataset.dataset.info
     model.eval()
     settings_pic = {"format": pic_format,
-                    "dpi": 300,}
+                    "dpi": 600,}
 
     current_id = 0
     for inputs, labels in dataloader:
@@ -126,12 +126,12 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
     for index, (name, datapoint) in enumerate(data.items()):
         plt.sca(axes[index])
         plt.title(datapoint.name)
-        if name in ["t_true", "t_out"]:  
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
+        # if name in ["t_true", "t_out"]:  
+        #     with warnings.catch_warnings():
+        #         warnings.simplefilter("ignore")
 
-                CS = plt.contour(torch.flip(datapoint.data, dims=[1]).T, **datapoint.contourargs)
-            plt.clabel(CS, inline=1, fontsize=10)
+        #         CS = plt.contour(torch.flip(datapoint.data, dims=[1]).T, **datapoint.contourargs)
+        #     plt.clabel(CS, inline=1, fontsize=10)
 
         plt.imshow(datapoint.data.T, **datapoint.imshowargs)
         plt.gca().invert_yaxis()
@@ -164,7 +164,7 @@ def plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, settings_pic:
     plt.sca(axes[-1])
     plt.xlabel("y [m]")
     plt.tight_layout()
-    plt.savefig(f"{name_pic}_isolines.{settings_pic['format']}", format=settings_pic['format'])
+    plt.savefig(f"{name_pic}_isolines.{settings_pic['format']}", **settings_pic)
 
 def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str):
     '''

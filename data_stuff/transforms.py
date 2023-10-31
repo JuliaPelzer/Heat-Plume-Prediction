@@ -110,7 +110,7 @@ class PowerOfTwoTransform:
         # problem?: "exponential" behaviour at boundaries??
     """
 
-    def __init__(self, oriented="center"): # TODO
+    def __init__(self, oriented="left"): # TODO
         self.orientation = oriented
 
     def __call__(self, data):

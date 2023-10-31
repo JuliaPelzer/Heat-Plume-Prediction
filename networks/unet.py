@@ -4,23 +4,28 @@ from torch import device as torch_device
 import pathlib
 
 class UNet(nn.Module):
-    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=2, kernel_size=5):
+    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
         super().__init__()
         features = init_features
+        padding_mode =  "circular"
+        # TODO
+        # padded = torch.nn.functional.pad(torch.tensor(image), (100, 100), mode='circular')
+        # padded = torch.nn.functional.pad(padded.transpose(2,1), (50, 50), mode='circular')
+        # padded = padded.transpose(2,1)
         self.encoders = nn.ModuleList()
         self.pools = nn.ModuleList()
         for i in range(depth):
-            self.encoders.append(UNet._block(in_channels, features, kernel_size=kernel_size))
+            self.encoders.append(UNet._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode))
             self.pools.append(nn.MaxPool2d(kernel_size=2, stride=2))
             in_channels = features
             features *= 2
-        self.encoders.append(UNet._block(in_channels, features, kernel_size=kernel_size))
+        self.encoders.append(UNet._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode))
 
         self.upconvs = nn.ModuleList()
         self.decoders = nn.ModuleList()
         for i in range(depth):
             self.upconvs.append(nn.ConvTranspose2d(features, features // 2, kernel_size=2, stride=2))
-            self.decoders.append(UNet._block(features, features//2, kernel_size=kernel_size))
+            self.decoders.append(UNet._block(features, features//2, kernel_size=kernel_size, padding_mode=padding_mode))
             features = features // 2
 
         self.conv = nn.Conv2d(in_channels=features, out_channels=out_channels, kernel_size=1)
@@ -41,13 +46,14 @@ class UNet(nn.Module):
         return self.conv(x)
 
     @staticmethod
-    def _block(in_channels, features, kernel_size=5):
+    def _block(in_channels, features, kernel_size=5, padding_mode="zeros"):
         return nn.Sequential(
             nn.Conv2d(
                 in_channels=in_channels,
                 out_channels=features,
                 kernel_size=kernel_size,
                 padding="same",
+                padding_mode=padding_mode,
                 bias=True,
             ),
             nn.ReLU(inplace=True),      
@@ -56,6 +62,7 @@ class UNet(nn.Module):
                 out_channels=features,
                 kernel_size=kernel_size,
                 padding="same",
+                padding_mode=padding_mode,
                 bias=True,
             ),
             nn.BatchNorm2d(num_features=features),
@@ -65,6 +72,7 @@ class UNet(nn.Module):
                 out_channels=features,
                 kernel_size=kernel_size,
                 padding="same",
+                padding_mode=padding_mode,
                 bias=True,
             ),        
             nn.ReLU(inplace=True),
