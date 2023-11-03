@@ -7,14 +7,10 @@ class UNet(nn.Module):
     def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
         super().__init__()
         features = init_features
-        padding_mode =  "circular"
-        # TODO
-        # padded = torch.nn.functional.pad(torch.tensor(image), (100, 100), mode='circular')
-        # padded = torch.nn.functional.pad(padded.transpose(2,1), (50, 50), mode='circular')
-        # padded = padded.transpose(2,1)
+        padding_mode =  "circular"            
         self.encoders = nn.ModuleList()
         self.pools = nn.ModuleList()
-        for i in range(depth):
+        for _ in range(depth):
             self.encoders.append(UNet._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode))
             self.pools.append(nn.MaxPool2d(kernel_size=2, stride=2))
             in_channels = features
@@ -23,7 +19,7 @@ class UNet(nn.Module):
 
         self.upconvs = nn.ModuleList()
         self.decoders = nn.ModuleList()
-        for i in range(depth):
+        for _ in range(depth):
             self.upconvs.append(nn.ConvTranspose2d(features, features // 2, kernel_size=2, stride=2))
             self.decoders.append(UNet._block(features, features//2, kernel_size=kernel_size, padding_mode=padding_mode))
             features = features // 2
@@ -48,33 +44,39 @@ class UNet(nn.Module):
     @staticmethod
     def _block(in_channels, features, kernel_size=5, padding_mode="zeros"):
         return nn.Sequential(
+            PaddingCircular(kernel_size),
             nn.Conv2d(
                 in_channels=in_channels,
                 out_channels=features,
                 kernel_size=kernel_size,
-                padding="same",
-                padding_mode=padding_mode,
+                # padding="same",
+                # padding_mode=padding_mode,
                 bias=True,
             ),
+            Truncate(kernel_size),
             nn.ReLU(inplace=True),      
+            PaddingCircular(kernel_size),
             nn.Conv2d(
                 in_channels=features,
                 out_channels=features,
                 kernel_size=kernel_size,
-                padding="same",
-                padding_mode=padding_mode,
+                # padding="same",
+                # padding_mode=padding_mode,
                 bias=True,
             ),
+            Truncate(kernel_size),
             nn.BatchNorm2d(num_features=features),
             nn.ReLU(inplace=True),      
+            PaddingCircular(kernel_size),
             nn.Conv2d(
                 in_channels=features,
                 out_channels=features,
                 kernel_size=kernel_size,
-                padding="same",
-                padding_mode=padding_mode,
+                # padding="same",
+                # padding_mode=padding_mode,
                 bias=True,
             ),        
+            Truncate(kernel_size),
             nn.ReLU(inplace=True),
         )
     
@@ -114,3 +116,34 @@ def weights_init(m):
     elif classname.find("BatchNorm") != -1:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.zero_()
+
+class PaddingCircular(nn.Module):
+    def __init__(self, kernel_size):
+        super().__init__()
+        self.pad_len = kernel_size//2
+
+    def forward(self, x:tensor) -> tensor:
+        x = nn.functional.pad(x, (self.pad_len,)*4, mode='circular')
+        x = x.transpose(-1,-2)
+        x = nn.functional.pad(x, (self.pad_len,)*4, mode='circular')
+        x = x.transpose(-1,-2)
+        return x
+
+    # def backward(self, x:tensor) -> tensor:
+    #     x = x.transpose(2,1)
+    #     x = nn.functional.pad(x, (self.pad_len_x, self.pad_len_x), mode='circular') # TODO
+    #     x = x.transpose(2,1)
+    #     x = nn.functional.pad(x, (self.pad_len_y, self.pad_len_y), mode='circular')
+
+class Truncate(nn.Module):
+    def __init__(self, kernel_size):
+        super().__init__()
+        self.trunc_len = kernel_size//2
+
+    def forward(self, x:tensor) -> tensor:
+        try:
+            x = x[:,:,self.trunc_len:-self.trunc_len,self.trunc_len:-self.trunc_len]
+        except:
+            x = x[:,self.trunc_len:-self.trunc_len,self.trunc_len:-self.trunc_len]
+
+        return x
