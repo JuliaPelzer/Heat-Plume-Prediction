@@ -1,7 +1,8 @@
 import torch.nn as nn
 from torch import save, tensor, cat, load, equal
-from torch import device as torch_device
 import pathlib
+
+from diff_conv2d.layers import DiffConv2dLayer
 
 class UNet(nn.Module):
     def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=2, kernel_size=7):
@@ -120,4 +121,39 @@ class PaddingCircular(nn.Module):
         self.pad_len = kernel_size//2
 
     def forward(self, x:tensor) -> tensor:
+<<<<<<< HEAD
         return nn.functional.pad(x, (self.pad_len,)*4, mode='circular')
+=======
+        return nn.functional.pad(x, (self.pad_len,)*4, mode='circular')
+    
+
+class UNetBC(UNet):
+    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
+        super().__init__(in_channels, out_channels, init_features, depth, kernel_size)
+
+        features = init_features
+        for _ in range(depth): features *= 2
+        for _ in range(depth): features = features // 2
+        self.conv = nn.Conv2d(in_channels=features, out_channels=out_channels, kernel_size=1)
+
+    @staticmethod
+    def _block(in_channels, features, kernel_size=5, padding_mode="zeros"):
+        return nn.Sequential(
+            DiffConv2dLayer(
+                in_channels, features, kernel_size, bias=True,
+                keep_img_grad_at_invalid=True, train_edge_kernel=False,
+                optimized_for='memory'),
+            nn.ReLU(inplace=True),    
+            DiffConv2dLayer(
+                features, features, kernel_size, bias=True,
+                keep_img_grad_at_invalid=True, train_edge_kernel=False,
+                optimized_for='memory'),
+            nn.BatchNorm2d(num_features=features),
+            nn.ReLU(inplace=True),  
+            DiffConv2dLayer(
+                features, features, kernel_size, bias=True,
+                keep_img_grad_at_invalid=True, train_edge_kernel=False,
+                optimized_for='memory'),
+            nn.ReLU(inplace=True),
+        )
+>>>>>>> 3f2ae49399a4021b06ce38f173fea7efa5afc259
