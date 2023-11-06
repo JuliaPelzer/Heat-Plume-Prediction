@@ -13,7 +13,7 @@ from torch.nn import MSELoss
 
 from data_stuff.dataset import SimulationDataset, _get_splits
 from data_stuff.utils import SettingsTraining
-from networks.unet import UNet
+from networks.unet import UNet, UNetBC
 from preprocessing.prepare_1ststage import prepare_dataset_for_1st_stage
 from preprocessing.prepare_2ndstage import prepare_dataset_for_2nd_stage
 from solvers.solver import Solver
@@ -22,6 +22,9 @@ from preprocessing.prepare import prepare_data_and_paths
 from utils.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
 from utils.measurements import measure_loss, save_all_measurements
 
+# import os
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# torch.cuda.empty_cache()
 
 def init_data(settings: SettingsTraining, seed=1):
     dataset = SimulationDataset(settings.dataset_prep)
@@ -52,7 +55,7 @@ def run(settings: SettingsTraining):
     dataset, dataloaders = init_data(settings)
 
     # model
-    model = UNet(in_channels=dataset.input_channels).float()
+    model = UNetBC(in_channels=dataset.input_channels).float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)
