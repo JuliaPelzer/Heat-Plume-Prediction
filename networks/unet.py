@@ -4,7 +4,7 @@ from torch import device as torch_device
 import pathlib
 
 class UNet(nn.Module):
-    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
+    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=2, kernel_size=7):
         super().__init__()
         features = init_features
         padding_mode =  "circular"            
@@ -20,7 +20,7 @@ class UNet(nn.Module):
         self.upconvs = nn.ModuleList()
         self.decoders = nn.ModuleList()
         for _ in range(depth):
-            self.upconvs.append(nn.ConvTranspose2d(features, features // 2, kernel_size=2, stride=2))
+            self.upconvs.append(nn.ConvTranspose2d(features, features//2, kernel_size=2, stride=2))
             self.decoders.append(UNet._block(features, features//2, kernel_size=kernel_size, padding_mode=padding_mode))
             features = features // 2
 
@@ -53,7 +53,6 @@ class UNet(nn.Module):
                 # padding_mode=padding_mode,
                 bias=True,
             ),
-            Truncate(kernel_size),
             nn.ReLU(inplace=True),      
             PaddingCircular(kernel_size),
             nn.Conv2d(
@@ -64,7 +63,6 @@ class UNet(nn.Module):
                 # padding_mode=padding_mode,
                 bias=True,
             ),
-            Truncate(kernel_size),
             nn.BatchNorm2d(num_features=features),
             nn.ReLU(inplace=True),      
             PaddingCircular(kernel_size),
@@ -76,7 +74,6 @@ class UNet(nn.Module):
                 # padding_mode=padding_mode,
                 bias=True,
             ),        
-            Truncate(kernel_size),
             nn.ReLU(inplace=True),
         )
     
@@ -123,27 +120,4 @@ class PaddingCircular(nn.Module):
         self.pad_len = kernel_size//2
 
     def forward(self, x:tensor) -> tensor:
-        x = nn.functional.pad(x, (self.pad_len,)*4, mode='circular')
-        x = x.transpose(-1,-2)
-        x = nn.functional.pad(x, (self.pad_len,)*4, mode='circular')
-        x = x.transpose(-1,-2)
-        return x
-
-    # def backward(self, x:tensor) -> tensor:
-    #     x = x.transpose(2,1)
-    #     x = nn.functional.pad(x, (self.pad_len_x, self.pad_len_x), mode='circular') # TODO
-    #     x = x.transpose(2,1)
-    #     x = nn.functional.pad(x, (self.pad_len_y, self.pad_len_y), mode='circular')
-
-class Truncate(nn.Module):
-    def __init__(self, kernel_size):
-        super().__init__()
-        self.trunc_len = kernel_size//2
-
-    def forward(self, x:tensor) -> tensor:
-        try:
-            x = x[:,:,self.trunc_len:-self.trunc_len,self.trunc_len:-self.trunc_len]
-        except:
-            x = x[:,self.trunc_len:-self.trunc_len,self.trunc_len:-self.trunc_len]
-
-        return x
+        return nn.functional.pad(x, (self.pad_len,)*4, mode='circular')
