@@ -5,7 +5,7 @@ import pathlib
 from diff_conv2d.layers import DiffConv2dLayer
 
 class UNet(nn.Module):
-    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=2, kernel_size=7):
+    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
         super().__init__()
         features = init_features
         padding_mode =  "circular"            
@@ -121,9 +121,6 @@ class PaddingCircular(nn.Module):
         self.pad_len = kernel_size//2
 
     def forward(self, x:tensor) -> tensor:
-<<<<<<< HEAD
-        return nn.functional.pad(x, (self.pad_len,)*4, mode='circular')
-=======
         return nn.functional.pad(x, (self.pad_len,)*4, mode='circular')
     
 
@@ -156,4 +153,3 @@ class UNetBC(UNet):
                 optimized_for='memory'),
             nn.ReLU(inplace=True),
         )
->>>>>>> 3f2ae49399a4021b06ce38f173fea7efa5afc259
