@@ -133,8 +133,8 @@ plt.savefig("testing/enthalpy_press.png")
 plt.close()
 
 if legacy:
-    dataset_name = "dataset_manuel_0_5_pksi" 
-    num__samples = 1
+    dataset_name = "dataset_manuel_2_5_pksi" 
+    num__samples = 5
 
     cell_width = 5
     view = (256, 16)
@@ -162,8 +162,7 @@ if legacy:
     source = inflow / cell_volume * molar_density
     print("source mass: " + str(source.numpy()))
 
-    source_energy = 76 * 1000 * source * (temperature - 10.6) * 2.5  #TODO fix this
-    # source_energy = source * (eq.eos_water_enthalphy(temperature, pressure) - pressure / molar_density)
+    source_energy = source * (eq.eos_water_enthalphy(temperature, pressure) - pressure / molar_density / 1000)
     print("source energy: " + str(source_energy.numpy()))
 
 
@@ -172,31 +171,31 @@ if legacy:
     loss1 = l.PhysicalLoss(device="cpu")
 
     dataset = SimulationDataset(os.path.join("/home/pillerls/heat-plume/datasets/prepared/legacy_datasets", dataset_name))
-    for i in range(num__samples):
-        permeability, pressure, q_x, q_y, temperature = extract_sample_legacy(dataset, i, view)
+    # for i in range(num__samples):
+    #     permeability, pressure, q_x, q_y, temperature = extract_sample_legacy(dataset, i, view)
 
-        plot_sample(permeability, "permeability", i)
-        plot_sample(pressure, "pressure", i)
-        plot_sample(q_x, "q_x", i)
-        plot_sample(q_y, "q_y", i)
-        plot_sample(temperature, "temperature", i)
+    #     plot_sample(permeability, "permeability", i)
+    #     plot_sample(pressure, "pressure", i)
+    #     plot_sample(q_x, "q_x", i)
+    #     plot_sample(q_y, "q_y", i)
+    #     plot_sample(temperature, "temperature", i)
 
-        continuity_error = loss1.get_continuity_error(temperature, pressure, q_x, q_y, cell_width)
-        darcy_x_error, darcy_y_error = loss1.get_darcy_errors(temperature, pressure, q_x, q_y, permeability, cell_width)
-        energy_error = loss1.get_energy_error(temperature, pressure, q_x, q_y, cell_width)
-        plot_sample(continuity_error[:, :, 30*faktor:,:], "continuity_error_lower", i)
-        plot_sample(continuity_error, "continuity_error", i)
-        plot_sample(darcy_x_error, "darcy_x_error", i)
-        plot_sample(darcy_y_error, "darcy_y_error", i)
-        plot_sample(energy_error[:, :, 30*faktor:,:], "energy_error_lower", i)
-        plot_sample(energy_error, "energy_error", i)
+    #     continuity_error = loss1.get_continuity_error(temperature, pressure, q_x, q_y, cell_width)
+    #     darcy_x_error, darcy_y_error = loss1.get_darcy_errors(temperature, pressure, q_x, q_y, permeability, cell_width)
+    #     energy_error = loss1.get_energy_error(temperature, pressure, q_x, q_y, cell_width)
+    #     plot_sample(continuity_error[:, :, 30*faktor:,:], "continuity_error_lower", i)
+    #     plot_sample(continuity_error, "continuity_error", i)
+    #     plot_sample(darcy_x_error, "darcy_x_error", i)
+    #     plot_sample(darcy_y_error, "darcy_y_error", i)
+    #     plot_sample(energy_error[:, :, 30*faktor:,:], "energy_error_lower", i)
+    #     plot_sample(energy_error, "energy_error", i)
 
-        index = torch.argmax(continuity_error, )
-        continuity_error[descalarization(index, continuity_error.shape)] -= source
-        index = torch.argmax(energy_error)
-        energy_error[descalarization(index, energy_error.shape)] -= source_energy
-        plot_sample(continuity_error, "continuity_error_minus", i)
-        plot_sample(energy_error, "energy_error_minus", i)
+    #     index = torch.argmax(continuity_error, )
+    #     continuity_error[descalarization(index, continuity_error.shape)] -= source
+    #     index = torch.argmax(energy_error)
+    #     energy_error[descalarization(index, energy_error.shape)] -= source_energy
+    #     plot_sample(continuity_error, "continuity_error_minus", i)
+    #     plot_sample(energy_error, "energy_error_minus", i)
 
 
     ### plot v2
@@ -207,16 +206,14 @@ if legacy:
         permeability, pressure, _, _, temperature = extract_sample_legacy(dataset, i, view)
         q_x, q_y = loss2.get_darcy(temperature, pressure, permeability, cell_width)
 
-        plot_sample(q_x, "q_x", i, "v2")
-        plot_sample(q_y, "q_y", i, "v2")
+        # plot_sample(q_x, "q_x", i, "v2")
+        # plot_sample(q_y, "q_y", i, "v2")
 
         continuity_error = loss2.get_continuity_error(temperature, pressure,permeability,  cell_width)
         energy_error = loss2.get_energy_error(temperature, pressure, permeability, cell_width)
 
         plot_sample(continuity_error[:, :, 30*faktor:,:], "continuity_error_lower", i, "v2")
         plot_sample(continuity_error, "continuity_error", i, "v2")
-        plot_sample(darcy_x_error, "darcy_x_error", i, "v2")
-        plot_sample(darcy_y_error, "darcy_y_error", i, "v2")
         plot_sample(energy_error[:, :, 30*faktor:,:], "energy_error_lower", i, "v2")
         plot_sample(energy_error, "energy_error", i, "v2")
 
@@ -225,22 +222,20 @@ if legacy:
         energy_error[index] -= source_energy
         plot_sample(continuity_error, "continuity_error_minus", i, "v2")
         plot_sample(energy_error, "energy_error_minus", i, "v2")
-        print("continuity loss: ", torch.mean(torch.pow(continuity_error, 2)))
-        print("energy loss: ", torch.mean(torch.pow(energy_error, 2)))
+        # print("continuity loss: ", torch.mean(torch.pow(continuity_error, 2)))
+        # print("energy loss: ", torch.mean(torch.pow(energy_error, 2)))
         continuity_error = loss2.get_continuity_error(torch.zeros_like(temperature), torch.zeros_like(pressure),permeability,  cell_width)
         energy_error = loss2.get_energy_error(torch.zeros_like(temperature), torch.zeros_like(pressure), permeability, cell_width)
         continuity_error[index] -= source
         energy_error[index] -= source_energy
-        print("continuity loss to zero: ", torch.mean(torch.pow(continuity_error, 2)))
-        print("energy loss to zero: ", torch.mean(torch.pow(energy_error, 2)))
+        # print("continuity loss to zero: ", torch.mean(torch.pow(continuity_error, 2)))
+        # print("energy loss to zero: ", torch.mean(torch.pow(energy_error, 2)))
 
 
-def create_example_plots(dataset, dataset_name, temp, flux):
+def create_example_plots(dataset, dataset_name, temp, flux, cell_width = 5, view = (256, 16)):
     print("iteration: " + str(temp) + " and " + str(flux))
-    index = (0, 0, 22, 6) # get position of heat pump (fixed TODO read in)
-    loss2 = l.PhysicalLossV2(device="cpu")
-    cell_width = 5
-    view = (256, 16)
+    index = (0, 0, 21, 5) # get position of heat pump (fixed TODO read in)
+    loss2 = l.PhysicalLossV3(device="cpu")
     permeability, pressure, temperature, pressure_start = extract_sample(dataset, 0, view)
     temperature_inflow = torch.tensor(temp + 10.6)
     pressure_at_hp = pressure[index]
@@ -283,6 +278,12 @@ def create_example_plots(dataset, dataset_name, temp, flux):
     energy_error[index] -= source_energy
     print("continuity loss to zero: ", torch.mean(torch.pow(continuity_error, 2)))
     print("energy loss to zero: ", torch.mean(torch.pow(energy_error, 2)))
+    continuity_error = loss2.get_continuity_error(torch.ones_like(temperature) * 10.6, torch.ones_like(pressure) * 900000, permeability,  cell_width)
+    energy_error = loss2.get_energy_error(torch.ones_like(temperature) * 10.6, torch.ones_like(pressure) * 900000, permeability, cell_width)
+    continuity_error[index] -= source
+    energy_error[index] -= source_energy
+    print("continuity loss to comparable constant: ", torch.mean(torch.pow(continuity_error, 2)))
+    print("energy loss to comparable constant: ", torch.mean(torch.pow(energy_error, 2)))
 
 
     plot_sample(pressure - pressure_start, "pressure_delta", 0, dataset_name, sources)
@@ -312,6 +313,14 @@ for temp in temps:
         if not legacy:
             dataset = SimulationDataset("/home/pillerls/heat-plume/datasets/prepared/dataset_test_vary_T_vary_inflow/"+dataset_name)
             create_example_plots(dataset, dataset_name+"2", temp, flux)
+
+
+
+# dataset_name = "dataset_manuel_2_5_pksi"
+# ### real dataset
+# if not legacy:
+#     dataset = SimulationDataset("/home/pillerls/heat-plume/datasets/prepared/legacy_datasets/"+dataset_name)
+#     create_example_plots(dataset, dataset_name, 5.0, 0.2, 1.25, (1024, 64))
 
 # temp_str = str(0)
 # flux_str = str(22)

@@ -75,7 +75,7 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
 
     if info is None: calc = WelfordStatistics()
     tensor_transform = ToTensorTransform()
-    output_variables = ["Temperature [C]"]
+    output_variables = ["Temperature [C]", "Liquid Pressure [Pa]"]
     data_paths, runs = detect_datapoints(paths.raw_path)
     total = len(data_paths)
     for data_path, run in tqdm(zip(data_paths, runs), desc="Converting", total=total):
@@ -84,10 +84,10 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
         loc_hp = get_hp_location(x)
         x = transforms(x, loc_hp=loc_hp)
         if info is None: calc.add_data(x) 
-        x = tensor_transform(x)
+        x = tensor_transform(x)[:, 16:32, :]
         y = transforms(y, loc_hp=loc_hp)
         if info is None: calc.add_data(y)
-        y = tensor_transform(y)
+        y = tensor_transform(y)[:, 16:32, :]
         torch.save(x, os.path.join(dataset_prepared_path, "Inputs", f"{run}.pt"))
         torch.save(y, os.path.join(dataset_prepared_path, "Labels", f"{run}.pt"))
         
@@ -118,7 +118,7 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
         
     info["CellsSize"] = cell_size.tolist()
     # change of size possible; order of tensor is in any case the other way around
-    assert 1 in y.shape, "y is not expected to have several output parameters"
+    #assert 1 in y.shape, "y is not expected to have several output parameters"
     assert len(y.shape) == 3, "y is expected to be 2D"
     dims = list(y.shape)[1:]
     info["CellsNumber"] = dims

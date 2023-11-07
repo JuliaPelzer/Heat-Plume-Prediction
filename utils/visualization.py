@@ -83,7 +83,7 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
             dict_to_plot = prepare_data_to_plot(x, y, y_out, info)
 
             plot_datafields(dict_to_plot, settings_pic)
-            plot_isolines(dict_to_plot, settings_pic)
+            # plot_isolines(dict_to_plot, settings_pic)
             # measure_len_width_1K_isoline(dict_to_plot)
 
             if current_id >= amount_datapoints_to_visu-1:
@@ -93,20 +93,23 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
 def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, norm: NormalizeTransform):
     # reverse transform for plotting real values
     x = norm.reverse(x.detach().cpu().squeeze(), "Inputs")
-    y = norm.reverse(y.detach().cpu(),"Labels")[0]
-    y_out = norm.reverse(y_out.detach().cpu()[0],"Labels")[0]
+    y = norm.reverse(y.detach().cpu(),"Labels")
+    y_out = norm.reverse(y_out.detach().cpu()[0],"Labels")
     return x, y, y_out
 
 def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, info: dict):
     # prepare data of temperature true, temperature out, error, physical variables (inputs)
     temp_max = max(y.max(), y_out.max())
     temp_min = min(y.min(), y_out.min())
-    extent_highs = (np.array(info["CellsSize"][:2]) * y.shape)
+    extent_highs = (np.array(info["CellsSize"][:2]) * y.shape[1:])
 
     dict_to_plot = {
-        "t_true": DataToVisualize(y, "Label: Temperature in [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-        "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-        "error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]",extent_highs),
+        "t_true": DataToVisualize(y[0], "Label: Temperature in [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+        "t_out": DataToVisualize(y_out[0], "Prediction: Temperature in [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+        "t_error": DataToVisualize(torch.abs(y[0]-y_out[0]), "Absolute error in [°C]",extent_highs),
+        "p_true": DataToVisualize(y[1], "Label: Pressure in [Pa]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+        "p_out": DataToVisualize(y_out[1], "Prediction: Pressure in [Pa]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+        "p_error": DataToVisualize(torch.abs(y[1]-y_out[1]), "Absolute error in [Pa]",extent_highs),
     }
     inputs = info["Inputs"].keys()
     for input in inputs:

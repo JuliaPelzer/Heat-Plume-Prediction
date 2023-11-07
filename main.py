@@ -81,7 +81,7 @@ def run(settings: SettingsTraining):
     dataset, dataloaders = init_data(settings)
 
     # model
-    model = UNet(in_channels=dataset.input_channels).float()
+    model = UNet(in_channels=dataset.input_channels, out_channels=dataset.output_channels).float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)
@@ -110,9 +110,9 @@ def run(settings: SettingsTraining):
 
     # visualization
     if settings.visualize:
-        which_dataset = "val"
+        which_dataset = "train"
         pic_format = "png"
-        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=1, pic_format=pic_format)
+        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
         times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
         plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         errors = measure_loss(model, dataloaders[which_dataset], settings.device)
@@ -128,12 +128,12 @@ if __name__ == "__main__":
         
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_raw", type=str, default="dataset_2d_small_1000dp", help="Name of the raw dataset (without inputs)")
-    parser.add_argument("--device", type=str, default="cuda:3")
+    parser.add_argument("--device", type=str, default="cuda:2")
     parser.add_argument("--epochs", type=int, default=10000)
     parser.add_argument("--case", type=str, default="train") # alternatives: test finetune
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
     parser.add_argument("--destination", type=str, default="")
-    parser.add_argument("--inputs", type=str, default="gksi")
+    parser.add_argument("--inputs", type=str, default="pksi")
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--loss", type=str, default="data") # physical mixed

@@ -76,7 +76,7 @@ class Solver(object):
                     f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
                 
                 # Keep best model
-                if self.best_model_params is None or val_epoch_loss < self.best_model_params["loss"]:
+                if epoch >= min((settings.epochs / 10) + 1, 250) and (self.best_model_params is None or val_epoch_loss < self.best_model_params["loss"]):
                     self.best_model_params = {
                         "epoch": epoch,
                         "loss": val_epoch_loss,
@@ -105,11 +105,11 @@ class Solver(object):
                     if log_val_epoch:
                         file.close()
 
-        # Apply best model params to model TODO change back
-        # self.model = self.model.load_state_dict(
-        #     self.best_model_params["state_dict"])
-        # self.opt = self.opt.load_state_dict(
-        #     self.best_model_params["optimizer"])
+        # Apply best model params to model
+        self.model = self.model.load_state_dict(
+            self.best_model_params["state_dict"])
+        self.opt = self.opt.load_state_dict(
+            self.best_model_params["optimizer"])
         print(f"Best model was found in epoch {self.best_model_params['epoch']}.")
 
         if log_val_epoch:
