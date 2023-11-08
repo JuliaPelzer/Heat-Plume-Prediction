@@ -84,7 +84,7 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
             dict_to_plot = prepare_data_to_plot(x, y, y_out, info)
 
             plot_datafields(dict_to_plot, name_pic, settings_pic)
-            plot_isolines(dict_to_plot, name_pic, settings_pic)
+            # plot_isolines(dict_to_plot, name_pic, settings_pic)
             # measure_len_width_1K_isoline(dict_to_plot)
 
             if current_id >= amount_datapoints_to_visu-1:
@@ -93,7 +93,7 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
 
 def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, norm: NormalizeTransform):
     # reverse transform for plotting real values
-    x = norm.reverse(x.detach().cpu().squeeze(), "Inputs")
+    x = norm.reverse(x.detach().cpu().squeeze(0), "Inputs")
     y = norm.reverse(y.detach().cpu(),"Labels")[0]
     y_out = norm.reverse(y_out.detach().cpu()[0],"Labels")[0]
     return x, y, y_out
@@ -102,17 +102,18 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     # prepare data of temperature true, temperature out, error, physical variables (inputs)
     temp_max = max(y.max(), y_out.max())
     temp_min = min(y.min(), y_out.min())
-    extent_highs = (np.array(info["CellsSize"][:2]) * y.shape)
+    print(info["CellsSize"][:2], x.shape[-2:])
+    extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
 
     dict_to_plot = {
-        "t_true": DataToVisualize(y, "Label: Temperature in [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-        "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]",extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-        "error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]",extent_highs),
+        "t_true": DataToVisualize(y, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+        "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+        "error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]", extent_highs),
     }
     inputs = info["Inputs"].keys()
     for input in inputs:
         index = info["Inputs"][input]["index"]
-        dict_to_plot[input] = DataToVisualize(x[index], input,extent_highs)
+        dict_to_plot[input] = DataToVisualize(x[index], input, extent_highs)
 
     return dict_to_plot
 
@@ -132,7 +133,6 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
 
         #         CS = plt.contour(torch.flip(datapoint.data, dims=[1]).T, **datapoint.contourargs)
         #     plt.clabel(CS, inline=1, fontsize=10)
-
         plt.imshow(datapoint.data.T, **datapoint.imshowargs)
         plt.gca().invert_yaxis()
 
