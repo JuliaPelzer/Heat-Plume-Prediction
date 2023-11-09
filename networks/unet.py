@@ -21,7 +21,7 @@ class UNet(nn.Module):
         self.upconvs = nn.ModuleList()
         self.decoders = nn.ModuleList()
         for _ in range(depth):
-            self.upconvs.append(nn.ConvTranspose2d(features, features // 2, kernel_size=2, stride=2))
+            self.upconvs.append(nn.ConvTranspose2d(features, features//2, kernel_size=2, stride=2))
             self.decoders.append(UNet._block(features, features//2, kernel_size=kernel_size, padding_mode=padding_mode))
             features = features // 2
 
