@@ -7,6 +7,10 @@ models/
 fully_convolutional_network/
 runs/
 
+# irrelevant for student projects
+other_models/
+paper_23/
+
 # exclude testing notebook files and other random files
 *.ipynb
 3D_FCN.code-workspace

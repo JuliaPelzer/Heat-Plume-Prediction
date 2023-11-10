@@ -54,7 +54,6 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
             Name of the raw data. This will also be the name of the new dataset.
         input_variables : str
             String of characters, each of which is either x, y, z, p, t, k, i, s, g.
-            TODO make g (pressure gradient cell-size independent?)
     """
     time_start = time.perf_counter()
     check_for_dataset(paths.raw_path)
@@ -66,14 +65,12 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
     transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo)
     inputs = expand_property_names(inputs)
     time_first = "   0 Time  0.00000E+00 y"
-    time_final = "   3 Time  5.00000E+00 y"
     time_steady_state = "   4 Time  2.75000E+01 y"
     pflotran_settings = get_pflotran_settings(paths.raw_path)
     dims = np.array(pflotran_settings["grid"]["ncells"])
     total_size = np.array(pflotran_settings["grid"]["size"])
     cell_size = total_size/dims
 
-    if info is None: calc = WelfordStatistics()
     tensor_transform = ToTensorTransform()
     output_variables = ["Temperature [C]"]
     data_paths, runs = detect_datapoints(paths.raw_path)
@@ -83,10 +80,8 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
         y = load_data(data_path, time_steady_state, output_variables, dims)
         loc_hp = get_hp_location(x)
         x = transforms(x, loc_hp=loc_hp)
-        if info is None: calc.add_data(x) 
         x = tensor_transform(x)
         y = transforms(y, loc_hp=loc_hp)
-        if info is None: calc.add_data(y)
         y = tensor_transform(y)
         torch.save(x, os.path.join(dataset_prepared_path, "Inputs", f"{run}.pt"))
         torch.save(y, os.path.join(dataset_prepared_path, "Labels", f"{run}.pt"))

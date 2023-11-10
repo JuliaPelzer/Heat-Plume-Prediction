@@ -13,6 +13,7 @@ class SimulationDataset(Dataset):
     def __init__(self, path):
         Dataset.__init__(self)
         self.path = pathlib.Path(path)
+        print(self.path)
         self.input_names = []
         self.label_names = []
         for filename in os.listdir(self.path / "Inputs"):
