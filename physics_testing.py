@@ -100,36 +100,48 @@ temperature = torch.tensor(10.6)
 pressure = torch.tensor(910000)
 molar_density_func = lambda x: eq.eos_water_density_IFC67(x, pressure)
 enthalpy_func = lambda x: eq.eos_water_enthalphy(x, pressure)
+viscosity_func = lambda x: eq.eos_water_viscosity_1(x, pressure, eq.eos_water_saturation_pressure_IFC67(x))
 x = torch.arange(8, 17, 0.1)
 y_, y = molar_density_func(x)
 y_ent = enthalpy_func(x)
-plt.plot(x, y)
+y_visc = viscosity_func(x)
+plt.plot(x, y/y[0])
 plt.savefig("testing/molar_density_temp.png")
 plt.close()
 
-plt.plot(x, y_)
+plt.plot(x, y_/y_[0])
 plt.savefig("testing/density_temp.png")
 plt.close()
 
-plt.plot(x, y_ent)
+plt.plot(x, y_ent/y_ent[0])
 plt.savefig("testing/enthalpy_temp.png")
+plt.close()
+
+plt.plot(x, y_visc/y_visc[0])
+plt.savefig("testing/viscosity_temp.png")
 plt.close()
 
 molar_density_func = lambda x: eq.eos_water_density_IFC67(temperature, x)
 enthalpy_func = lambda x: eq.eos_water_enthalphy(temperature, x)
+viscosity_func = lambda x: eq.eos_water_viscosity_1(temperature, x, eq.eos_water_saturation_pressure_IFC67(temperature))
 x = torch.arange(890000, 920000, 10000)
 y_, y = molar_density_func(x)
 y_ent = enthalpy_func(x)
-plt.plot(x, y)
+y_visc = viscosity_func(x)
+plt.plot(x, y/y[0])
 plt.savefig("testing/molar_density_press.png")
 plt.close()
 
-plt.plot(x, y_)
+plt.plot(x, y_/y_[0])
 plt.savefig("testing/density_press.png")
 plt.close()
 
-plt.plot(x, y_ent)
+plt.plot(x, y_ent/y_ent[0])
 plt.savefig("testing/enthalpy_press.png")
+plt.close()
+
+plt.plot(x, y_visc/y_visc[0])
+plt.savefig("testing/viscosity_press.png")
 plt.close()
 
 if legacy:
@@ -234,8 +246,8 @@ if legacy:
 
 def create_example_plots(dataset, dataset_name, temp, flux, cell_width = 5, view = (256, 16)):
     print("iteration: " + str(temp) + " and " + str(flux))
-    index = (0, 0, 21, 5) # get position of heat pump (fixed TODO read in)
-    loss2 = l.PhysicalLossV3(device="cpu")
+    index = (0, 0, 22, 6) # get position of heat pump (fixed TODO read in)
+    loss2 = l.PhysicalLossV2(device="cpu")
     permeability, pressure, temperature, pressure_start = extract_sample(dataset, 0, view)
     temperature_inflow = torch.tensor(temp + 10.6)
     pressure_at_hp = pressure[index]
@@ -287,6 +299,8 @@ def create_example_plots(dataset, dataset_name, temp, flux, cell_width = 5, view
 
 
     plot_sample(pressure - pressure_start, "pressure_delta", 0, dataset_name, sources)
+    plot_sample(loss2.central_differences_x(pressure[:, :, 30:,:], cell_width), "pressure_delta_lower_dx", 0, dataset_name, sources)
+    plot_sample(loss2.central_differences_y(pressure[:, :, 30:,:], cell_width), "pressure_delta_lower_dy", 0, dataset_name, sources)
 
 temps = [0, 5, 10, -5, -10]
 fluxs = [0.5, 1, 2]

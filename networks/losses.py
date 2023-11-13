@@ -4,13 +4,13 @@ from torch.nn import MSELoss
 from physics.equations_of_state import eos_water_saturation_pressure_IFC67, eos_water_viscosity_1, eos_water_enthalphy, eos_water_density_IFC67, thermal_conductivity
 
 
-def create_loss_fn(loss_fn_str: str, dataloaders: dict = None):
+def create_loss_fn(loss_fn_str: str, dataloaders: dict = None, settings = None):
     if loss_fn_str == "data":
-        loss_class = DataLoss()
+        loss_class = DataLoss(settings.device)
     elif loss_fn_str == "physical":
-        loss_class = PhysicalLossV2()
+        loss_class = PhysicalLossV2(settings.device)
     elif loss_fn_str == "mixed":
-        loss_class = MixedLoss()
+        loss_class = MixedLoss(settings.device)
     else:
         raise ValueError(f"loss_fn_str: {loss_fn_str} not implemented")
     return loss_class
@@ -117,16 +117,20 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and linear i
         super().__init__(device)
         self.MSE = MSELoss()
         self.weight = [1.0, 1e-6]
+        self.mask = torch.tensor([[(i == 0 or i == 15) or (j == 0 or j == 15) or (i == 7 and j == 7) for j in range(16)] for i in range(16)])
 
     def __call__(self, input, output, target, dataloader): # permeability index 1 of input, temperature index 1 and pressure index 0 of label
         dataset = dataloader.dataset.dataset
         norm = dataset.norm
+        #output[self.mask.repeat(output.size(0), 2, 1, 1)] = target[self.mask.repeat(output.size(0), 2, 1, 1)]
         input_swap = input.detach().clone().swapaxes(0, 1)
         output_swap = output.clone().swapaxes(0, 1)
         permeability = norm.reverse(input_swap, "Inputs")[1,:,:,:].unsqueeze(1)
         prediction = norm.reverse(output_swap, "Labels")
         temperature = prediction[0].squeeze().unsqueeze(1)
         pressure = prediction[1].squeeze().unsqueeze(1)
+        boundary_error = torch.mean(torch.pow(output[:, 0][self.mask.repeat(temperature.size(0), 1, 1)] - target[:, 0][self.mask.repeat(temperature.size(0), 1, 1)], 2))
+        #boundary_error += torch.mean(torch.pow(output[:, 1][self.mask.repeat(temperature.size(0), 1, 1)] - target[:, 1][self.mask.repeat(temperature.size(0), 1, 1)], 2))
 
         cell_width = dataset.info["CellsSize"][0]
 
@@ -151,12 +155,11 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and linear i
         energy_error[:, :, hp_pos[1]-1, hp_pos[0]-1] -= source_energy
 
         physics_loss = self.weight[0] * torch.mean(torch.pow(continuity_error, 2)) + self.weight[1] * torch.mean(torch.pow(energy_error, 2))
-        # continuity_error_dx = self.central_differences_x(continuity_error, cell_width)
-        # continuity_error_dy = self.central_differences_y(continuity_error, cell_width)
-        # energy_error_dx = self.central_differences_x(energy_error, cell_width)
-        # energy_error_dy = self.central_differences_y(energy_error, cell_width)
-        return physics_loss #+ torch.max(continuity_error_dx) + torch.max(continuity_error_dy) + torch.max(energy_error_dx) + torch.max(energy_error_dy)
-    
+        continuity_error_dx = self.central_differences_x(continuity_error, cell_width)
+        continuity_error_dy = self.central_differences_y(continuity_error, cell_width)
+        energy_error_dx = self.central_differences_x(energy_error, cell_width)
+        energy_error_dy = self.central_differences_y(energy_error, cell_width)
+        return physics_loss + boundary_error #+ 0.0001 * (torch.max(torch.abs(continuity_error_dx)) + torch.max(torch.abs(continuity_error_dy)) + torch.max(torch.abs(energy_error_dx)) + torch.max(torch.abs(energy_error_dy)))
 
     def get_darcy(self, temperature, pressure, permeability, cell_width):
         dpdx = self.central_differences_x(pressure, cell_width)
@@ -257,7 +260,7 @@ class PhysicalLossV3(BaseLoss): # version 3: without darcy velocity and cubic in
     def __init__(self, device="cuda:2"):
         super().__init__(device)
         self.MSE = MSELoss()
-        self.weight = [1.0, 1e-12]
+        self.weight = [1.0, 1e-8]
 
     def __call__(self, input, output, target, dataloader): # permeability index 1 of input, temperature index 1 and pressure index 0 of label
         dataset = dataloader.dataset.dataset
@@ -388,7 +391,7 @@ class PhysicalLossV3(BaseLoss): # version 3: without darcy velocity and cubic in
                 val_cent  = (alpha_i_m + alpha_i_p + alpha_j_m + alpha_j_p) * values[..., i, j]
                 result[..., i-2, j-2] = (val_left + val_right + val_top + val_bott - val_cent) / h**2
         return result
-    
+
 
 class MixedLoss(BaseLoss):
     def __init__(self, device="cuda:2"):

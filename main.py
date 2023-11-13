@@ -28,6 +28,7 @@ def init_data(settings: SettingsTraining, seed=1):
     generator = torch.Generator().manual_seed(seed)
 
     split_ratios = [0.7, 0.2, 0.1]
+    # split_ratios = [0.2, 0.7, 0.1]
     # split_ratios = [0.0, 0.0, 1.0] 
     datasets = random_split(dataset, _get_splits(len(dataset), split_ratios), generator=generator)
 
@@ -90,7 +91,7 @@ def run(settings: SettingsTraining):
     if settings.case in ["train", "finetune"]:
         # parameters of training
         loss_fn_str = settings.loss
-        loss_fn = create_loss_fn(loss_fn_str, dataloaders)
+        loss_fn = create_loss_fn(loss_fn_str, dataloaders, settings)
         # training
         solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn, finetune=settings.finetune)
         try:
