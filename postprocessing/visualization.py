@@ -102,7 +102,6 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     # prepare data of temperature true, temperature out, error, physical variables (inputs)
     temp_max = max(y.max(), y_out.max())
     temp_min = min(y.min(), y_out.min())
-    print(info["CellsSize"][:2], x.shape[-2:])
     extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
 
     dict_to_plot = {
