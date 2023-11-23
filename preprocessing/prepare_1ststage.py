@@ -13,7 +13,7 @@ from tqdm.auto import tqdm
 
 from data_stuff.transforms import (ComposeTransform, NormalizeTransform,
                              PowerOfTwoTransform, ReduceTo2DTransform,
-                             SignedDistanceTransform, ToTensorTransform)
+                             SignedDistanceTransform, PositionalEncodingTransform, ToTensorTransform)
 from data_stuff.utils import SettingsTraining
 from preprocessing.prepare_paths import Paths1HP, Paths2HP
 
@@ -185,6 +185,8 @@ def expand_property_names(properties: str):
         "k": "Permeability X [m^2]",
         "i": "Material ID",
         "s": "SDF",
+        "a": "PE x", # positional encoding: signed distance in x direction
+        "b": "PE y", # positional encoding: signed distance in y direction
         "g": "Pressure Gradient [-]",
         "o": "Original Temperature [C]"
     }
@@ -205,6 +207,8 @@ def get_normalization_type(property:str):
         "default": "Rescale", #Standardize
         # "Material ID": "Rescale",
         "SDF": None,
+        "PE x": None,
+        "PE y": None,
         "Original Temperature [C]": None,
     }
     
@@ -231,6 +235,8 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
                     dimensions_of_datapoint, order='F')).float()
             except KeyError:
                 if key == "SDF":
+                    data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(dimensions_of_datapoint, order='F')).float()
+                elif key in ["PE x", "PE y"]:
                     data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(dimensions_of_datapoint, order='F')).float()
                 elif key == "Pressure Gradient [-]":
                     empty_field = torch.ones(list(dimensions_of_datapoint)).float()
@@ -348,6 +354,7 @@ def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool 
     if power2trafo:
         transforms_list.append(PowerOfTwoTransform())
     transforms_list.append(SignedDistanceTransform())
+    transforms_list.append(PositionalEncodingTransform())
 
     transforms = ComposeTransform(transforms_list)
     return transforms

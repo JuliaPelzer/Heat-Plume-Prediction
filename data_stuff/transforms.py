@@ -46,7 +46,7 @@ class NormalizeTransform:
         
     def __reverse_norm(self,data,index,stats):
         if len(data.shape) == 4:
-            assert data.shape[0] < data.shape[1], "Properties must be in 0th dimension; batches pushed to 1st dimension"
+            assert data.shape[0] <= data.shape[1], "Properties must be in 0th dimension; batches pushed to 1st dimension"
         norm = stats["norm"]
         if norm == "Rescale":
             delta = stats["max"] - stats["min"]
@@ -100,7 +100,74 @@ class SignedDistanceTransform:
 
         data = 1 - data / data.max()
         return data
+    
+class PositionalEncodingTransform:
+    """
+    Transform class to add positional encoding to the data.
+    This transform takes a dict of tensors as input and returns a dict of tensors.
+    
+    The positional encoding is added to the inputs.
+    
+    The positional encoding is calculated as follows:
+    - The position of the highest value in the material id is determined.
+    - The distance of each voxel to the position is calculated.
+    - The distance is normalized.
+    - The distance is added to the inputs.
+    """
 
+    def __init__(self):
+        pass
+
+    def __call__(self, data: dict):
+        logging.info("Start PositionalEncodingTransform")
+
+        # assert if only PE x or PE y is in data
+        assert "PE x" in data.keys() and "PE y" in data.keys() or "PE x" not in data.keys() and "PE y" not in data.keys(), "Only one of PE x and PE y is in data"
+
+        # check if SDF is in data (inputs vs. labels)
+        if "PE x" not in data.keys():
+            logging.info("No material ID in data, no PositionalEncodingTransform")
+            return data
+
+        def get_loc_hp(data: torch.tensor):
+            loc_hp = nonzero(data == torch.max(data)).squeeze()
+            if len(loc_hp) != 3:
+                logging.warning(f"loc_hp returns more than one position: {loc_hp}")
+            return loc_hp
+        loc_hp = get_loc_hp(data["PE x"])
+
+        data["PE x"] = self.pe_x(data["PE x"], loc_hp.float()[0])
+        data["PE y"] = self.pe_y(data["PE y"], loc_hp.float()[1])
+        logging.info("PositionalEncodingTransform done")
+        return data
+
+    def pe_x(self, data: torch.tensor, loc_hp: torch.tensor):
+        data_shape = data.shape
+        data = torch.zeros(data_shape)
+        # fill data with idx in x direction
+        for index_x in range(data.shape[0]):
+            data[index_x, :] = index_x
+        data -= loc_hp
+        data = data.abs()
+        data /= data.max() #256 
+        data = 1 - data
+        # data[data < 0] = 0
+        assert data.shape == data_shape, f"PE x has wrong shape: {data.shape} instead of {data_shape}"
+        return data
+    
+    def pe_y(self, data: torch.tensor, loc_hp: torch.tensor):
+        data_shape = data.shape
+        data = torch.zeros(data_shape)
+        # fill data with idx in y direction
+        for index_y in range(data.shape[1]):
+            data[:, index_y] = index_y
+        data -= loc_hp
+        data = data.abs()
+        data /= data.max() # 16 #
+        data = 1 - data
+        # data[data < 0] = 0
+        assert data.shape == data_shape, f"PE y has wrong shape: {data.shape} instead of {data_shape}"
+        return data
 
 class PowerOfTwoTransform:
     """
@@ -229,9 +296,14 @@ class ToTensorTransform:
 
 
 if __name__ == "__main__":
-    trafo = ComposeTransform([SignedDistanceTransform()])
-    data = {"SDF": torch.zeros((9, 9, 2))}
-    data["SDF"][1,1,0] = 1
-    print(data["SDF"][:,:,0])
+    trafo = ComposeTransform([PositionalEncodingTransform()])
+    data = {"PE x": torch.zeros((5, 6, 2)),
+            "PE y": torch.zeros((5, 6, 2))}
+    data["PE x"][1,1,0] = 1
+    data["PE y"][1,1,0] = 1
+
+    # print("step1", data["PE x"][:,:,0])
+    print("step1", data["PE y"][:,:,0])
     data = trafo(data)
-    print(data["SDF"])
+    print("step2", data["PE x"])
+    print("step2", data["PE y"])
