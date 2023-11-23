@@ -9,7 +9,7 @@ import yaml
 from tqdm.auto import tqdm
 
 from domain_classes.domain import Domain
-from domain_classes.heat_pump import HeatPump
+from domain_classes.heat_pump import HeatPumpBox
 from domain_classes.utils_2hp import check_all_datasets_prepared, set_paths_2hpnn
 from data_stuff.utils import SettingsPrepare, load_yaml
 from networks.unet import UNet
@@ -96,7 +96,7 @@ def pipeline_apply_2HPNN(
 
         # apply learned NN to predict the heat plumes
         time_apply_1nn = time.perf_counter()
-        hp: HeatPump
+        hp: HeatPumpBox
         for hp in single_hps:
             hp.primary_temp_field = hp.apply_nn(model_1HP)
             # save predicted Temp field as input for training as well
@@ -277,7 +277,7 @@ def pipeline_apply_1HPNN(
 
         # apply learned NN to predict the heat plumes
         time_apply_1nn = time.perf_counter()
-        hp: HeatPump
+        hp: HeatPumpBox
         for hp in single_hps:
             hp.primary_temp_field = hp.apply_nn(model_1HP)
             # save predicted Temp field as input for training as well

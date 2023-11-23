@@ -9,7 +9,7 @@ import tqdm
 import yaml
 
 from preprocessing.prepare_paths import Paths2HP, set_paths_2hpnn
-from utils.visualization import _aligned_colorbar
+from postprocessing.visualization import _aligned_colorbar
 from preprocessing.prepare_2ndstage import prepare_dataset_for_2nd_stage
 from domain_classes.domain import get_box_corners
 

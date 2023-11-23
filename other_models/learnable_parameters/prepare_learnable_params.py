@@ -13,7 +13,7 @@ sys.path.append("/home/pelzerja/Development/1HP_NN")
 
 from data_stuff.dataset import SimulationDataset
 from data_stuff.utils import load_yaml
-from utils.visualization import DataToVisualize
+from postprocessing.visualization import DataToVisualize
 
 
 def main_learnable_params(dataset_path: str):

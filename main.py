@@ -2,9 +2,7 @@ import argparse
 import logging
 import multiprocessing
 import numpy as np
-import shutil
 import time
-
 import torch
 from torch.utils.data import DataLoader, random_split
 # tensorboard --logdir=runs/ --host localhost --port 8088
@@ -14,13 +12,10 @@ from torch.nn import MSELoss
 from data_stuff.dataset import SimulationDataset, _get_splits
 from data_stuff.utils import SettingsTraining
 from networks.unet import UNet, UNetBC
-from preprocessing.prepare_1ststage import prepare_dataset_for_1st_stage
-from preprocessing.prepare_2ndstage import prepare_dataset_for_2nd_stage
 from solvers.solver import Solver
-from preprocessing.prepare_paths import set_paths_1hpnn, Paths1HP, Paths2HP, set_paths_2hpnn
 from preprocessing.prepare import prepare_data_and_paths
-from utils.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
-from utils.measurements import measure_loss, save_all_measurements
+from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
+from postprocessing.measurements import measure_loss, save_all_measurements
 
 # import os
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -64,7 +59,8 @@ def run(settings: SettingsTraining):
     if settings.case in ["train", "finetune"]:
         loss_fn = MSELoss()
         # training
-        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn)
+        finetune = True if settings.case == "finetune" else False
+        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn, finetune=finetune)
         try:
             solver.load_lr_schedule(settings.destination / "learning_rate_history.csv", settings.case_2hp)
             times["time_initializations"] = time.perf_counter()

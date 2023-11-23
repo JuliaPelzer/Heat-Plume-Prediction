@@ -14,9 +14,9 @@ sys.path.append("/home/pelzerja/Development/1HP_NN")  # relevant for local
 from data_stuff.utils import load_yaml
 from preprocessing.prepare_1ststage import expand_property_names
 from utils.utils import beep
-from utils.visualization import _aligned_colorbar
+from postprocessing.visualization import _aligned_colorbar
 
-from domain_classes.heat_pump import HeatPump
+from domain_classes.heat_pump import HeatPumpBox
 from domain_classes.stitching import Stitching
 
 
@@ -184,7 +184,7 @@ class Domain:
                         if (tmp_pos[1:2] != distance_hp_corner).all():
                             tmp_input[tmp_pos[0], tmp_pos[1], tmp_pos[2]] = 0
 
-                tmp_hp = HeatPump(id=idx, pos=pos_hp, orientation=0, inputs=tmp_input, names=names_inputs, dist_corner_hp=distance_hp_corner, label=tmp_label, device=device,)
+                tmp_hp = HeatPumpBox(id=idx, pos=pos_hp, orientation=0, inputs=tmp_input, names=names_inputs, dist_corner_hp=distance_hp_corner, label=tmp_label, device=device,)
                 if "SDF" in self.info["Inputs"]:
                     tmp_hp.recalc_sdf(self.info)
 
@@ -197,7 +197,7 @@ class Domain:
                 
         return hp_boxes
 
-    def add_hp(self, hp: "HeatPump", prediction_field: tensor):
+    def add_hp(self, hp: "HeatPumpBox", prediction_field: tensor):
         prediction_field = self.reverse_norm(prediction_field, property="Temperature [C]") # for adding to domain
         # compose learned fields into large domain with list of ids, pos, orientations
         for i in range(prediction_field.shape[0]):
