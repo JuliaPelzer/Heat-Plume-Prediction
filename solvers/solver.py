@@ -8,6 +8,7 @@ from torch.nn import Module, MSELoss, modules
 from torch.optim import Adam, Optimizer
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+import torch
 from tqdm.auto import tqdm
 
 from data_stuff.utils import SettingsTraining
@@ -115,8 +116,8 @@ class Solver(object):
                         file.close()
 
         # Apply best model params to model
-        self.model.load_state_dict(self.best_model_params["state_dict"]) #self.model = 
-        self.opt.load_state_dict(self.best_model_params["optimizer"]) #self.opt =
+        # self.model.load_state_dict(self.best_model_params["state_dict"]) #self.model = 
+        # self.opt.load_state_dict(self.best_model_params["optimizer"]) #self.opt =
         print(f"Best model was found in epoch {self.best_model_params['epoch']}.")
 
         if log_val_epoch:
@@ -134,7 +135,7 @@ class Solver(object):
             y_pred = self.model(x)
 
             loss = None
-            loss = self.loss_func(y_pred, y)
+            loss = self.loss_func(x, y_pred, y, dataloader)
 
             if self.model.training:
                 loss.backward()

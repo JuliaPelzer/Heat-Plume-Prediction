@@ -75,7 +75,7 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
 
     if info is None: calc = WelfordStatistics()
     tensor_transform = ToTensorTransform()
-    output_variables = ["Temperature [C]"]
+    output_variables = ["Temperature [C]", "Liquid Pressure [Pa]"]
     data_paths, runs = detect_datapoints(paths.raw_path)
     total = len(data_paths)
     for data_path, run in tqdm(zip(data_paths, runs), desc="Converting", total=total):
@@ -118,7 +118,7 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
         
     info["CellsSize"] = cell_size.tolist()
     # change of size possible; order of tensor is in any case the other way around
-    assert 1 in y.shape, "y is not expected to have several output parameters"
+    # assert 1 in y.shape, "y is not expected to have several output parameters"
     assert len(y.shape) == 3, "y is expected to be 2D"
     dims = list(y.shape)[1:]
     info["CellsNumber"] = dims

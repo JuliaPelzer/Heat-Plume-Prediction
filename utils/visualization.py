@@ -17,6 +17,7 @@ from torch.utils.data import DataLoader
 
 from data_stuff.transforms import NormalizeTransform
 from networks.unet import UNet
+from networks.losses import PhysicalLossV2
 from utils.measurements import measure_len_width_1K_isoline
 
 # mpl.rcParams.update({'figure.max_open_warning': 0})
@@ -105,10 +106,16 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     print(info["CellsSize"][:2], x.shape[-2:])
     extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
 
+    PhysicalLoss = PhysicalLossV2("cpu")
+
     dict_to_plot = {
         "t_true": DataToVisualize(y, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
         "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
         "error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]", extent_highs),
+        "energy_residual_true": DataToVisualize(PhysicalLoss.get_energy_error(y.unsqueeze(0), x[1].unsqueeze(0), x[2].unsqueeze(0), 5).squeeze(), "Label: Energy residual", extent_highs),
+        "energy_residual_out": DataToVisualize(PhysicalLoss.get_energy_error(y_out.unsqueeze(0), x[1].unsqueeze(0), x[2].unsqueeze(0), 5).squeeze(), "Prediction: Energy residual", extent_highs),
+        "cont_residual_true": DataToVisualize(PhysicalLoss.get_continuity_error(y.unsqueeze(0), x[1].unsqueeze(0), x[2].unsqueeze(0), 5).squeeze(), "Label: Continuity residual", extent_highs),
+        "cont_residual_out": DataToVisualize(PhysicalLoss.get_continuity_error(y_out.unsqueeze(0), x[1].unsqueeze(0), x[2].unsqueeze(0), 5).squeeze(), "Prediction: Continuity residual", extent_highs),
     }
     inputs = info["Inputs"].keys()
     for input in inputs:

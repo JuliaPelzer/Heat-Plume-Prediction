@@ -13,7 +13,7 @@ from torch.nn import MSELoss
 
 from data_stuff.dataset import SimulationDataset, _get_splits
 from data_stuff.utils import SettingsTraining
-from networks.unet import UNet, UNetBC
+from networks.unet import UNet, UNetBC, TestNet, UNetImproved
 from preprocessing.prepare_1ststage import prepare_dataset_for_1st_stage
 from preprocessing.prepare_2ndstage import prepare_dataset_for_2nd_stage
 from solvers.solver import Solver
@@ -21,6 +21,7 @@ from preprocessing.prepare_paths import set_paths_1hpnn, Paths1HP, Paths2HP, set
 from preprocessing.prepare import prepare_data_and_paths
 from utils.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
 from utils.measurements import measure_loss, save_all_measurements
+from networks.losses import create_loss_fn
 
 # import os
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -55,15 +56,14 @@ def run(settings: SettingsTraining):
     dataset, dataloaders = init_data(settings)
 
     # model
-    model = UNetBC(in_channels=dataset.input_channels).float()
+    model = UNet().float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)
 
     solver = None
     if settings.case in ["train", "finetune"]:
-        loss_fn = MSELoss()
-        # training
+        loss_fn = create_loss_fn(dataloaders, settings)
         solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn)
         try:
             solver.load_lr_schedule(settings.destination / "learning_rate_history.csv", settings.case_2hp)
@@ -81,13 +81,13 @@ def run(settings: SettingsTraining):
     model.save(settings.destination)
 
     # visualization
-    which_dataset = "val"
+    which_dataset = "test"
     pic_format = "png"
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"
     if settings.visualize:
-        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
+        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=10, pic_format=pic_format)
         times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
         plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         # errors = measure_loss(model, dataloaders[which_dataset], settings.device)
@@ -104,14 +104,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_raw", type=str, default="dataset_2d_small_1000dp", help="Name of the raw dataset (without inputs)")
     parser.add_argument("--dataset_prep", type=str, default="")
-    parser.add_argument("--device", type=str, default="cuda:3")
+    parser.add_argument("--device", type=str, default="cuda:2")
     parser.add_argument("--epochs", type=int, default=10000)
     parser.add_argument("--case", type=str, choices=["train", "test", "finetune"], default="train")
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
     parser.add_argument("--destination", type=str, default="")
     parser.add_argument("--inputs", type=str, choices=["gki", "gksi", "pksi", "gks", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100"], default="gksi")
     parser.add_argument("--case_2hp", type=bool, default=False)
-    parser.add_argument("--visualize", type=bool, default=False)
+    parser.add_argument("--visualize", type=bool, default=True)
+    parser.add_argument("--loss", type=str, default="data")
     settings = SettingsTraining(**vars(parser.parse_args()))
 
     settings = prepare_data_and_paths(settings)

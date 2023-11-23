@@ -45,8 +45,8 @@ class NormalizeTransform:
             raise ValueError(f"Normalization type '{stats['Norm']}' not recognized")
         
     def __reverse_norm(self,data,index,stats):
-        if len(data.shape) == 4:
-            assert data.shape[0] < data.shape[1], "Properties must be in 0th dimension; batches pushed to 1st dimension"
+        # if len(data.shape) == 4:
+        #     assert data.shape[0] < data.shape[1], "Properties must be in 0th dimension; batches pushed to 1st dimension"
         norm = stats["norm"]
         if norm == "Rescale":
             delta = stats["max"] - stats["min"]
