@@ -102,6 +102,66 @@ class SignedDistanceTransform:
         return data
 
 
+class MultiHPDistanceTransform:
+    """
+    Transform class to calculate distance transform for multiple heat pumps for material id.  
+    This transform takes a dict of tensors as input and returns a dict of tensors.
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, data: dict):
+        logging.info("Start MultiHPDistanceTransform")
+
+        # check if MDF is in data (inputs vs. labels)
+        if "MDF" not in data.keys():
+            logging.info("No material ID in data, no MultiHPDistanceTransform")
+            return data
+
+        positions = torch.tensor(np.array(np.where(data["Material ID"] == torch.max(data["Material ID"])))).T
+        assert positions.dim() == 2, "MDF + just 1 HP? u sure?"
+        data["MDF"] = self.mdf(data["MDF"], positions)
+        logging.info("MultiHPDistanceTransform done")
+
+        return data
+    
+    def mdf(self, data: torch.tensor, positions: torch.tensor):
+        assert (data == 0).all(), "all data should be 0"
+        max_dist = 50 # max_dist between 2 points / manual influence distance : also for scaling - TODO: optimize value
+
+        for dist in range(int(max_dist)):
+            for x in range(dist):
+                for y in range(dist):
+                    for point in positions:
+                        if np.sqrt(x**2+y**2) <= dist:
+                            point2 = point + torch.tensor([x,y,0])
+                            try:
+                                if data[point2[0], point2[1]] == 0:
+                                    data[point2[0], point2[1]] = (max_dist - dist)/max_dist
+                            except: # outside domain
+                                pass
+                            try:
+                                point2 = point + torch.tensor([-x,y,0])
+                                if data[point2[0], point2[1]] == 0:
+                                    data[point2[0], point2[1]] = (max_dist - dist)/max_dist
+                            except: # outside domain
+                                pass
+                            try:
+                                point2 = point + torch.tensor([x,-y,0])
+                                if data[point2[0], point2[1]] == 0:
+                                    data[point2[0], point2[1]] = (max_dist - dist)/max_dist
+                            except: # outside domain
+                                pass
+                            try:
+                                point2 = point + torch.tensor([-x,-y,0])
+                                if data[point2[0], point2[1]] == 0:
+                                    data[point2[0], point2[1]] = (max_dist - dist)/max_dist
+                            except: # outside domain
+                                pass
+        return data
+
+
 class PowerOfTwoTransform:
     """
     Transform class to reduce dimensionality to be a power of 2
