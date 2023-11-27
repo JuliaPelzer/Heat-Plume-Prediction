@@ -25,9 +25,9 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
         # get info of training
         with open(settings.model / info_file, "r") as file:
             info = yaml.safe_load(file)
-        prepare_dataset(paths, settings.inputs, info=info)
+        prepare_dataset(paths, settings.inputs, info=info, power2trafo=False)
     else:
-        info = prepare_dataset(paths, settings.inputs)
+        info = prepare_dataset(paths, settings.inputs, power2trafo=False)
         if settings.case == "train":
             # store info of training
             with open(settings.destination / info_file, "w") as file:
@@ -67,12 +67,12 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
     transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo)
     inputs = expand_property_names(inputs)
     time_first = "   0 Time  0.00000E+00 y"
-    time_final = "   3 Time  5.00000E+00 y"
-    time_steady_state = "   4 Time  2.75000E+01 y"
+    time_steady_state = "   3 Time  5.00000E+00 y" # time_final
+    # time_steady_state = "   4 Time  2.75000E+01 y"
     pflotran_settings = get_pflotran_settings(paths.raw_path)
-    dims = torch.Size(pflotran_settings["grid"]["ncells"])
-    total_size = torch.tensor(pflotran_settings["grid"]["size"])
-    cell_size = total_size/torch.tensor(dims)
+    dims = np.array(pflotran_settings["grid"]["ncells"])
+    total_size = np.array(pflotran_settings["grid"]["size"])
+    cell_size = total_size/dims
 
     if info is None: calc = WelfordStatistics()
     tensor_transform = ToTensorTransform()
@@ -230,18 +230,18 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
     with h5py.File(data_path, "r") as file:
         for key in variables:  # properties
             try:
-                data[key] = torch.tensor(file[time][key]).reshape(dimensions_of_datapoint).float()
+                data[key] = torch.tensor(np.array(file[time][key]).reshape(dimensions_of_datapoint, order='F')).float()
             except KeyError:
                 if key == "SDF":
-                    data[key] = torch.tensor(file[time]["Material ID"]).reshape(dimensions_of_datapoint).float()
+                    data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(dimensions_of_datapoint, order='F')).float()
                 elif key == "MDF":
-                    data[key] = torch.zeros(dimensions_of_datapoint)
+                    data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(dimensions_of_datapoint, order='F')).float()
                 elif key == "Pressure Gradient [-]":
-                    empty_field = torch.ones(dimensions_of_datapoint).float()
+                    empty_field = torch.ones(list(dimensions_of_datapoint)).float()
                     pressure_grad = get_pressure_gradient(data_path)
                     data[key] = empty_field * pressure_grad[1]
                 elif key == "Original Temperature [C]":
-                    empty_field = torch.ones(dimensions_of_datapoint).float()
+                    empty_field = torch.ones(list(dimensions_of_datapoint)).float()
                     data[key] = empty_field * 0 #10.6
                     # TODO use torch.zeros instead
                 else:
@@ -253,7 +253,10 @@ def get_hp_location(data):
     try:  # TODO problematic with SDF?
         ids = data["Material ID"]
     except:
-        ids = data["SDF"]
+        try:
+            ids = data["SDF"]
+        except:
+            ids = data["MDF"]
     max_id = ids.max()
     loc_hp = np.array(np.where(ids == max_id)).squeeze()
     return loc_hp

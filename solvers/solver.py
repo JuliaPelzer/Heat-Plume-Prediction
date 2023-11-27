@@ -12,6 +12,7 @@ from tqdm.auto import tqdm
 
 from data_stuff.utils import SettingsTraining
 from networks.unet import weights_init, UNet
+from postprocessing.visualization import visualizations
 
 
 @dataclass
@@ -102,7 +103,8 @@ class Solver(object):
                 model_tmp = UNet(in_channels=len(settings.inputs), out_channels=1)
                 model_tmp.load_state_dict(self.best_model_params["state_dict"])
                 model_tmp.save(settings.destination, model_name=f"interim_model_epoche{epoch}.pt")
-
+                visualizations(model_tmp, self.val_dataloader, settings.device, plot_path=settings.destination / f"plot_val_interim", amount_datapoints_to_visu=5, pic_format="png")
+                
                 try:
                     new_lr = float(input("\nNew learning rate: "))
                 except ValueError as e:
@@ -157,7 +159,7 @@ class Solver(object):
         if not path.exists():
             logging.warning(f"Could not find lr-schedule at {path}. Using default lr-schedule instead.")
             path = pathlib.Path.cwd() / "networks"
-            lr_schedule_file = "default_lr_schedule.csv" if not case_2hp else "default_lr_schedule_2hp.csv"
+            lr_schedule_file = "default_lr_schedule_giant.csv" if not case_2hp else "default_lr_schedule_2hp.csv" # TODO change back
             path = path / lr_schedule_file
 
         with open(path, "r") as f:
