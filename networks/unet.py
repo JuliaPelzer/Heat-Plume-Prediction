@@ -51,7 +51,7 @@ class UNet(nn.Module):
                 out_channels=features,
                 kernel_size=kernel_size,
                 # padding="same",
-                # padding_mode=padding_mode,
+                # # padding_mode=padding_mode,
                 bias=True,
             ),
             nn.ReLU(inplace=True),      
@@ -61,7 +61,7 @@ class UNet(nn.Module):
                 out_channels=features,
                 kernel_size=kernel_size,
                 # padding="same",
-                # padding_mode=padding_mode,
+                # # padding_mode=padding_mode,
                 bias=True,
             ),
             nn.BatchNorm2d(num_features=features),
@@ -72,7 +72,7 @@ class UNet(nn.Module):
                 out_channels=features,
                 kernel_size=kernel_size,
                 # padding="same",
-                # padding_mode=padding_mode,
+                # # padding_mode=padding_mode,
                 bias=True,
             ),        
             nn.ReLU(inplace=True),
@@ -84,6 +84,12 @@ class UNet(nn.Module):
 
     def save(self, path:pathlib.Path, model_name: str = "model.pt"):
         save(self.state_dict(), path/model_name)
+
+        model_structure = []
+        for name, param in self.named_parameters():
+            model_structure.append([name, param.shape])
+        with open(path/"model_structure.txt", "w") as f:
+            f.write(str(model_structure))
 
     def num_of_params(self):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)

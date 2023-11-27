@@ -12,7 +12,7 @@ from tqdm.auto import tqdm
 from networks.unet import UNet
 from preprocessing.prepare_1ststage import prepare_dataset
 from domain_classes.domain import Domain
-from domain_classes.heat_pump import HeatPump
+from domain_classes.heat_pump import HeatPumpBox
 from domain_classes.utils_2hp import save_config_of_separate_inputs, save_config_of_merged_inputs, save_yaml
 from domain_classes.stitching import Stitching
 from preprocessing.prepare_paths import Paths2HP
@@ -103,8 +103,8 @@ def load_and_prepare_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, run_id: int
     # TODO replace with loading from file  - requires saving the position of a hp within its domain and the connection domain - single hps  
     return domain, single_hps
 
-def prepare_hp_boxes(paths:Paths2HP, model_1HP:UNet, single_hps:List[HeatPump], domain:Domain, run_id:int, avg_time_inference_1hp:float=0, save_bool:bool=True):
-    hp: HeatPump
+def prepare_hp_boxes(paths:Paths2HP, model_1HP:UNet, single_hps:List[HeatPumpBox], domain:Domain, run_id:int, avg_time_inference_1hp:float=0, save_bool:bool=True):
+    hp: HeatPumpBox
     for hp in single_hps:
         time_start_run_1hp = time.perf_counter()
         hp.primary_temp_field = hp.apply_nn(model_1HP)

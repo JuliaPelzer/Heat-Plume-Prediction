@@ -13,7 +13,7 @@ runs/
 3D_FCN.code-workspace
 old/
 OLD/
-paper23/plots_paper_old?/
+postprocessing/paper23/plots_paper_old?/
 
 # interim files
 events.out.*

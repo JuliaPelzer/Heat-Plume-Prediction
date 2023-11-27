@@ -9,11 +9,11 @@ from torch import tensor, zeros_like, save, load, unsqueeze, ones, cat, maximum,
 from torch import long as torch_long
 
 from data_stuff.transforms import SignedDistanceTransform
-from utils.visualization import _aligned_colorbar
+from postprocessing.visualization import _aligned_colorbar
 from networks.unet import UNet
 
 
-class HeatPump:
+class HeatPumpBox:
     def __init__(self, id, pos, orientation, inputs, names, dist_corner_hp=None, label=None, device="cpu"):
         self.id: str = id  # RUN_{ID}
         self.pos: list = tensor([int(pos[0]), int(pos[1])])  # (x,y), cell-ids
@@ -47,7 +47,7 @@ class HeatPump:
         return output
 
     def get_other_temp_field(self, single_hps):
-        hp: HeatPump
+        hp: HeatPumpBox
         for hp in single_hps:
             # get other hps
             if hp.id != self.id:

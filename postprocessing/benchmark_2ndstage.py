@@ -2,19 +2,17 @@ import torch
 import os
 import numpy as np
 from torch.nn import MSELoss, modules
-import sys
-from utils.visualization import _aligned_colorbar
 import matplotlib.pyplot as plt
 
-sys.path.append("/home/pelzerja/pelzerja/test_nn/2HPs_demonstrator")  # remote version
-from domain import get_box_corners
+from postprocessing.visualization import _aligned_colorbar
+from domain_classes.domain import get_box_corners
 import matplotlib
 matplotlib.use('TkAgg')
 
 
 def load_data_1hpnn(folder):
     nns = {}
-    nn_path = "/home/pelzerja/pelzerja/test_nn/2HPs_demonstrator/runs/"    
+    nn_path = "/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/before_2023_10_domain/"
     for id in range(1, 13):
         nns[id] = {"label": torch.load(nn_path + folder + "/RUN_" + str(id) + "_label.pt")[0],
                 "pred": torch.load(nn_path + folder + "/RUN_" + str(id) + "_prediction.pt"),
@@ -24,7 +22,7 @@ def load_data_1hpnn(folder):
 
 def set_paths_2hpnn():
     data_path = "/home/pelzerja/pelzerja/test_nn/datasets_prepared/2HP_NN/"
-    destination_path = "/home/pelzerja/pelzerja/test_nn/2HPs_demonstrator/runs/"
+    destination_path = "/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/before_2023_10_domain/"
     return data_path, destination_path
 
 def load_data_2hpnn(dataset_name, destination_path):
@@ -62,8 +60,9 @@ def get_hps_and_box_mask(field_shape:np.ndarray, material_ids:np.ndarray):
 def eval_affected_area_1hpnn(nns, plot_bool:bool = False):
     loss_func: modules.loss._Loss = MSELoss()
     sum_affected_cells: dict = {}
-    calc_rmse: bool = True
+    calc_loss_measures: bool = True
     mse_closs = 0.0
+    mae_closs = 0.0
     max_temp_diff = 0.0
     for threshold in [10.7, 11.6, 14.6]: 
         counter = 0
@@ -85,8 +84,9 @@ def eval_affected_area_1hpnn(nns, plot_bool:bool = False):
                 area_pred = affected_area(hp["pred"], threshold)
                 area_diff = area ^ area_pred
                 sum_affected_cells[threshold] += np.sum(area_diff)
-                if calc_rmse:
+                if calc_loss_measures:
                     mse_closs += loss_func(torch.Tensor(hp["pred"]), torch.Tensor(hp["label"]))
+                    mae_closs += torch.mean(torch.abs(torch.Tensor(hp["pred"]) - torch.Tensor(hp["label"])))
                     max_temp_diff += abs(np.max(hp["pred"]) - np.max(hp["label"]))/np.max(hp["label"])
 
                 counter += 1
@@ -116,11 +116,12 @@ def eval_affected_area_1hpnn(nns, plot_bool:bool = False):
                     plt.close()
             
         sum_affected_cells[threshold] /= counter
-        if calc_rmse:
+        if calc_loss_measures:
             mse_closs /= counter
+            mae_closs /= counter
             max_temp_diff /= counter
-        calc_rmse = False
-    return sum_affected_cells, mse_closs, max_temp_diff
+        calc_loss_measures = False
+    return sum_affected_cells, mse_closs, mae_closs, max_temp_diff
 
 
 def eval_affected_area_2hpnn(nns, plot_bool:bool = False):
@@ -191,11 +192,11 @@ if __name__ == "__main__":
     # 1HPNN
     folder = "BENCHMARK_DOMAIN2_gksi_1HPNN"
     nns_1hp = load_data_1hpnn(folder)
-    sums, mse_closs, max_temp_diff = eval_affected_area_1hpnn(nns_1hp, plot_bool=False)
+    sums, mse_closs, mae_closs, max_temp_diff = eval_affected_area_1hpnn(nns_1hp, plot_bool=False)
     sums_string = ""
     for value in sums.values():
         sums_string += f"{np.round(value,2)}~cells & "
-    print(f"{np.sqrt(mse_closs):.4f}~°C & {(max_temp_diff*100):.3f}~\% & {sums_string[:-2]}")
+    print(f"{np.sqrt(mse_closs):.4f}~°C  & {mse_closs:.4f}~°C & {(max_temp_diff*100):.3f}~\% & {sums_string[:-2]}")
     #results: 0.7137~°C & 0.688~\% & 189.38~cells & 322.71~cells & 215.12~cells 
 
     ## 2HPNN
