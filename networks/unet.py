@@ -2,7 +2,7 @@ import torch.nn as nn
 from torch import save, tensor, cat, load, equal
 import pathlib
 
-from diff_conv2d.layers import *
+from diff_conv2d.layers import DiffConv2dLayer
 
 class UNet(nn.Module):
     def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
@@ -142,14 +142,20 @@ class UNetBC(UNet):
     @staticmethod
     def _block(in_channels, features, kernel_size=5, padding_mode="zeros"):
         return nn.Sequential(
-            ExplicitConv2dLayer(
-                in_channels, features, kernel_size, bias=True,),
+            DiffConv2dLayer(
+                in_channels, features, kernel_size, bias=True,
+                keep_img_grad_at_invalid=True, train_edge_kernel=False,
+                optimized_for='memory'),
             nn.ReLU(inplace=True),    
-            ExplicitConv2dLayer(
-                features, features, kernel_size, bias=True,),
+            DiffConv2dLayer(
+                features, features, kernel_size, bias=True,
+                keep_img_grad_at_invalid=True, train_edge_kernel=False,
+                optimized_for='memory'),
             nn.BatchNorm2d(num_features=features),
             nn.ReLU(inplace=True),  
-            ExplicitConv2dLayer(
-                features, features, kernel_size, bias=True,),
+            DiffConv2dLayer(
+                features, features, kernel_size, bias=True,
+                keep_img_grad_at_invalid=True, train_edge_kernel=False,
+                optimized_for='memory'),
             nn.ReLU(inplace=True),
         )
