@@ -31,7 +31,6 @@ class SettingsTraining:
     test: bool = False
     case_2hp: bool = False
     visualize: bool = False
-    save_inference: bool = False
     
     def __post_init__(self):
         if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:
