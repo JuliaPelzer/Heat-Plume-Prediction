@@ -50,7 +50,7 @@ def run(settings: SettingsTraining):
     dataset, dataloaders = init_data(settings)
 
     # model
-    model = UNetBC(in_channels=dataset.input_channels).float()
+    model = UNet(in_channels=dataset.input_channels).float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)
@@ -93,6 +93,26 @@ def run(settings: SettingsTraining):
     save_all_measurements(settings, len(dataset), times, solver) #, errors)
     print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
 
+    return model
+
+def save_inference(model_name:str, in_channels: int, settings: SettingsTraining):
+    # push all datapoints through and save all outputs
+    model = UNet(in_channels=in_channels).float()
+    model.load(model_name, settings.device)
+    model.eval()
+
+    data_dir = settings.dataset_prep
+    (data_dir / "Outputs").mkdir(exist_ok=True)
+
+    for datapoint in (data_dir / "Inputs").iterdir():
+        data = torch.load(datapoint)
+        data = torch.unsqueeze(data, 0)
+        y_out = model(data.to(settings.device)).to(settings.device)
+        y_out = y_out.detach().cpu()
+        y_out = torch.squeeze(y_out, 0)
+        torch.save(y_out, data_dir / "Outputs" / datapoint.name)
+    
+    print(f"Inference finished, outputs saved in {data_dir / 'Outputs'}")
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
@@ -105,11 +125,17 @@ if __name__ == "__main__":
     parser.add_argument("--case", type=str, choices=["train", "test", "finetune"], default="train")
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
     parser.add_argument("--destination", type=str, default="")
-    parser.add_argument("--inputs", type=str, choices=["gki", "gksi", "pksi", "gks", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100"], default="gksi")
+    parser.add_argument("--inputs", type=str, choices=["gki", "gksi", "pksi", "gks", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100", "t", "gkiab", "gksiab", "gkt"], default="gksi")
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=False)
-    settings = SettingsTraining(**vars(parser.parse_args()))
+    parser.add_argument("--save_inference", type=bool, default=False)
+    args = parser.parse_args()
+    settings = SettingsTraining(**vars(args))
 
     settings = prepare_data_and_paths(settings)
 
-    run(settings)
+    model = run(settings)
+
+    if args.save_inference:
+        save_inference(settings.model, len(args.inputs), settings)
+
