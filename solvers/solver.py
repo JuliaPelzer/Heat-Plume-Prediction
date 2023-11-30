@@ -116,8 +116,8 @@ class Solver(object):
                         file.close()
 
         # Apply best model params to model
-        # self.model.load_state_dict(self.best_model_params["state_dict"]) #self.model = 
-        # self.opt.load_state_dict(self.best_model_params["optimizer"]) #self.opt =
+        self.model.load_state_dict(self.best_model_params["state_dict"]) #self.model = 
+        self.opt.load_state_dict(self.best_model_params["optimizer"]) #self.opt =
         print(f"Best model was found in epoch {self.best_model_params['epoch']}.")
 
         if log_val_epoch:

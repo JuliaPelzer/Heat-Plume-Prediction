@@ -31,7 +31,7 @@ def init_data(settings: SettingsTraining, seed=1):
     dataset = SimulationDataset(settings.dataset_prep)
     generator = torch.Generator().manual_seed(seed)
 
-    split_ratios = [0.7, 0.2, 0.1]
+    split_ratios = [0.6, 0.3, 0.1]
     if settings.case == "test": # TODO change back
         split_ratios = [0.0, 0.0, 1.0] 
     datasets = random_split(dataset, _get_splits(len(dataset), split_ratios), generator=generator)
@@ -81,7 +81,7 @@ def run(settings: SettingsTraining):
     model.save(settings.destination)
 
     # visualization
-    which_dataset = "test"
+    which_dataset = "val"
     pic_format = "png"
     if settings.case == "test":
         settings.visualize = True

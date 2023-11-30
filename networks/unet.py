@@ -6,7 +6,7 @@ import torch
 from diff_conv2d.layers import DiffConv2dLayer
 
 class UNet(nn.Module):
-    def __init__(self, in_channels=4, out_channels=1, init_features=64, depth=2, kernel_size=3):
+    def __init__(self, in_channels=4, out_channels=1, init_features=32, depth=3, kernel_size=3):
         super().__init__()
         features = init_features
         padding_mode =  "circular"            
@@ -14,7 +14,7 @@ class UNet(nn.Module):
         self.pools = nn.ModuleList()
         for _ in range(depth):
             self.encoders.append(UNet._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode))
-            self.pools.append(nn.MaxPool2d(kernel_size=2, stride=2))
+            self.pools.append(nn.Conv2d(features, features,kernel_size=2, stride=2))
             in_channels = features
             features *= 2
         self.encoders.append(UNet._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode))
@@ -22,16 +22,14 @@ class UNet(nn.Module):
         self.upconvs = nn.ModuleList()
         self.decoders = nn.ModuleList()
         for _ in range(depth):
-            self.upconvs.append(nn.ConvTranspose2d(features, features//2, kernel_size=2, stride=2))
+            self.upconvs.append(nn.Conv2d(features, features//2, kernel_size=1))
             self.decoders.append(UNet._block(features, features//2, kernel_size=kernel_size, padding_mode=padding_mode))
             features = features // 2
 
         self.conv = nn.Conv2d(in_channels=features+4, out_channels=out_channels, kernel_size=1)
         self.activa = nn.ReLU()
 
-        self.mask = torch.tensor([[(j == 0 or j == 15) for j in range(16)] for i in range(64)])
-
-        self.dist = torch.tensor([[1.0 - i/15 for j in range(16)] for i in range(16)]).to("cuda:2")
+        self.dist = torch.tensor([[1.0 - i/63 for j in range(64)] for i in range(128)]).to("cuda:2")
 
     def forward(self, x: tensor) -> tensor:
         x = cat((x, self.dist.repeat(x.shape[0], 1, 1, 1)), dim=1)
@@ -43,15 +41,13 @@ class UNet(nn.Module):
         x = self.encoders[-1](x)
 
         for upconv, decoder, encoding in zip(self.upconvs, self.decoders, reversed(encodings[1:])):
+            x = nn.functional.interpolate(x, scale_factor=2)
             x = upconv(x)
             x = cat((x, encoding), dim=1)
             x = decoder(x)
 
         x = self.conv(cat((x, encodings[0]), dim=1))
-        # mask_ = self.mask.repeat(x_shape[0], 1, 1, 1)
-        # x[mask_] = 0.0
-        # x[:, 0, 0, :] = x_orig[:, 0, -1, :]
-        return x
+        return encodings[0][:, 0:1] + x
 
     @staticmethod
     def _block(in_channels, features, kernel_size=5, padding_mode="replicate"):

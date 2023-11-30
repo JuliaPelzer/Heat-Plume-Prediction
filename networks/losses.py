@@ -117,7 +117,7 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and linear i
         super().__init__(device)
         self.MSE = MSELoss()
         self.weight = [1.0, 1.0]
-        self.mask = torch.tensor([[(i == 0) or (j == 0 or j == 15) for j in range(16)] for i in range(16)])
+        self.mask = torch.tensor([[(i == 0) or (j == 0 or j == 15) for j in range(64)] for i in range(128)])
         self.constpad = nn.ConstantPad2d((1, 1, 0, 0), value=10.6)
 
     def __call__(self, input, output, target, dataloader): # permeability index 1 of input, temperature index 1 and pressure index 0 of label
@@ -128,18 +128,9 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and linear i
         output_swap = output.clone().swapaxes(0, 1)
         inputs = norm.reverse(input_swap, "Inputs")
         permeability = inputs[2,:,:,:].unsqueeze(1)
-        permeability = nn.functional.pad(permeability, (1, 1, 1, 1), "replicate")
         pressure = inputs[1,:,:,:].unsqueeze(1)
-        pressure = nn.functional.pad(pressure, (1, 1, 1, 1), "replicate")
         temperature_in = inputs[0,:,:,:].unsqueeze(1)
         temperature = norm.reverse(output_swap, "Labels").squeeze().unsqueeze(1)
-        temperature = torch.cat([temperature_in[:, :, -1:, :], temperature], dim=2)
-        # print(temperature_in[0,0], temperature_in[0, 0, -1:, :])
-        # print(temperature.shape, temperature[0, 0])
-        temperature = nn.functional.pad(temperature, (0, 0, 0, 1), "replicate")
-        # print(temperature.shape, temperature[0, 0])
-        temperature = self.constpad(temperature)
-        # print(temperature.shape, temperature[0, 0])
         boundary_error = torch.mean(torch.pow(output[:, 0][self.mask.repeat(temperature.size(0), 1, 1)] - target[:, 0][self.mask.repeat(temperature.size(0), 1, 1)], 2))
         #boundary_error += torch.mean(torch.pow(output[:, 1][self.mask.repeat(temperature.size(0), 1, 1)] - target[:, 1][self.mask.repeat(temperature.size(0), 1, 1)], 2))
         temperature_error = torch.mean(torch.pow(torch.minimum(output, torch.zeros_like(output)), 2)) + torch.mean(torch.pow(torch.maximum(output - 1.0, torch.zeros_like(output)), 2))
@@ -155,7 +146,7 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and linear i
         continuity_error_dy = self.central_differences_y(continuity_error, cell_width)
         energy_error_dx = self.central_differences_x(energy_error, cell_width)
         energy_error_dy = self.central_differences_y(energy_error, cell_width)
-        return physics_loss + 1e6 * boundary_error + 1e6 * temperature_error# + 1e6 * (torch.max(torch.abs(continuity_error_dx)) + torch.max(torch.abs(continuity_error_dy)) + torch.max(torch.abs(energy_error_dx)) + torch.max(torch.abs(energy_error_dy)))
+        return physics_loss + 1e6 * boundary_error #+ 1e6 * temperature_error #+ (torch.max(torch.abs(continuity_error_dx)) + torch.max(torch.abs(continuity_error_dy)) + torch.max(torch.abs(energy_error_dx)) + torch.max(torch.abs(energy_error_dy)))
 
     def get_darcy(self, temperature, pressure, permeability, cell_width):
         dpdx = self.central_differences_x(pressure, cell_width)
