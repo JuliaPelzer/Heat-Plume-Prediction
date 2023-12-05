@@ -11,7 +11,8 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
 from data_stuff.utils import SettingsTraining
-from networks.unet import weights_init
+from networks.unet import weights_init, UNet
+from postprocessing.visualization import visualizations
 
 
 @dataclass
@@ -89,11 +90,21 @@ class Solver(object):
                         "training time in sec": (time.perf_counter() - start_time),
                     }
                 if log_val_epoch:
-                    if epoch in [250, 500, 1000, 2500, 5000, 10000, 15000, 20000, 24999]:
+                    if epoch in [1, 250, 500, 1000, 2500, 5000, 10000, 15000, 20000, 24999]:
                         csv_writer.writerow([epoch, val_epoch_loss, train_epoch_loss])
                         csv_writer_best.writerow([epoch, self.best_model_params["loss"], self.best_model_params["train loss"]])
+                        for name, param in self.model.named_parameters():
+                            writer.add_histogram(name, param, epoch)
+                    if epoch == 1:
+                        for name, param in self.model.named_parameters():
+                            print(name, param.shape)
 
             except KeyboardInterrupt:
+                model_tmp = UNet(in_channels=len(settings.inputs), out_channels=1)
+                model_tmp.load_state_dict(self.best_model_params["state_dict"])
+                model_tmp.save(settings.destination, model_name=f"interim_model_epoche{epoch}.pt")
+                visualizations(model_tmp, self.val_dataloader, settings.device, plot_path=settings.destination / f"plot_val_interim", amount_datapoints_to_visu=5, pic_format="png")
+                
                 try:
                     new_lr = float(input("\nNew learning rate: "))
                 except ValueError as e:
@@ -106,10 +117,8 @@ class Solver(object):
                         file.close()
 
         # Apply best model params to model
-        self.model = self.model.load_state_dict(
-            self.best_model_params["state_dict"])
-        self.opt = self.opt.load_state_dict(
-            self.best_model_params["optimizer"])
+        self.model.load_state_dict(self.best_model_params["state_dict"]) #self.model = 
+        self.opt.load_state_dict(self.best_model_params["optimizer"]) #self.opt =
         print(f"Best model was found in epoch {self.best_model_params['epoch']}.")
 
         if log_val_epoch:
@@ -150,7 +159,7 @@ class Solver(object):
         if not path.exists():
             logging.warning(f"Could not find lr-schedule at {path}. Using default lr-schedule instead.")
             path = pathlib.Path.cwd() / "networks"
-            lr_schedule_file = "default_lr_schedule.csv" if not case_2hp else "default_lr_schedule_2hp.csv"
+            lr_schedule_file = "default_lr_schedule_giant.csv" if not case_2hp else "default_lr_schedule_2hp.csv" # TODO change back
             path = path / lr_schedule_file
 
         with open(path, "r") as f:

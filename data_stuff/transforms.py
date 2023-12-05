@@ -119,7 +119,7 @@ class MultiHPDistanceTransform:
             logging.info("No material ID in data, no MultiHPDistanceTransform")
             return data
 
-        positions = torch.tensor(np.array(np.where(data["Material ID"] == torch.max(data["Material ID"])))).T
+        positions = torch.tensor(np.array(np.where(data["MDF"] == torch.max(data["MDF"])))).T
         assert positions.dim() == 2, "MDF + just 1 HP? u sure?"
         data["MDF"] = self.mdf(data["MDF"], positions)
         logging.info("MultiHPDistanceTransform done")
@@ -127,37 +127,38 @@ class MultiHPDistanceTransform:
         return data
     
     def mdf(self, data: torch.tensor, positions: torch.tensor):
-        assert (data == 0).all(), "all data should be 0"
-        max_dist = 50 # max_dist between 2 points / manual influence distance : also for scaling - TODO: optimize value
+        data = torch.zeros_like(data)
+        max_dist = 150 # max_dist between 2 points / manual influence distance : also for scaling - TODO: optimize value
 
         for dist in range(int(max_dist)):
+            new_value = (max_dist - dist)/max_dist
             for x in range(dist):
                 for y in range(dist):
-                    for point in positions:
-                        if np.sqrt(x**2+y**2) <= dist:
+                    if np.sqrt(x**2+y**2) <= dist:
+                        for point in positions:
                             point2 = point + torch.tensor([x,y,0])
                             try:
                                 if data[point2[0], point2[1]] == 0:
-                                    data[point2[0], point2[1]] = (max_dist - dist)/max_dist
-                            except: # outside domain
+                                    data[point2[0], point2[1]] = new_value
+                            except: # outside voronoi cell
                                 pass
                             try:
                                 point2 = point + torch.tensor([-x,y,0])
                                 if data[point2[0], point2[1]] == 0:
-                                    data[point2[0], point2[1]] = (max_dist - dist)/max_dist
-                            except: # outside domain
+                                    data[point2[0], point2[1]] = new_value
+                            except: # outside voronoi cell
                                 pass
                             try:
                                 point2 = point + torch.tensor([x,-y,0])
                                 if data[point2[0], point2[1]] == 0:
-                                    data[point2[0], point2[1]] = (max_dist - dist)/max_dist
-                            except: # outside domain
+                                    data[point2[0], point2[1]] = new_value
+                            except: # outside voronoi cell
                                 pass
                             try:
                                 point2 = point + torch.tensor([-x,-y,0])
                                 if data[point2[0], point2[1]] == 0:
-                                    data[point2[0], point2[1]] = (max_dist - dist)/max_dist
-                            except: # outside domain
+                                    data[point2[0], point2[1]] = new_value
+                            except: # outside voronoi cell
                                 pass
         return data
 
@@ -170,7 +171,7 @@ class PowerOfTwoTransform:
         # problem?: "exponential" behaviour at boundaries??
     """
 
-    def __init__(self, oriented="center"):
+    def __init__(self, oriented="left"): # TODO
         self.orientation = oriented
 
     def __call__(self, data):

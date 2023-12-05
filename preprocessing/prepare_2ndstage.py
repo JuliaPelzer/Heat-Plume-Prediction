@@ -12,10 +12,10 @@ from tqdm.auto import tqdm
 from networks.unet import UNet
 from preprocessing.prepare_1ststage import prepare_dataset
 from domain_classes.domain import Domain
-from domain_classes.heat_pump import HeatPump
+from domain_classes.heat_pump import HeatPumpBox
 from domain_classes.utils_2hp import save_config_of_separate_inputs, save_config_of_merged_inputs, save_yaml
 from domain_classes.stitching import Stitching
-from utils.prepare_paths import Paths2HP
+from preprocessing.prepare_paths import Paths2HP
 
 
 def prepare_dataset_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, device: str = "cuda:0"):
@@ -42,7 +42,7 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, device: str 
         # norm with data from dataset that NN was trained with!!
         with open(paths.dataset_model_trained_with_prep_path / "info.yaml", "r") as file:
             info = yaml.safe_load(file)
-        prepare_dataset(paths, inputs_1hp, info=info, power2trafo=False)
+        prepare_dataset(paths, inputs_1hp, info=info, power2trafo=False) # for using unet on whole domain required: power2trafo=True
     print(f"Domain prepared ({paths.dataset_1st_prep_path})")
 
 # prepare dataset for 2nd stage
@@ -59,6 +59,9 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, device: str 
             continue
 
         single_hps = domain.extract_hp_boxes(device)
+        # for hp in single_hps:
+        #     # save hp
+        #     hp.save(run_id=run_id, dir=paths.datasets_boxes_prep_path, inputs_all=None,)
         # apply learned NN to predict the heat plumes
         single_hps, avg_time_inference_1hp = prepare_hp_boxes(paths, model_1HP, single_hps, domain, run_id, avg_time_inference_1hp, save_bool=True)
         
@@ -100,8 +103,8 @@ def load_and_prepare_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, run_id: int
     # TODO replace with loading from file  - requires saving the position of a hp within its domain and the connection domain - single hps  
     return domain, single_hps
 
-def prepare_hp_boxes(paths:Paths2HP, model_1HP:UNet, single_hps:List[HeatPump], domain:Domain, run_id:int, avg_time_inference_1hp:float=0, save_bool:bool=True):
-    hp: HeatPump
+def prepare_hp_boxes(paths:Paths2HP, model_1HP:UNet, single_hps:List[HeatPumpBox], domain:Domain, run_id:int, avg_time_inference_1hp:float=0, save_bool:bool=True):
+    hp: HeatPumpBox
     for hp in single_hps:
         time_start_run_1hp = time.perf_counter()
         hp.primary_temp_field = hp.apply_nn(model_1HP)
