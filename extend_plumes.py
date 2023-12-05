@@ -82,11 +82,11 @@ def prepare_dataset_for_2levels(dataset_name: str, number_boxes: int, input_prop
                 g_in = torch.load(file_inputs)[idx_g]
                 k_in = torch.load(file_inputs)[idx_k]
                 inputs = torch.zeros([3, *g_in.shape])
-                inputs[idx_g] = g_in
-                inputs[idx_k] = k_in
-                inputs[idx_t] = temp_in
+                inputs[idx_g] = torch.flip(g_in, dims=(1,))
+                inputs[idx_k] = torch.flip(k_in, dims=(1,))
+                inputs[idx_t] = torch.flip(temp_in, dims=(1,))
             elif input_props == "t":
-                inputs = temp_in
+                inputs = torch.flip(temp_in, dims=(1,))
             
             torch.save(inputs, prepared_dir_2ndlevel / "Inputs" / f"RUN_{new_id}.pt")
 
@@ -117,7 +117,7 @@ def inference_levelwise(settings, datapoint_id, level:int = 1, nr_boxes: int = 1
         (data_dir / output_dir).mkdir(exist_ok=True)
 
         if level==1:
-            datapoint = data_dir / "Inputs Box 0" / f"RUN_{datapoint_id}.pt"
+            datapoint = data_dir / "Inputs" / f"RUN_{datapoint_id}.pt"
             infer_single_dp(datapoint, model, settings, destination = data_dir / output_dir / datapoint.name)
 
         elif level==2:
