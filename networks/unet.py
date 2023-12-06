@@ -45,7 +45,7 @@ class UNet(nn.Module):
     @staticmethod
     def _block(in_channels, features, kernel_size=5, padding_mode="zeros"):
         return nn.Sequential(
-            PaddingCircular(kernel_size, direction="horizontal"),
+            PaddingCircular(kernel_size, direction="both"),
             nn.Conv2d(
                 in_channels=in_channels,
                 out_channels=features,
@@ -55,7 +55,7 @@ class UNet(nn.Module):
                 bias=True,
             ),
             nn.ReLU(inplace=True),      
-            PaddingCircular(kernel_size, direction="horizontal"),
+            PaddingCircular(kernel_size, direction="both"),
             nn.Conv2d(
                 in_channels=features,
                 out_channels=features,
@@ -66,7 +66,7 @@ class UNet(nn.Module):
             ),
             nn.BatchNorm2d(num_features=features),
             nn.ReLU(inplace=True),      
-            PaddingCircular(kernel_size, direction="horizontal"),
+            PaddingCircular(kernel_size, direction="both"),
             nn.Conv2d(
                 in_channels=features,
                 out_channels=features,
