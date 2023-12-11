@@ -128,7 +128,7 @@ class MultiHPDistanceTransform:
     
     def mdf(self, data: torch.tensor, positions: torch.tensor):
         data = torch.zeros_like(data)
-        max_dist = 150 # max_dist between 2 points / manual influence distance : also for scaling - TODO: optimize value
+        max_dist = 50 # max_dist between 2 points / manual influence distance : also for scaling - TODO: optimize value
 
         for dist in range(int(max_dist)):
             new_value = (max_dist - dist)/max_dist
@@ -160,6 +160,38 @@ class MultiHPDistanceTransform:
                                     data[point2[0], point2[1]] = new_value
                             except: # outside voronoi cell
                                 pass
+        return data
+    
+
+class LinearSmearTransform:
+    """
+    Transform class to calculate distance transform for multiple heat pumps for material id - just depending on the next hp upstream.
+    This transform takes a dict of tensors as input and returns a dict of tensors.
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, data: dict):
+        logging.info("Start LinSmearTrafo")
+
+        # check if LST is in data (inputs vs. labels)
+        if "LST" not in data.keys():
+            logging.info("No material ID in data, no LinSmearTrafo")
+            return data
+
+        assert len(data["LST"].size()) == 3, "wrong number of dimensions for LinSmearTrafo, expect 4"
+        data["LST"] = self.lin_smear(data["LST"])
+        logging.info("LinSmearTrafo done")
+
+        return data
+    
+    def lin_smear(self, data: torch.tensor):
+        max_dist = int(data.shape[0] * 1.1)
+        
+        for idx in range(1, data.shape[0]):
+            data[idx] = np.maximum(data[idx-1]*(1-1/max_dist), data[idx])
+        
         return data
 
 

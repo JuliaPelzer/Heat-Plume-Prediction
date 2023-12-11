@@ -13,7 +13,7 @@ from tqdm.auto import tqdm
 
 from data_stuff.transforms import (ComposeTransform, NormalizeTransform,
                              PowerOfTwoTransform, ReduceTo2DTransform,
-                             SignedDistanceTransform, MultiHPDistanceTransform,
+                             SignedDistanceTransform, MultiHPDistanceTransform, LinearSmearTransform,
                              ToTensorTransform)
 from data_stuff.utils import SettingsTraining
 from preprocessing.prepare_paths import Paths1HP, Paths2HP
@@ -25,9 +25,9 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
         # get info of training
         with open(settings.model / info_file, "r") as file:
             info = yaml.safe_load(file)
-        prepare_dataset(paths, settings.inputs, info=info, power2trafo=False)
+        prepare_dataset(paths, settings.inputs, info=info, power2trafo=False) # no power2 in normal case
     else:
-        info = prepare_dataset(paths, settings.inputs, power2trafo=False)
+        info = prepare_dataset(paths, settings.inputs, power2trafo=False) # no power2 in normal case
         if settings.case == "train":
             # store info of training
             with open(settings.destination / info_file, "w") as file:
@@ -189,6 +189,7 @@ def expand_property_names(properties: str):
         "g": "Pressure Gradient [-]",
         "o": "Original Temperature [C]",
         "m": "MDF",
+        "l": "LST",
     }
     possible_vars = ','.join(translation.keys())
     assert all((prop in possible_vars)
@@ -208,6 +209,7 @@ def get_normalization_type(property:str):
         # "Material ID": "Rescale",
         "SDF": None,
         "MDF": None,
+        "LST": None,
         "Original Temperature [C]": None,
     }
     
@@ -236,6 +238,8 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
                     data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(dimensions_of_datapoint, order='F')).float()
                 elif key == "MDF":
                     data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(dimensions_of_datapoint, order='F')).float()
+                elif key == "LST":
+                    data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(dimensions_of_datapoint, order='F')).float()
                 elif key == "Pressure Gradient [-]":
                     empty_field = torch.ones(list(dimensions_of_datapoint)).float()
                     pressure_grad = get_pressure_gradient(data_path)
@@ -250,7 +254,7 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
     return data
 
 def get_hp_location(data):
-    try:  # TODO problematic with SDF?
+    try:
         ids = data["Material ID"]
     except:
         try:
@@ -356,6 +360,7 @@ def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool 
         transforms_list.append(PowerOfTwoTransform())
     transforms_list.append(SignedDistanceTransform())
     transforms_list.append(MultiHPDistanceTransform())
+    transforms_list.append(LinearSmearTransform())
 
     transforms = ComposeTransform(transforms_list)
     return transforms
