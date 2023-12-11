@@ -122,13 +122,23 @@ def weights_init(m):
         m.bias.data.zero_()
 
 class PaddingCircular(nn.Module):
-    def __init__(self, kernel_size):
+    def __init__(self, kernel_size, direction="both"):
         super().__init__()
         self.pad_len = kernel_size//2
+        self.direction = direction
 
     def forward(self, x:tensor) -> tensor:
-        return nn.functional.pad(x, (self.pad_len,)*4, mode='circular')
-    
+        if self.direction == "both":
+            padding_vector = (self.pad_len,)*4
+            result = nn.functional.pad(x, padding_vector, mode='circular')    
+
+        elif self.direction == "horizontal":
+            padding_vector = (self.pad_len,)*2 + (0,)*2
+            result = nn.functional.pad(x, padding_vector, mode='circular')    
+            padding_vector = (0,)*2 + (self.pad_len,)*2  
+            result = nn.functional.pad(result, padding_vector, mode='constant')     # or 'reflect'?
+            
+        return result
 
 class UNetBC(UNet):
     def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
