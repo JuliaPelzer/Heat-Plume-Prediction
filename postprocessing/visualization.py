@@ -68,7 +68,7 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
     info = dataloader.dataset.dataset.info
     model.eval()
     settings_pic = {"format": pic_format,
-                    "dpi": 600,}
+                    "dpi": 1200,}
 
     current_id = 0
     for inputs, labels in dataloader:
@@ -121,7 +121,7 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
 
     num_subplots = len(data)
     fig, axes = plt.subplots(num_subplots, 1, sharex=True)
-    fig.set_figheight(num_subplots)
+    fig.set_figheight(num_subplots*5)
     
     for index, (name, datapoint) in enumerate(data.items()):
         plt.sca(axes[index])
@@ -207,7 +207,8 @@ def plot_avg_error_cellwise(dataloader, summed_error_pic, settings_pic: dict):
     extent_highs = (np.array(info["CellsSize"][:2]) * dataloader.dataset[0][0][0].shape)
     extent = (0,int(extent_highs[0]),int(extent_highs[1]),0)
 
-    plt.figure()
+    fig = plt.figure()
+    fig.set_figheight(5)
     plt.imshow(summed_error_pic.T, cmap="RdBu_r", extent=extent)
     plt.gca().invert_yaxis()
     plt.ylabel("x [m]")
