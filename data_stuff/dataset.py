@@ -56,8 +56,10 @@ class SimulationDataset(Dataset):
     def __getitem__(self, index):
         input = torch.load(self.path.joinpath(
             "Inputs", self.input_names[index]))
+        # input = input[:, 512:1280, 512:1280]
         label = torch.load(self.path.joinpath(
             "Labels", self.label_names[index]))
+        # label = label[:, 512:1280, 512:1280]
         return input, label
     
     def get_run_id(self, index):
@@ -75,7 +77,8 @@ class SimulationDatasetCuts(Dataset):
         assert self.inputs.shape[1:] == self.labels.shape[1:], "inputs and labels have different shapes"
         self.spatial_size = self.inputs.shape[1:]
         assert self.spatial_size == self.labels.shape[1:], "inputs and labels have different spatial sizes" # TODO attention, if ever load several datapoints at once, this will fail
-        self.box_size = np.array([128,64]) #[64, 32])
+        self.box_size = np.array([64,32]) #512,512]) #[128,64] #[64, 32])
+        self.box_out = np.array([0,0]).astype(int) #((self.box_size - np.array([244,244]))/2).astype(int)
         self.skip_per_dir = 2
 
     @property
@@ -99,7 +102,7 @@ class SimulationDatasetCuts(Dataset):
         # assert id too close to wall
         assert (pos+self.box_size < self.spatial_size).all(), "box too close to wall"
         inputs = self.inputs[:, pos[0]:pos[0]+self.box_size[0], pos[1]:pos[1]+self.box_size[1]]
-        labels = self.labels[:, pos[0]:pos[0]+self.box_size[0], pos[1]:pos[1]+self.box_size[1]]
+        labels = self.labels[:, pos[0]+self.box_out[0] : pos[0]+self.box_size[0]-self.box_out[0], pos[1]+self.box_out[1] : pos[1]+self.box_size[1]-self.box_out[1]]
         return inputs, labels
 
     def idx_to_pos(self, idx):
