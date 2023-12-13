@@ -25,9 +25,9 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
         # get info of training
         with open(settings.model / info_file, "r") as file:
             info = yaml.safe_load(file)
-        prepare_dataset(paths, settings.inputs, info=info, power2trafo=False) # no power2 in normal case
+        prepare_dataset(paths, settings.inputs, info=info, power2trafo=False) # power2 in normal case
     else:
-        info = prepare_dataset(paths, settings.inputs, power2trafo=False) # no power2 in normal case
+        info = prepare_dataset(paths, settings.inputs, power2trafo=False) # power2 in normal case
         if settings.case == "train":
             # store info of training
             with open(settings.destination / info_file, "w") as file:
