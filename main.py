@@ -89,11 +89,11 @@ def run(settings: SettingsTraining):
         visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
         times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
         plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
-        # errors = measure_loss(model, dataloaders[which_dataset], settings.device)
+        errors = measure_loss(model, dataloaders[which_dataset], settings.device)
         print("Visualizations finished")
         
     times["time_end"] = time.perf_counter()
-    save_all_measurements(settings, len(dataset), times, solver) #, errors)
+    save_all_measurements(settings, len(dataset), times, solver, errors)
     print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
 
     return model
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     parser.add_argument("--case", type=str, choices=["train", "test", "finetune"], default="train")
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
     parser.add_argument("--destination", type=str, default="")
-    parser.add_argument("--inputs", type=str, choices=["gki", "gksi", "pksi", "gks", "gkmi", "lm", "ls", "m", "t", "gkiab", "gksiab", "gkt", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100"], default="gksi")
+    parser.add_argument("--inputs", type=str, choices=["gki", "gksi", "pksi", "gks", "gkmi", "lm", "lmi", "ls", "m", "t", "gkiab", "gksiab", "gkt", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100"], default="gksi")
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
