@@ -8,6 +8,7 @@ from typing import Tuple
 import numpy as np
 import torch
 from torch import linalg, nonzero, unsqueeze
+from scipy.spatial import cKDTree
 
 
 class NormalizeTransform:
@@ -122,44 +123,20 @@ class MultiHPDistanceTransform:
         positions = torch.tensor(np.array(np.where(data["MDF"] == torch.max(data["MDF"])))).T
         assert positions.dim() == 2, "MDF + just 1 HP? u sure?"
         data["MDF"] = self.mdf(data["MDF"], positions)
-        logging.info("MultiHPDistanceTransform done")
 
+        logging.info("MultiHPDistanceTransform done")
         return data
     
     def mdf(self, data: torch.tensor, positions: torch.tensor):
-        data = torch.zeros_like(data)
-        max_dist = 50 # max_dist between 2 points / manual influence distance : also for scaling - TODO: optimize value
-
-        for dist in range(int(max_dist)):
-            new_value = (max_dist - dist)/max_dist
-            for x in range(dist):
-                for y in range(dist):
-                    if np.sqrt(x**2+y**2) <= dist:
-                        for point in positions:
-                            point2 = point + torch.tensor([x,y,0])
-                            try:
-                                if data[point2[0], point2[1]] == 0:
-                                    data[point2[0], point2[1]] = new_value
-                            except: # outside voronoi cell
-                                pass
-                            try:
-                                point2 = point + torch.tensor([-x,y,0])
-                                if data[point2[0], point2[1]] == 0:
-                                    data[point2[0], point2[1]] = new_value
-                            except: # outside voronoi cell
-                                pass
-                            try:
-                                point2 = point + torch.tensor([x,-y,0])
-                                if data[point2[0], point2[1]] == 0:
-                                    data[point2[0], point2[1]] = new_value
-                            except: # outside voronoi cell
-                                pass
-                            try:
-                                point2 = point + torch.tensor([-x,-y,0])
-                                if data[point2[0], point2[1]] == 0:
-                                    data[point2[0], point2[1]] = new_value
-                            except: # outside voronoi cell
-                                pass
+        max_dist = 100 # max_dist between 2 points / manual influence distance : also for scaling - TODO: optimize value
+        kdtree = cKDTree(positions[:,:2])
+        data_shape = data.shape
+        X, Y = np.meshgrid(np.arange(data.shape[0]), np.arange(data.shape[1]))
+        data_tmp, _ = kdtree.query(np.array([X, Y]).T.reshape(-1, 2), k=1)
+        data = np.minimum(data_tmp, max_dist)
+        data = data.reshape(data_shape)
+        data = 1 - data / np.max(data)
+        data = torch.tensor(data, dtype=torch.float32)
         return data
     
 
