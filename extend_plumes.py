@@ -37,6 +37,8 @@ def cut_dataset_in_pieces(number_boxes: int, prepared1_dir, prepared_pieces_dir)
 
 def prepare_dataset_for_2levels(dataset_name: str, number_boxes: int, input_props: str, paths: dict, prepared1_dir, prepared_pieces_dir):
     """Store boxes for 2 levels in 2 datasets."""
+    revert_order = False
+
     # prepare 1st level
     prepared_dir_1stlevel = Path(paths["datasets_prepared_dir"]) / f"{dataset_name} cut_{number_boxes}pieces separate_boxes 1st level"
     prepared_dir_1stlevel.mkdir(parents=True, exist_ok=True)
@@ -82,11 +84,19 @@ def prepare_dataset_for_2levels(dataset_name: str, number_boxes: int, input_prop
                 g_in = torch.load(file_inputs)[idx_g]
                 k_in = torch.load(file_inputs)[idx_k]
                 inputs = torch.zeros([3, *g_in.shape])
-                inputs[idx_g] = torch.flip(g_in, dims=(1,))
-                inputs[idx_k] = torch.flip(k_in, dims=(1,))
-                inputs[idx_t] = torch.flip(temp_in, dims=(1,))
+                if revert_order:
+                    inputs[idx_g] = torch.flip(g_in, dims=(1,))
+                    inputs[idx_k] = torch.flip(k_in, dims=(1,))
+                    inputs[idx_t] = torch.flip(temp_in, dims=(1,))
+                else:
+                    inputs[idx_g] = g_in
+                    inputs[idx_k] = k_in
+                    inputs[idx_t] = temp_in
             elif input_props == "t":
-                inputs = torch.flip(temp_in, dims=(1,))
+                if revert_order:
+                    inputs = torch.flip(temp_in, dims=(1,))
+                else:
+                    inputs = temp_in
             
             torch.save(inputs, prepared_dir_2ndlevel / "Inputs" / f"RUN_{new_id}.pt")
 
@@ -117,7 +127,7 @@ def inference_levelwise(settings, datapoint_id, level:int = 1, nr_boxes: int = 1
         (data_dir / output_dir).mkdir(exist_ok=True)
 
         if level==1:
-            datapoint = data_dir / "Inputs" / f"RUN_{datapoint_id}.pt"
+            datapoint = data_dir / "Inputs Box 0" / f"RUN_{datapoint_id}.pt"
             infer_single_dp(datapoint, model, settings, destination = data_dir / output_dir / datapoint.name)
 
         elif level==2:
@@ -150,7 +160,7 @@ def pipeline_visualize(datapoint_id, settings, nr_boxes_orig:int, save:bool=Fals
     ticks = [64, 128, 192, 256, 320, 384, 448, 512, 576, 640, 704, 768, 832, 896, 960, 1024]
     label_ticks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
-    nr_boxes_to_plot = 16
+    nr_boxes_to_plot = 4
 
     plt.figure(figsize=(20, 5))
     concat_predict = torch.load(settings.dataset_prep / f"Outputs L1" / f"RUN_{datapoint_id}.pt")
@@ -164,6 +174,7 @@ def pipeline_visualize(datapoint_id, settings, nr_boxes_orig:int, save:bool=Fals
     plt.subplot(3,1,1)
     plt.imshow(concat_predict_normed.detach().cpu().numpy().T)
     plt.xticks(ticks[:nr_boxes_to_plot], label_ticks[:nr_boxes_to_plot])
+    plt.title("Prediction")
     _aligned_colorbar()
 
     concat_orig = torch.load(settings.dataset_prep / "Label Box 0" / f"RUN_{datapoint_id}.pt")
@@ -175,12 +186,14 @@ def pipeline_visualize(datapoint_id, settings, nr_boxes_orig:int, save:bool=Fals
     plt.subplot(3,1,2)
     plt.imshow(concat_orig_normed.detach().cpu().numpy().T)
     plt.xticks(ticks[:nr_boxes_to_plot], label_ticks[:nr_boxes_to_plot])
+    plt.title("Original")
     _aligned_colorbar()
 
     plt.subplot(3,1,3)
     len_min = np.min([concat_orig_normed.shape[1], nr_boxes_to_plot*64])
     plt.imshow((concat_predict_normed[:,:len_min] - concat_orig_normed[:,:len_min]).detach().cpu().numpy().T)
     plt.xticks(ticks[:nr_boxes_to_plot], label_ticks[:nr_boxes_to_plot])
+    plt.title("Difference")
     _aligned_colorbar()
     plt.tight_layout()
 
@@ -195,7 +208,7 @@ def pipeline(datapoint_id: int, dataset_prep: str, inputs_2ndlevel: str, nr_boxe
     args["model"]           = "../extend_plumes by cut_pieces/model cut_4pieces separate_boxes 1st level"
     args["inputs"]          = "gksi"
     args["dataset_raw"]     = "dataset_2d_small_100dp"
-    args["device"]          = "cuda:1"
+    args["device"]          = "cuda:0"
     args["case"]            = "test"
     args["epochs"]          = 1
     args["destination"]     = "pipeline_1"
