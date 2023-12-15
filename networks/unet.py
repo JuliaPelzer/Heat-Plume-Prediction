@@ -30,6 +30,7 @@ class UNet(nn.Module):
         self.activa = nn.ReLU()
 
         self.dist = torch.tensor([[1.0 - i/63 for j in range(64)] for i in range(128)]).to("cuda:2")
+        self.mask = torch.tensor([[((j == 0 or j == 64)) for j in range(64)] for i in range(128)]).to("cuda:2")
 
     def forward(self, x: tensor) -> tensor:
         x = cat((x, self.dist.repeat(x.shape[0], 1, 1, 1)), dim=1)
@@ -47,7 +48,9 @@ class UNet(nn.Module):
             x = decoder(x)
 
         x = self.conv(cat((x, encodings[0]), dim=1))
-        return encodings[0][:, 0:1] + x
+        #x = encodings[0][:, 0:1] + x
+        x[self.mask.repeat(x.shape[0], 1, 1, 1)] = torch.zeros_like(x)[self.mask.repeat(x.shape[0], 1, 1, 1)]
+        return x
 
     @staticmethod
     def _block(in_channels, features, kernel_size=5, padding_mode="replicate"):

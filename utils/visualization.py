@@ -111,7 +111,7 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     dict_to_plot = {
         "t_true": DataToVisualize(y, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
         "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-        "error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]", extent_highs),
+        "error": DataToVisualize(y-y_out, "Error in [°C]", extent_highs),
         "energy_residual_true": DataToVisualize(PhysicalLoss.get_energy_error(y.unsqueeze(0), x[1].unsqueeze(0), x[2].unsqueeze(0), 5).squeeze(), "Label: Energy residual", extent_highs),
         "energy_residual_out": DataToVisualize(PhysicalLoss.get_energy_error(y_out.unsqueeze(0), x[1].unsqueeze(0), x[2].unsqueeze(0), 5).squeeze(), "Prediction: Energy residual", extent_highs),
         "cont_residual_true": DataToVisualize(PhysicalLoss.get_continuity_error(y.unsqueeze(0), x[1].unsqueeze(0), x[2].unsqueeze(0), 5).squeeze(), "Label: Continuity residual", extent_highs),
