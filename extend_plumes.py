@@ -103,15 +103,39 @@ def prepare_dataset_for_2levels(dataset_name: str, number_boxes: int, input_prop
             file_label = prepared_pieces_dir / f"Label Box {box_id+1}" / f"RUN_{file_id}.pt"
             shutil.copy(file_label, prepared_dir_2ndlevel / "Labels" / f"RUN_{new_id}.pt")
 
-def infer_single_dp(datapoint, model, settings, destination: Path):
+def infer_single_dp(datapoint, model, settings, destination: Path, store_props: str = "t", model2nd_info: dict = None):
     data = torch.load(datapoint)
-    data = torch.unsqueeze(data, 0)
+    if len(data.shape) == 3:
+        data = torch.unsqueeze(data, 0)
     y_out = model(data.to(settings.device)).to(settings.device)
     y_out = y_out.detach().cpu()
     y_out = torch.squeeze(y_out, 0)
-    torch.save(y_out, destination)
+    if store_props == "t":
+        torch.save(y_out, destination)
+    else:
+        inputs_info = yaml.safe_load(open(settings.dataset_prep / "info.yaml", "r"))
+        if store_props == "gkt":
+            idx_g = inputs_info["Inputs"]["Pressure Gradient [-]"]["index"]
+            idx_k = inputs_info["Inputs"]["Permeability X [m^2]"]["index"]
+            g_out = data[:,idx_g]
+            k_out = data[:,idx_k]
+            t_out = y_out
 
-def inference_levelwise(settings, datapoint_id, level:int = 1, nr_boxes: int = 10):
+            idx_g_out = model2nd_info["Inputs"]["Pressure Gradient [-]"]["index"]
+            idx_k_out = model2nd_info["Inputs"]["Permeability X [m^2]"]["index"]
+            idx_t_out = model2nd_info["Inputs"]["Temperature [C]"]["index"]
+            outputs = torch.zeros(len(store_props), *g_out.shape)
+            outputs[idx_g_out] = g_out
+            outputs[idx_k_out] = k_out
+            outputs[idx_t_out] = t_out
+            # swap axes 0 and 1
+            outputs = outputs.permute(1,0,2,3)
+
+            torch.save(outputs, destination)
+        else:
+            raise ValueError(f"store_props {store_props} not recognized")
+
+def inference_levelwise(settings, datapoint_id, level:int = 1, nr_boxes: int = 10, store_props: str = "t", model2nd_info: dict = None):
     if  level==1:
         output_dir = "Outputs L1"
     elif level==2:
@@ -128,7 +152,7 @@ def inference_levelwise(settings, datapoint_id, level:int = 1, nr_boxes: int = 1
 
         if level==1:
             datapoint = data_dir / "Inputs Box 0" / f"RUN_{datapoint_id}.pt"
-            infer_single_dp(datapoint, model, settings, destination = data_dir / output_dir / datapoint.name)
+            infer_single_dp(datapoint, model, settings, destination = data_dir / output_dir / datapoint.name, store_props=store_props, model2nd_info=model2nd_info)
 
         elif level==2:
             box_id = 1
@@ -138,7 +162,7 @@ def inference_levelwise(settings, datapoint_id, level:int = 1, nr_boxes: int = 1
                     datapoint = data_dir / "Outputs L1" / f"RUN_{datapoint_id}.pt"
                 else:
                     datapoint = data_dir / f"Outputs L2 RUN_{datapoint_id}" / f"Box {box_id-1}.pt"
-                infer_single_dp(datapoint, model, settings, destination = data_dir / output_dir / f"Box {box_id}.pt")
+                infer_single_dp(datapoint, model, settings, destination = data_dir / output_dir / f"Box {box_id}.pt", store_props=store_props, model2nd_info=model2nd_info)
                 
                 box_id += 1
         print(f"Inference finished, outputs saved in {data_dir / output_dir}")
@@ -166,12 +190,13 @@ def pipeline_visualize(datapoint_id, settings, nr_boxes_orig:int, save:bool=Fals
     concat_predict = torch.load(settings.dataset_prep / f"Outputs L1" / f"RUN_{datapoint_id}.pt")
     for box_id in range(1, nr_boxes_to_plot):
         box_predict = torch.load(settings.dataset_prep / f"Outputs L2 RUN_{datapoint_id}" / f"Box {box_id}.pt")
-        concat_predict = torch.cat((concat_predict, box_predict), 1)
-
+        concat_predict = torch.cat((concat_predict, box_predict), 2)
     # reverse norm
     info_T = yaml.safe_load(open(settings.dataset_prep / "info.yaml", "r"))["Labels"]["Temperature [C]"]
     concat_predict_normed = reverse_norm(concat_predict, info_T)
     plt.subplot(3,1,1)
+    if concat_predict_normed.shape[1] == 3: # more than one field
+        concat_predict_normed = concat_predict_normed[:,2]
     plt.imshow(concat_predict_normed.detach().cpu().numpy().T)
     plt.xticks(ticks[:nr_boxes_to_plot], label_ticks[:nr_boxes_to_plot])
     plt.title("Prediction")
@@ -202,7 +227,7 @@ def pipeline_visualize(datapoint_id, settings, nr_boxes_orig:int, save:bool=Fals
     else:
         plt.show()
 
-def pipeline(datapoint_id: int, dataset_prep: str, inputs_2ndlevel: str, nr_boxes_orig: int, model: str):
+def pipeline(datapoint_id: int, dataset_prep: str, inputs_2ndlevel: str, nr_boxes_orig: int, model2nd: str, model1st: str=None):
     args = {}
     args["dataset_prep"]    = dataset_prep
     args["model"]           = "../extend_plumes by cut_pieces/model cut_4pieces separate_boxes 1st level"
@@ -215,18 +240,23 @@ def pipeline(datapoint_id: int, dataset_prep: str, inputs_2ndlevel: str, nr_boxe
     args["visualize"]       = False
     args["save_inference"]  = True
 
+    if model1st is not None:
+        args["model"] = model1st
+
     settings = SettingsTraining(**args)
     settings = prepare_data_and_paths(settings)
 
-    inference_levelwise(settings, datapoint_id)
+    model2nd_info = yaml.safe_load(open(settings.model.parent / model2nd / "info.yaml", "r"))
 
-    args["model"]           = model
+    inference_levelwise(settings, datapoint_id, store_props=inputs_2ndlevel, model2nd_info=model2nd_info)
+
+    args["model"]           = model2nd
     args["inputs"]          = inputs_2ndlevel
 
     settings = SettingsTraining(**args)
     settings = prepare_data_and_paths(settings)
 
-    inference_levelwise(settings, datapoint_id, level=2, nr_boxes = nr_boxes_orig)
+    inference_levelwise(settings, datapoint_id, level=2, nr_boxes = nr_boxes_orig, store_props=inputs_2ndlevel, model2nd_info=model2nd_info)
 
     # visualize
     pipeline_visualize(datapoint_id, settings, nr_boxes_orig, save=True)
