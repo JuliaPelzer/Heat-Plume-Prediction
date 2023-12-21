@@ -100,9 +100,9 @@ class Solver(object):
                             print(name, param.shape)
 
             except KeyboardInterrupt:
-                model_tmp = UNet(in_channels=len(settings.inputs), out_channels=1)
-                model_tmp.load_state_dict(self.best_model_params["state_dict"])
-                model_tmp.save(settings.destination, model_name=f"interim_model_epoche{epoch}.pt")
+                # model_tmp = UNet(in_channels=len(settings.inputs), out_channels=1)
+                # model_tmp.load_state_dict(self.best_model_params["state_dict"])
+                # model_tmp.save(settings.destination, model_name=f"interim_model_epoche{epoch}.pt")
 
                 try:
                     new_lr = float(input("\nNew learning rate: "))

@@ -29,11 +29,11 @@ class UNet(nn.Module):
         self.conv = nn.Conv2d(in_channels=features+4, out_channels=out_channels, kernel_size=1)
         self.activa = nn.ReLU()
 
-        self.dist = torch.tensor([[1.0 - i/63 for j in range(64)] for i in range(128)]).to("cuda:2")
-        self.mask = torch.tensor([[((j == 0 or j == 64)) for j in range(64)] for i in range(128)]).to("cuda:2")
+        self.dist = torch.tensor([[1.0 - i/959 for j in range(64)] for i in range(960)]).to("cuda:1")
+        self.mask = torch.tensor([[((j == 0 or j == 64)) for j in range(64)] for i in range(960)]).to("cuda:1")
 
     def forward(self, x: tensor) -> tensor:
-        x = cat((x, self.dist.repeat(x.shape[0], 1, 1, 1)), dim=1)
+        x = cat((x[:, 0:3], self.dist.repeat(x.shape[0], 1, 1, 1)), dim=1)
         encodings = [x]
         for encoder, pool in zip(self.encoders, self.pools):
             x = encoder(x)

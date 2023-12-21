@@ -27,6 +27,18 @@ class SimulationDataset(Dataset):
         if len(self.input_names) != len(self.label_names):
             raise ValueError(
                 "Number of Inputs and labels does not match!")
+        
+        #TODO this shouldn't be done here
+
+        _, y = self.__getitem__(0)
+        mat = y
+        for i in range(1, self.__len__()):
+            _, y = self.__getitem__(i)
+            mat = torch.cat((mat, y))
+        num_sample, n, m  = mat.shape
+        mat_reshape = mat.reshape((num_sample, n * m))
+        mat_reshape = mat_reshape.swapaxes(0,1)
+        self.U, self.S, self.Vh = torch.linalg.svd(mat_reshape, full_matrices=False)
 
     @property
     def input_channels(self):

@@ -108,14 +108,20 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
 
     PhysicalLoss = PhysicalLossV2("cpu")
 
+    energy_residual_true = PhysicalLoss.get_energy_error(y.unsqueeze(0), x[1].unsqueeze(0), x[2].unsqueeze(0), 5).squeeze()
+    energy_residual_out = PhysicalLoss.get_energy_error(y_out.unsqueeze(0), x[1].unsqueeze(0), x[2].unsqueeze(0), 5).squeeze()
+    cont_residual_true = PhysicalLoss.get_continuity_error(y.unsqueeze(0), x[1].unsqueeze(0), x[2].unsqueeze(0), 5).squeeze()
+    cont_residual_out = PhysicalLoss.get_continuity_error(y_out.unsqueeze(0), x[1].unsqueeze(0), x[2].unsqueeze(0), 5).squeeze()
+    
+
     dict_to_plot = {
         "t_true": DataToVisualize(y, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
         "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
         "error": DataToVisualize(y-y_out, "Error in [°C]", extent_highs),
-        "energy_residual_true": DataToVisualize(PhysicalLoss.get_energy_error(y.unsqueeze(0), x[1].unsqueeze(0), x[2].unsqueeze(0), 5).squeeze(), "Label: Energy residual", extent_highs),
-        "energy_residual_out": DataToVisualize(PhysicalLoss.get_energy_error(y_out.unsqueeze(0), x[1].unsqueeze(0), x[2].unsqueeze(0), 5).squeeze(), "Prediction: Energy residual", extent_highs),
-        "cont_residual_true": DataToVisualize(PhysicalLoss.get_continuity_error(y.unsqueeze(0), x[1].unsqueeze(0), x[2].unsqueeze(0), 5).squeeze(), "Label: Continuity residual", extent_highs),
-        "cont_residual_out": DataToVisualize(PhysicalLoss.get_continuity_error(y_out.unsqueeze(0), x[1].unsqueeze(0), x[2].unsqueeze(0), 5).squeeze(), "Prediction: Continuity residual", extent_highs),
+        "energy_residual_true": DataToVisualize(energy_residual_true, "Label: Energy residual   {:.5e}".format(torch.mean(torch.pow(energy_residual_true, 2))), extent_highs),
+        "energy_residual_out": DataToVisualize(energy_residual_out, "Prediction: Energy residual   {:.5e}".format(torch.mean(torch.pow(energy_residual_out, 2))), extent_highs),
+        "cont_residual_true": DataToVisualize(cont_residual_true, "Label: Continuity residual   {:.5e}".format(torch.mean(torch.pow(cont_residual_true, 2))), extent_highs),
+        "cont_residual_out": DataToVisualize(cont_residual_out, "Prediction: Continuity residual   {:.5e}".format(torch.mean(torch.pow(cont_residual_out, 2))), extent_highs),
     }
     inputs = info["Inputs"].keys()
     for input in inputs:

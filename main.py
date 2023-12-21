@@ -14,6 +14,7 @@ from torch.nn import MSELoss
 from data_stuff.dataset import SimulationDataset, _get_splits
 from data_stuff.utils import SettingsTraining
 from networks.unet import UNet, UNetBC, TestNet, UNetImproved
+from networks.pinn import SVDPINN
 from preprocessing.prepare_1ststage import prepare_dataset_for_1st_stage
 from preprocessing.prepare_2ndstage import prepare_dataset_for_2nd_stage
 from solvers.solver import Solver
@@ -56,7 +57,7 @@ def run(settings: SettingsTraining):
     dataset, dataloaders = init_data(settings)
 
     # model
-    model = UNet().float()
+    model = UNet().float()#SVDPINN(dataset = dataset).float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)

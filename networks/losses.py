@@ -117,8 +117,8 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and linear i
         super().__init__(device)
         self.MSE = MSELoss()
         self.weight = [1.0, 1.0]
-        self.mask = torch.tensor([[(i == 0) for j in range(64)] for i in range(128)])
-        self.constpad = nn.ConstantPad2d((1, 1, 0, 0), value=10.6)
+        self.mask = torch.tensor([[(i == 0) for j in range(64)] for i in range(960)])
+        self.downsample = lambda x: nn.functional.interpolate(x, scale_factor=0.5, mode="bicubic")#nn.AvgPool2d(kernel_size=2, stride=2)
 
     def __call__(self, input, output, target, dataloader): # permeability index 1 of input, temperature index 1 and pressure index 0 of label
         dataset = dataloader.dataset.dataset
@@ -141,12 +141,36 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and linear i
         
         energy_error = self.get_energy_error(temperature, pressure, permeability, cell_width)
 
-        physics_loss = self.weight[0] * torch.mean(torch.pow(continuity_error, 2)) + self.weight[1] * torch.mean(torch.pow(energy_error, 2))
+        #physics_loss = self.weight[0] * torch.mean(torch.pow(continuity_error, 2)) + self.weight[1] * torch.mean(torch.pow(energy_error, 2))
+        physics_loss_orig = self.weight[0] * torch.mean(torch.abs(continuity_error)) + self.weight[1] * torch.mean(torch.abs(energy_error))
         continuity_error_dx = self.central_differences_x(continuity_error, cell_width)
         continuity_error_dy = self.central_differences_y(continuity_error, cell_width)
         energy_error_dx = self.central_differences_x(energy_error, cell_width)
         energy_error_dy = self.central_differences_y(energy_error, cell_width)
-        return physics_loss + 1e6 * boundary_error + (torch.max(torch.abs(continuity_error_dx)) + torch.max(torch.abs(continuity_error_dy)) + torch.max(torch.abs(energy_error_dx)) + torch.max(torch.abs(energy_error_dy)))
+
+
+        # multigrid losses
+        # temperature_grid_2 = self.downsample(temperature)
+        # pressure_grid_2 = self.downsample(pressure)
+        # permeability_grid_2 = self.downsample(permeability)
+        # cell_width_grid_2 = cell_width * 2
+        # physics_loss_grid_2 = self.get_physical_loss(temperature_grid_2, pressure_grid_2, permeability_grid_2, cell_width_grid_2)
+
+        # temperature_grid_4 = self.downsample(temperature_grid_2)
+        # pressure_grid_4 = self.downsample(pressure_grid_2)
+        # permeability_grid_4 = self.downsample(permeability_grid_2)
+        # cell_width_grid_4 = cell_width_grid_2 * 2
+        # physics_loss_grid_4 = self.get_physical_loss(temperature_grid_4, pressure_grid_4, permeability_grid_4, cell_width_grid_4)
+
+        return physics_loss_orig + 1e4 * boundary_error +  (torch.max(torch.abs(continuity_error_dx)) + torch.max(torch.abs(continuity_error_dy)) + torch.max(torch.abs(energy_error_dx)) + torch.max(torch.abs(energy_error_dy)))
+
+    def get_physical_loss(self, temperature, pressure, permeability, cell_width):
+        continuity_error = self.get_continuity_error(temperature, pressure, permeability, cell_width)
+        
+        energy_error = self.get_energy_error(temperature, pressure, permeability, cell_width)
+
+        #physics_loss = self.weight[0] * torch.mean(torch.pow(continuity_error, 2)) + self.weight[1] * torch.mean(torch.pow(energy_error, 2))
+        return self.weight[0] * torch.mean(torch.abs(continuity_error)) + self.weight[1] * torch.mean(torch.abs(energy_error))
 
     def get_darcy(self, temperature, pressure, permeability, cell_width):
         dpdx = self.central_differences_x(pressure, cell_width)
