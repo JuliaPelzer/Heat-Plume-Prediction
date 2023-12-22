@@ -128,7 +128,7 @@ if __name__ == "__main__":
     parser.add_argument("--case", type=str, choices=["train", "test", "finetune"], default="train")
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
     parser.add_argument("--destination", type=str, default="")
-    parser.add_argument("--inputs", type=str, choices=["gki", "gksi", "pksi", "gks", "gkmi", "lm", "lmi", "ls", "m", "t", "gkiab", "gksiab", "gkt", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100"], default="gksi")
+    parser.add_argument("--inputs", type=str, choices=["gki", "gksi", "pksi", "gks", "gkmi", "lm", "lmi", "lmik", "ls", "m", "t", "gkiab", "gksiab", "gkt", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100"], default="gksi")
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
