@@ -8,7 +8,7 @@ class UNet(nn.Module):
     def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
         super().__init__()
         features = init_features
-        padding_mode =  "circular"            
+        padding_mode =  "zeros"            
         self.encoders = nn.ModuleList()
         self.pools = nn.ModuleList()
         for _ in range(depth):
@@ -45,34 +45,34 @@ class UNet(nn.Module):
     @staticmethod
     def _block(in_channels, features, kernel_size=5, padding_mode="zeros"):
         return nn.Sequential(
-            PaddingCircular(kernel_size, direction="both"),
+            # PaddingCircular(kernel_size, direction="both"),
             nn.Conv2d(
                 in_channels=in_channels,
                 out_channels=features,
                 kernel_size=kernel_size,
-                # padding="same",
-                # # padding_mode=padding_mode,
+                padding="same",
+                # padding_mode=padding_mode,
                 bias=True,
             ),
             nn.ReLU(inplace=True),      
-            PaddingCircular(kernel_size, direction="both"),
+            # PaddingCircular(kernel_size, direction="both"),
             nn.Conv2d(
                 in_channels=features,
                 out_channels=features,
                 kernel_size=kernel_size,
-                # padding="same",
-                # # padding_mode=padding_mode,
+                padding="same",
+                # padding_mode=padding_mode,
                 bias=True,
             ),
             nn.BatchNorm2d(num_features=features),
             nn.ReLU(inplace=True),      
-            PaddingCircular(kernel_size, direction="both"),
+            # PaddingCircular(kernel_size, direction="both"),
             nn.Conv2d(
                 in_channels=features,
                 out_channels=features,
                 kernel_size=kernel_size,
-                # padding="same",
-                # # padding_mode=padding_mode,
+                padding="same",
+                # padding_mode=padding_mode,
                 bias=True,
             ),        
             nn.ReLU(inplace=True),
