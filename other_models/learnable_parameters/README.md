@@ -13,6 +13,15 @@ Each raw dataset is generated with the software Pflotran and postprocessed by a 
 
 **WARNING** Some functions are copied from the mentioned repository for easier usage. These functions are in the folder `utils_copied_from_git`.
 
+### Step-by-step generation
+1. Generate raw dataset with Pflotran.
+2. the best approach to run 'prepare_dataset' in the new filestructure is to call main.py with the following arguments:
+```
+python main.py --dataset_raw --device --epochs 1 --inputs gksi 
+```
+3. remove the respective runs folder (dataset with 1 epoch is not enough)
+4. run prepare_learnable_params.py with the respective paths and dataset names in the main function
+
 ## Dataset
 
 ### benchmark_dataset_2d_100datapoints_5years
