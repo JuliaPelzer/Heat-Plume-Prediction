@@ -144,6 +144,7 @@ def inference_levelwise(settings, datapoint_id, level:int = 1, nr_boxes: int = 1
     if settings.save_inference:
         # push all datapoints through and save all outputs
         model = UNet(in_channels=len(settings.inputs)).float()
+        print(model, settings.inputs)
         model.load(settings.model, settings.device)
         model.eval()
 
@@ -233,12 +234,13 @@ def pipeline(datapoint_id: int, dataset_prep: str, inputs_2ndlevel: str, nr_boxe
     args["model"]           = "../extend_plumes by cut_pieces/model cut_4pieces separate_boxes 1st level"
     args["inputs"]          = "gksi"
     args["dataset_raw"]     = "dataset_2d_small_100dp"
-    args["device"]          = "cuda:0"
+    args["device"]          = "cuda:3"
     args["case"]            = "test"
     args["epochs"]          = 1
     args["destination"]     = "pipeline_1"
     args["visualize"]       = False
     args["save_inference"]  = True
+    args["problem"]         = "extend"
 
     if model1st is not None:
         args["model"] = model1st
@@ -260,3 +262,13 @@ def pipeline(datapoint_id: int, dataset_prep: str, inputs_2ndlevel: str, nr_boxe
 
     # visualize
     pipeline_visualize(datapoint_id, settings, nr_boxes_orig, save=True)
+
+if __name__ == "__main__":
+    dataset_name = "dataset_medium_k_3e-10_1000dp inputs_gksi cut_16pieces separate_boxes"
+    folder = "/scratch/sgs/pelzerja/datasets_prepared/1hp_boxes"
+    dataset_path = Path(folder) / dataset_name
+    inputs = torch.load(dataset_path / "Inputs Box 0" / "RUN_1.pt")
+    print(inputs.shape)
+
+    for idx in range(10,20):
+        pipeline(idx, dataset_name, "gkt", 16, model2nd="dataset_2d_medium_1000dp 2nd_level inputs_gkt case_train", model1st="dataset_2d_medium_1000dp 1st_level inputs_gksi case_train")
