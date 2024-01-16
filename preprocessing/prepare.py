@@ -9,12 +9,12 @@ from preprocessing.prepare_paths import Paths1HP, Paths2HP, set_paths_1hpnn, set
 def prepare_data_and_paths(settings:SettingsTraining):
     if not settings.case_2hp:
         paths: Paths1HP
-        paths, destination_dir = set_paths_1hpnn(settings.dataset_raw, settings.inputs, settings.dataset_prep) 
+        paths, destination_dir = set_paths_1hpnn(settings.dataset_raw, settings.inputs, settings.dataset_prep, problem=settings.problem) 
         settings.dataset_prep = paths.dataset_1st_prep_path
 
     else:
         paths: Paths2HP
-        paths, inputs_1hp, destination_dir = set_paths_2hpnn(settings.dataset_raw, settings.inputs, dataset_prep = settings.dataset_prep)
+        paths, inputs_1hp, destination_dir = set_paths_2hpnn(settings.dataset_raw, settings.inputs, dataset_prep = settings.dataset_prep, problem=settings.problem)
         settings.dataset_prep = paths.datasets_boxes_prep_path
     settings.make_destination_path(destination_dir)
     settings.make_model_path(destination_dir)
