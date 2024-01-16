@@ -58,7 +58,7 @@ class DataToVisualize:
         elif self.name == "SDF":
             self.name = "SDF-transformed position in [-]"
     
-def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png"):
+def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png", case="val"):
     print("Visualizing...", end="\r")
 
     if amount_datapoints_to_visu > len(dataloader.dataset):
@@ -83,7 +83,9 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
             x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
             dict_to_plot = prepare_data_to_plot(x, y, y_out, info)
 
-            plot_datafields(dict_to_plot, name_pic, settings_pic)
+            if case=="test":
+                plot_datafields(dict_to_plot, name_pic, settings_pic, only_inner=True)
+            plot_datafields(dict_to_plot, name_pic, settings_pic, only_inner=False)
             # plot_isolines(dict_to_plot, name_pic, settings_pic)
             # measure_len_width_1K_isoline(dict_to_plot)
 
@@ -116,7 +118,7 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
 
     return dict_to_plot
 
-def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
+def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict, only_inner: bool = False):
     # plot datafields (temperature true, temperature out, error, physical variables (inputs))
 
     num_subplots = len(data)
@@ -132,7 +134,10 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
 
         #         CS = plt.contour(torch.flip(datapoint.data, dims=[1]).T, **datapoint.contourargs)
         #     plt.clabel(CS, inline=1, fontsize=10)
-        plt.imshow(datapoint.data.T, **datapoint.imshowargs)
+        if only_inner:
+            plt.imshow(datapoint.data[100:400,100:400].T, **datapoint.imshowargs)
+        else:  
+            plt.imshow(datapoint.data.T, **datapoint.imshowargs)
         plt.gca().invert_yaxis()
 
         plt.ylabel("x [m]")
@@ -141,7 +146,8 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
     plt.sca(axes[-1])
     plt.xlabel("y [m]")
     plt.tight_layout()
-    plt.savefig(f"{name_pic}.{settings_pic['format']}", **settings_pic)
+    ext_inner = "_inner" if only_inner else ""
+    plt.savefig(f"{name_pic}{ext_inner}.{settings_pic['format']}", **settings_pic)
 
 def plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
     # plot isolines of temperature fields
