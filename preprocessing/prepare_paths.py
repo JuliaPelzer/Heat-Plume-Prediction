@@ -21,8 +21,8 @@ class Paths2HP:
     datasets_boxes_prep_path: pathlib.Path # 2hp-boxes
 
 # Functions for setting paths
-def set_paths_1hpnn(dataset_name: str, inputs:str = "", dataset_prep:str = "")-> Paths1HP:
-    paths_file = "paths.yaml"
+def set_paths_1hpnn(dataset_name: str, inputs:str = "", dataset_prep:str = "", problem:str="2stages")-> Paths1HP:
+    paths_file:str = "paths.yaml"
     if not os.path.exists(paths_file):
         raise FileNotFoundError(f"{paths_file} not found")
 
@@ -32,6 +32,7 @@ def set_paths_1hpnn(dataset_name: str, inputs:str = "", dataset_prep:str = "")->
     default_raw_dir = pathlib.Path(paths["default_raw_dir"])
     destination_dir = pathlib.Path(paths["models_1hp_dir"])
     datasets_prepared_dir = pathlib.Path(paths["datasets_prepared_dir"])
+    default_raw_dir, destination_dir, datasets_prepared_dir = extend_paths_for_problem(problem, default_raw_dir, destination_dir, datasets_prepared_dir)
 
     dataset_raw_path = default_raw_dir / dataset_name
     if dataset_prep == "":
@@ -40,8 +41,7 @@ def set_paths_1hpnn(dataset_name: str, inputs:str = "", dataset_prep:str = "")->
 
     return Paths1HP(dataset_raw_path, dataset_prepared_full_path), destination_dir
 
-def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name: str = None, dataset_prep:str = None)-> typing.Tuple[Paths2HP, str, pathlib.Path]:
-    paths_file = "paths.yaml"
+def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name: str = None, dataset_prep:str = None, paths_file:str = "paths.yaml")-> typing.Tuple[Paths2HP, str, pathlib.Path]:
     
     if not os.path.exists(paths_file):
         raise FileNotFoundError(f"{paths_file} not found")
@@ -80,3 +80,20 @@ def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name: str = 
         model_1hp_path,
         datasets_boxes_prep_path,
         ), inputs, destination_dir
+
+def extend_paths_for_problem(problem:str, default_raw_dir: pathlib.Path, destination_dir: pathlib.Path, datasets_prepared_dir: pathlib.Path)-> typing.Tuple[pathlib.Path, pathlib.Path, pathlib.Path]:
+    if problem == "extend":
+        default_raw_dir = default_raw_dir / "1hp_boxes"
+        destination_dir = destination_dir / "extend_plumes"
+        datasets_prepared_dir = datasets_prepared_dir / "1hp_boxes"
+    elif problem == "allin1":
+        default_raw_dir = default_raw_dir / "giant_manyhps"
+        destination_dir = destination_dir / "allin1"
+        datasets_prepared_dir = datasets_prepared_dir / "giant_manyhps"
+    elif problem == "2stages":
+        default_raw_dir = default_raw_dir / "1hp_boxes"
+        destination_dir = destination_dir / "1hpnn"
+        datasets_prepared_dir = datasets_prepared_dir / "1hp_boxes"
+    else:
+        raise ValueError(f"problem {problem} not known")
+    return default_raw_dir, destination_dir, datasets_prepared_dir
