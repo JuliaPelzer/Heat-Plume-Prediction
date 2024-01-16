@@ -142,3 +142,14 @@ if __name__ == "__main__":
     if args.save_inference:
         save_inference(settings.model, len(args.inputs), settings)
 
+    # test after training
+    if args.case == "train":
+        args.device = "cpu"
+        args.epochs = 0
+        args.case = "test"
+        args.model = settings.destination
+        args.visualize = True
+        settings = SettingsTraining(**vars(args))
+        settings = prepare_data_and_paths(settings)
+
+        model = run(settings)
