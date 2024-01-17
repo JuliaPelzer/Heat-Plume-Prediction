@@ -56,7 +56,7 @@ class SimulationDataset(Dataset):
         return self.input_names[index]
 
 class SimulationDatasetCuts(Dataset):
-    def __init__(self, path):
+    def __init__(self, path:str, skip_per_dir:int=4):
         Dataset.__init__(self)
         self.path = pathlib.Path(path)
         self.info = self.__load_info()
@@ -69,7 +69,7 @@ class SimulationDatasetCuts(Dataset):
         assert self.spatial_size == self.labels.shape[1:], "inputs and labels have different spatial sizes" # TODO attention, if ever load several datapoints at once, this will fail
         self.box_size = np.array([64,32]) #512,512]) #[128,64] #[64, 32])
         self.box_out = np.array([0,0]).astype(int) #((self.box_size - np.array([244,244]))/2).astype(int)
-        self.skip_per_dir = 2
+        self.skip_per_dir = skip_per_dir
 
     @property
     def input_channels(self):
