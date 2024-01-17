@@ -16,6 +16,7 @@ def prepare_data_and_paths(settings:SettingsTraining):
         paths, inputs_1hp, destination_dir = set_paths_2hpnn(settings.dataset_raw, settings.inputs, dataset_prep = settings.dataset_prep, problem=settings.problem)
         settings.dataset_prep = paths.datasets_boxes_prep_path
     settings.make_destination_path(destination_dir)
+    settings.save_notes()
     settings.make_model_path(destination_dir)
 
     if not settings.case_2hp:
