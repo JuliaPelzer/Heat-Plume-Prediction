@@ -8,10 +8,7 @@ import torch
 import tqdm
 import yaml
 
-from preprocessing.prepare_paths import Paths2HP, set_paths_2hpnn
 from postprocessing.visualization import _aligned_colorbar
-from preprocessing.prepare_2ndstage import prepare_dataset_for_2nd_stage
-from domain_classes.domain import get_box_corners
 
 def prepare_domain_sdf(orig_domain_name: str = "domain_1hp_1dp inputs_gksi"):
     inputs = torch.load("/home/pelzerja/pelzerja/test_nn/datasets_prepared/1hp_domain/boxes_dummy_inputs.pt")

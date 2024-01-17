@@ -11,13 +11,13 @@ from torch import long as torch_long
 
 sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN")  # relevant for remote
 sys.path.append("/home/pelzerja/Development/1HP_NN")  # relevant for local
-from data_stuff.utils import load_yaml
+from utils.utils_data import load_yaml
 from preprocessing.prepare_1ststage import expand_property_names
 from utils.utils import beep
 from postprocessing.visualization import _aligned_colorbar
 
-from domain_classes.heat_pump import HeatPumpBox
-from domain_classes.stitching import Stitching
+from preprocessing.domain_classes.heat_pump import HeatPumpBox
+from preprocessing.domain_classes.stitching import Stitching
 
 
 class Domain:

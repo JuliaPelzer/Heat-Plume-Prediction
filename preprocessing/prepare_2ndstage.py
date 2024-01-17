@@ -9,12 +9,12 @@ import yaml
 from torch import stack, load, unsqueeze, save, Tensor
 from tqdm.auto import tqdm
 
-from networks.unet import UNet
+from processing.networks.unet import UNet
 from preprocessing.prepare_1ststage import prepare_dataset
-from domain_classes.domain import Domain
-from domain_classes.heat_pump import HeatPumpBox
-from domain_classes.utils_2hp import save_config_of_separate_inputs, save_config_of_merged_inputs, save_yaml
-from domain_classes.stitching import Stitching
+from preprocessing.domain_classes.domain import Domain
+from preprocessing.domain_classes.heat_pump import HeatPumpBox
+from preprocessing.domain_classes.utils_2hp import save_config_of_separate_inputs, save_config_of_merged_inputs, save_yaml
+from preprocessing.domain_classes.stitching import Stitching
 from preprocessing.prepare_paths import Paths2HP
 
 

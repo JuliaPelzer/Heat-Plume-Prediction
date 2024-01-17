@@ -11,9 +11,9 @@ from tqdm.auto import tqdm
 from domain_classes.domain import Domain
 from domain_classes.heat_pump import HeatPumpBox
 from domain_classes.utils_2hp import check_all_datasets_prepared, set_paths_2hpnn
-from data_stuff.utils import SettingsPrepare, load_yaml
-from networks.unet import UNet
-from prepare_dataset import prepare_dataset
+from utils.utils_data import SettingsPrepare, load_yaml
+from processing.networks.unet import UNet
+from preprocessing.prepare import prepare_dataset
 from utils.utils import beep
 
 

@@ -15,8 +15,8 @@ from line_profiler_decorator import profiler
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from torch.utils.data import DataLoader
 
-from data_stuff.transforms import NormalizeTransform
-from networks.unet import UNet
+from preprocessing.data_stuff.transforms import NormalizeTransform
+from processing.networks.unet import UNet
 # from postprocessing.measurements import measure_len_width_1K_isoline # circular import
 
 # mpl.rcParams.update({'figure.max_open_warning': 0})

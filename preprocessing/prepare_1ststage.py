@@ -11,11 +11,11 @@ import yaml
 from typing import Union
 from tqdm.auto import tqdm
 
-from data_stuff.transforms import (ComposeTransform, NormalizeTransform,
+from preprocessing.data_stuff.transforms import (ComposeTransform, NormalizeTransform,
                              PowerOfTwoTransform, ReduceTo2DTransform,
                              SignedDistanceTransform, MultiHPDistanceTransform, LinearSmearTransform,
                              ToTensorTransform)
-from data_stuff.utils import SettingsTraining
+from utils.utils_data import SettingsTraining
 from preprocessing.prepare_paths import Paths1HP, Paths2HP
 
 def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, info_file: str = "info.yaml"):

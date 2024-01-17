@@ -2,7 +2,7 @@ import torch.nn as nn
 from torch import save, tensor, cat, load, equal
 import pathlib
 
-from diff_conv2d.layers import DiffConv2dLayer
+from processing.diff_conv2d.layers import DiffConv2dLayer
 
 class UNet(nn.Module):
     def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
@@ -21,7 +21,7 @@ class UNet(nn.Module):
         self.upconvs = nn.ModuleList()
         self.decoders = nn.ModuleList()
         for _ in range(depth):
-            self.upconvs.append(nn.ConvTranspose2d(features, features, kernel_size=2, stride=2))
+            self.upconvs.append(nn.ConvTranspose2d(features, features//2, kernel_size=2, stride=2))
             self.decoders.append(UNet._block(features, features//2, kernel_size=kernel_size, padding_mode=padding_mode))
             features = features // 2
 
@@ -37,7 +37,7 @@ class UNet(nn.Module):
 
         for upconv, decoder, encoding in zip(self.upconvs, self.decoders, reversed(encodings)):
             x = upconv(x)
-            # x = cat((x, encoding), dim=1)
+            x = cat((x, encoding), dim=1)
             x = decoder(x)
 
         return self.conv(x)
@@ -45,7 +45,7 @@ class UNet(nn.Module):
     @staticmethod
     def _block(in_channels, features, kernel_size=5, padding_mode="zeros"):
         return nn.Sequential(
-            # PaddingCircular(kernel_size),
+            PaddingCircular(kernel_size),
             nn.Conv2d(
                 in_channels=in_channels,
                 out_channels=features,
@@ -55,7 +55,7 @@ class UNet(nn.Module):
                 bias=True,
             ),
             nn.ReLU(inplace=True),      
-            # PaddingCircular(kernel_size),
+            PaddingCircular(kernel_size),
             nn.Conv2d(
                 in_channels=features,
                 out_channels=features,
@@ -66,7 +66,7 @@ class UNet(nn.Module):
             ),
             nn.BatchNorm2d(num_features=features),
             nn.ReLU(inplace=True),      
-            # PaddingCircular(kernel_size),
+            PaddingCircular(kernel_size),
             nn.Conv2d(
                 in_channels=features,
                 out_channels=features,

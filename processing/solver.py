@@ -10,8 +10,8 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
-from data_stuff.utils import SettingsTraining
-from networks.unet import weights_init, UNet
+from utils.utils_data import SettingsTraining
+from processing.networks.unet import weights_init, UNet
 from postprocessing.visualization import visualizations
 
 
@@ -36,7 +36,7 @@ class Solver(object):
             self.model.apply(weights_init)
 
     def train(self, settings: SettingsTraining):
-        log_val_epoch = True
+        log_val_epoch = False
         if log_val_epoch:
             file = open(settings.destination / "log_loss_per_epoch.csv", 'w', newline='')
             csv_writer = csv.writer(file)
@@ -50,7 +50,7 @@ class Solver(object):
         writer = SummaryWriter(settings.destination)
         device = settings.device
         self.model = self.model.to(device)
-        writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
+        # writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
 
         epochs = tqdm(range(settings.epochs), desc="epochs", disable=False)
         for epoch in epochs:
@@ -158,7 +158,7 @@ class Solver(object):
         # check if path contains lr-schedule, else use default one
         if not path.exists():
             logging.warning(f"Could not find lr-schedule at {path}. Using default lr-schedule instead.")
-            path = pathlib.Path.cwd() / "networks"
+            path = pathlib.Path.cwd() / "processing" / "lr_schedules"
             lr_schedule_file = "default_lr_schedule_giant.csv" if not case_2hp else "default_lr_schedule_2hp.csv" # TODO change back
             path = path / lr_schedule_file
 

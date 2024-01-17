@@ -4,7 +4,7 @@ from typing import List
 
 sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN")  # relevant for remote
 sys.path.append("/home/pelzerja/Development/1HP_NN")  # relevant for local
-from data_stuff.utils import save_yaml
+from utils.utils_data import save_yaml
 
 
 def save_config_of_separate_inputs(domain_info, path, name_file="info"):

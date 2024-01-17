@@ -15,7 +15,7 @@ Created by Kuangdai in Dec 2022
 import torch
 import torch.nn.functional as F
 
-from diff_conv2d.maths import form_diff_system_speed, form_diff_system_memory
+from processing.diff_conv2d.maths import form_diff_system_speed, form_diff_system_memory
 
 
 class DiffConv2d:

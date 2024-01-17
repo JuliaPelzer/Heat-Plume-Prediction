@@ -8,9 +8,9 @@ import numpy as np
 from torch import tensor, zeros_like, save, load, unsqueeze, ones, cat, maximum, is_tensor
 from torch import long as torch_long
 
-from data_stuff.transforms import SignedDistanceTransform
+from preprocessing.data_stuff.transforms import SignedDistanceTransform
 from postprocessing.visualization import _aligned_colorbar
-from networks.unet import UNet
+from processing.networks.unet import UNet
 
 
 class HeatPumpBox:

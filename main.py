@@ -9,10 +9,10 @@ from torch.utils.data import DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
 from torch.nn import MSELoss
 
-from data_stuff.dataset import SimulationDataset, SimulationDatasetCuts, _get_splits
-from data_stuff.utils import SettingsTraining
-from networks.unet import UNet, UNetBC
-from solvers.solver import Solver
+from preprocessing.data_stuff.dataset import SimulationDataset, SimulationDatasetCuts, _get_splits
+from utils.utils_data import SettingsTraining
+from processing.networks.unet import UNet, UNetBC
+from processing.solver import Solver
 from preprocessing.prepare import prepare_data_and_paths
 from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
 from postprocessing.measurements import measure_loss, save_all_measurements

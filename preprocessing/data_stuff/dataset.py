@@ -6,17 +6,7 @@ import torch
 import yaml
 from torch.utils.data import Dataset
 
-from data_stuff.transforms import NormalizeTransform
-
-import os
-import pathlib
-
-import numpy as np
-import torch
-import yaml
-from torch.utils.data import Dataset
-
-from data_stuff.transforms import NormalizeTransform
+from preprocessing.data_stuff.transforms import NormalizeTransform
 
 class SimulationDataset(Dataset):
     def __init__(self, path):
