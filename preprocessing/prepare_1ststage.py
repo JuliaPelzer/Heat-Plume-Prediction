@@ -67,8 +67,8 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
     transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo)
     inputs = expand_property_names(inputs)
     time_first = "   0 Time  0.00000E+00 y"
-    time_steady_state = "   3 Time  5.00000E+00 y" # time_final
-    # time_steady_state = "   4 Time  2.75000E+01 y"
+    # time_steady_state = "   3 Time  5.00000E+00 y" # time_final
+    time_steady_state = "   4 Time  2.75000E+01 y"
     pflotran_settings = get_pflotran_settings(paths.raw_path)
     dims = np.array(pflotran_settings["grid"]["ncells"])
     total_size = np.array(pflotran_settings["grid"]["size"])
