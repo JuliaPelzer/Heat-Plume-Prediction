@@ -33,6 +33,7 @@ class SettingsTraining:
     visualize: bool = False
     save_inference: bool = False
     problem: str = "2stages"
+    notes: str = ""
     
     def __post_init__(self):
         if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:
@@ -53,6 +54,11 @@ class SettingsTraining:
 
         if self.destination == "":
             self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case
+
+        if self.notes != "":
+            # save notes to text file in destination
+            with open(self.destination / "notes.txt", "w") as file:
+                file.write(self.notes)
 
     def save(self):
         save_yaml(self.__dict__, self.destination, "command_line_arguments")

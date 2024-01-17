@@ -133,6 +133,7 @@ if __name__ == "__main__":
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
     parser.add_argument("--problem", type=str, choices=["extend", "allin1", "2stages"], default="2stages")
+    parser.add_argument("--notes", type=str, default="")
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 
