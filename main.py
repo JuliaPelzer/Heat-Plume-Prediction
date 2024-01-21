@@ -53,7 +53,7 @@ def run(settings: SettingsTraining):
     dataset, dataloaders = init_data(settings)
 
     # model
-    model = UNet(in_channels=dataset.input_channels).float()
+    model = UNet(in_channels=dataset.input_channels, depth=3).float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)
@@ -89,8 +89,8 @@ def run(settings: SettingsTraining):
         visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format, case=settings.case)
         times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
         plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
-        errors = measure_loss(model, dataloaders[which_dataset], settings.device)
         print("Visualizations finished")
+    errors = measure_loss(model, dataloaders[which_dataset], settings.device)
         
     times["time_end"] = time.perf_counter()
     save_all_measurements(settings, len(dataset), times, solver, errors)
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     parser.add_argument("--case", type=str, choices=["train", "test", "finetune"], default="train")
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
     parser.add_argument("--destination", type=str, default="")
-    parser.add_argument("--inputs", type=str, choices=["gki", "gksi", "pksi", "gks", "gkmi", "lm", "lmi", "lmik", "ls", "m", "t", "gkiab", "gksiab", "gkt", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100"], default="gksi")
+    parser.add_argument("--inputs", type=str, choices=["gki", "gksi", "pksi", "gks", "gkmi", "lm", "lmi", "lmik","lmikp", "ls", "m", "t", "gkiab", "gksiab", "gkt", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100"], default="gksi")
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
@@ -145,7 +145,7 @@ if __name__ == "__main__":
         save_inference(settings.model, len(args.inputs), settings)
 
     # test after training
-    if args.case == "train":
+    if args.visualize and args.case == "train":
         args.device = "cpu"
         args.epochs = 0
         args.case = "test"
@@ -155,3 +155,18 @@ if __name__ == "__main__":
         settings = prepare_data_and_paths(settings)
 
         model = run(settings)
+
+        if args.dataset_raw == "dataset_giant_100hp_varyPermLog_p30_kfix_quarter_dp4":
+            orig_destination = settings.destination
+            args.dataset_raw = "dataset_giant_100hp_varyPermLog_p30_kfix_quarter_dp4_2"
+            args.destination = f"{args.destination}/test_on_variedHPS_samePerm"
+            settings = SettingsTraining(**vars(args))
+            settings = prepare_data_and_paths(settings)
+            model = run(settings)
+
+            args.dataset_raw = "dataset_giant_100hp_varyPermLog_p30_kfix_quarter_dp5_only5y"
+            args.destination = f"{orig_destination}/test_on_variedHPS_variedPerm"
+            settings = SettingsTraining(**vars(args))
+            settings = prepare_data_and_paths(settings)
+            model = run(settings)
+

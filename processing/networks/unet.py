@@ -7,25 +7,27 @@ from processing.diff_conv2d.layers import DiffConv2dLayer
 class UNet(nn.Module):
     def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
         super().__init__()
-        features = init_features
+        self.features = init_features
+        self.depth = depth
+        self.kernel_size = kernel_size
         padding_mode =  "circular"            
         self.encoders = nn.ModuleList()
         self.pools = nn.ModuleList()
         for _ in range(depth):
-            self.encoders.append(UNet._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode))
+            self.encoders.append(UNet._block(in_channels, self.features, kernel_size=kernel_size, padding_mode=padding_mode))
             self.pools.append(nn.MaxPool2d(kernel_size=2, stride=2))
-            in_channels = features
-            features *= 2
-        self.encoders.append(UNet._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode))
+            in_channels = self.features
+            self.features *= 2
+        self.encoders.append(UNet._block(in_channels, self.features, kernel_size=kernel_size, padding_mode=padding_mode))
 
         self.upconvs = nn.ModuleList()
         self.decoders = nn.ModuleList()
         for _ in range(depth):
-            self.upconvs.append(nn.ConvTranspose2d(features, features//2, kernel_size=2, stride=2))
-            self.decoders.append(UNet._block(features, features//2, kernel_size=kernel_size, padding_mode=padding_mode))
-            features = features // 2
+            self.upconvs.append(nn.ConvTranspose2d(self.features, self.features//2, kernel_size=2, stride=2))
+            self.decoders.append(UNet._block(self.features, self.features//2, kernel_size=kernel_size, padding_mode=padding_mode))
+            self.features = self.features // 2
 
-        self.conv = nn.Conv2d(in_channels=features, out_channels=out_channels, kernel_size=1)
+        self.conv = nn.Conv2d(in_channels=self.features, out_channels=out_channels, kernel_size=1)
 
     def forward(self, x: tensor) -> tensor:
         encodings = []
