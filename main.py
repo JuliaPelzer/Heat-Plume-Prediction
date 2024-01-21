@@ -25,10 +25,10 @@ def init_data(settings: SettingsTraining, seed=1):
     if settings.case == "test":
         dataset = SimulationDataset(settings.dataset_prep)
     else:
-        dataset = SimulationDatasetCuts(settings.dataset_prep)
+        dataset = SimulationDatasetCuts(settings.dataset_prep, skip_per_dir=8)
     generator = torch.Generator().manual_seed(seed)
 
-    split_ratios = [0.7, 0.2, 0.1]
+    split_ratios = [0.5, 0.3, 0.2]
     if settings.case == "test": # TODO change back
         split_ratios = [0.0, 0.0, 1.0] 
     datasets = random_split(dataset, _get_splits(len(dataset), split_ratios), generator=generator)
@@ -37,6 +37,7 @@ def init_data(settings: SettingsTraining, seed=1):
     try:
         dataloaders["train"] = DataLoader(datasets[0], batch_size=100, shuffle=True, num_workers=0)
         dataloaders["val"] = DataLoader(datasets[1], batch_size=100, shuffle=True, num_workers=0)
+        print(len(datasets[0]), len(datasets[1]))
     except: pass
     dataloaders["test"] = DataLoader(datasets[2], batch_size=100, shuffle=True, num_workers=0)
 
@@ -44,6 +45,7 @@ def init_data(settings: SettingsTraining, seed=1):
 
 
 def run(settings: SettingsTraining):
+    np.random.seed(1)
     multiprocessing.set_start_method("spawn", force=True)
     
     times = {}

@@ -8,6 +8,7 @@ from torch.nn import Module, MSELoss, modules
 from torch.optim import Adam, Optimizer
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torch import manual_seed
 from tqdm.auto import tqdm
 
 from utils.utils_data import SettingsTraining
@@ -36,7 +37,8 @@ class Solver(object):
             self.model.apply(weights_init)
 
     def train(self, settings: SettingsTraining):
-        log_val_epoch = False
+        manual_seed(0)
+        log_val_epoch = True
         if log_val_epoch:
             file = open(settings.destination / "log_loss_per_epoch.csv", 'w', newline='')
             csv_writer = csv.writer(file)
@@ -65,8 +67,9 @@ class Solver(object):
                     self.train_dataloader, device)
 
                 # Validation
-                self.model.eval()
-                val_epoch_loss = self.run_epoch(self.val_dataloader, device)
+                if epoch % 10 == 0:
+                    self.model.eval()
+                    val_epoch_loss = self.run_epoch(self.val_dataloader, device)
 
                 # Logging
                 writer.add_scalar("train_loss", train_epoch_loss, epoch)
@@ -93,6 +96,13 @@ class Solver(object):
                     if epoch in [1, 250, 500, 1000, 2500, 5000, 10000, 15000, 20000, 24999]:
                         csv_writer.writerow([epoch, val_epoch_loss, train_epoch_loss])
                         csv_writer_best.writerow([epoch, self.best_model_params["loss"], self.best_model_params["train loss"]])
+                        
+                        model_tmp = UNet(in_channels=len(settings.inputs), out_channels=1, init_features=self.model.features, depth=self.model.depth, kernel_size=self.model.kernel_size)
+                        model_tmp.load_state_dict(self.best_model_params["state_dict"])
+                        model_tmp.to(settings.device)
+                        model_tmp.save(settings.destination, model_name=f"interim_model_epoche{epoch}.pt")
+                        visualizations(model_tmp, self.val_dataloader, settings.device, plot_path=settings.destination / f"plot_val_interim", amount_datapoints_to_visu=5, pic_format="png")
+                        
                         for name, param in self.model.named_parameters():
                             writer.add_histogram(name, param, epoch)
                     if epoch == 1:
@@ -100,8 +110,9 @@ class Solver(object):
                             print(name, param.shape)
 
             except KeyboardInterrupt:
-                model_tmp = UNet(in_channels=len(settings.inputs), out_channels=1, init_features=self.model.init_features, depth=self.model.depth, kernel_size=self.model.kernel_size)
+                model_tmp = UNet(in_channels=len(settings.inputs), out_channels=1, init_features=self.model.features, depth=self.model.depth, kernel_size=self.model.kernel_size)
                 model_tmp.load_state_dict(self.best_model_params["state_dict"])
+                model_tmp.to(settings.device)
                 model_tmp.save(settings.destination, model_name=f"interim_model_epoche{epoch}.pt")
                 visualizations(model_tmp, self.val_dataloader, settings.device, plot_path=settings.destination / f"plot_val_interim", amount_datapoints_to_visu=5, pic_format="png")
                 

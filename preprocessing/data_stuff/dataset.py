@@ -67,7 +67,7 @@ class SimulationDatasetCuts(Dataset):
         assert self.inputs.shape[1:] == self.labels.shape[1:], "inputs and labels have different shapes"
         self.spatial_size = self.inputs.shape[1:]
         assert self.spatial_size == self.labels.shape[1:], "inputs and labels have different spatial sizes" # TODO attention, if ever load several datapoints at once, this will fail
-        self.box_size = np.array([64,32]) #512,512]) #[128,64] #[64, 32])
+        self.box_size = np.array([128,128]) #512,512]) #[128,64] #[64, 32])
         self.box_out = np.array([0,0]).astype(int) #((self.box_size - np.array([244,244]))/2).astype(int)
         self.skip_per_dir = skip_per_dir
 
