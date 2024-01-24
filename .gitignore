@@ -2,6 +2,7 @@ paths.yaml
 paths_sdf.yaml
 
 datasets_prepared/
+data
 
 # exclude for now in testing phase
 models/
