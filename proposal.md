@@ -63,23 +63,40 @@ When the permeability $k$ or the pressure gradient $\nabla p$ vary over space, t
 If the distortion was known beforehand, the coordinates that are given to the first step could be distorted correspondingly.
 This would allow changes to the NeRF step without retraining any other network.
 
-The distortion (deflection) is locally dependent on the permeability field and the pressure gradient. This allows the use of a (really small) fully convolutional neural network such as in [Approach 2](#approach-2-all-in-one). This network would predict the local distortion at any grid point (of the discrete permeability/pressure field).
+The distortion (deflection) is locally dependent on the permeability field and the pressure gradient. This allows the use of a small, fully convolutional neural network such as in [Approach 2](#approach-2-all-in-one). This network would predict the local distortion at any grid point (of the discrete permeability/pressure field).
 
 **klingt alles unter 2.step so als würde jetzt ein großes "aber das wissen wir zu dem Zeitpunkt nicht" oder so kommen**
 
 The network to predict the local distortion models a function 
-$$\vec{D}(k_{surrounding}, p_{surrounding}): \mathbb{R}^k \times \mathbb{R}^k \mapsto \mathbb{R}^d,$$
+$$\vec{D}(\vec{x}) = \vec{D}(k_{surrounding}, p_{surrounding}): \mathbb{R}^k \times \mathbb{R}^k \mapsto \mathbb{R}^d,$$
 where $k\approx 16$ is the number of surrounding cells taken into account, and $d\in[2,3]$ are the spatial dimensions. The output is the scale of the transformed cell in each direction. **was sagt mir der letzte satz**
 
-The global coordinates (relative to the heat pump's location) $\vec{C}(\vec{x}): \mathbb{R}^d \mapsto \mathbb{R}^d$ can then be constructed by accumulating the local distortions $D$ using a cummulative sum over each spatial dimension.
+The global coordinates (relative to the heat pump's location) $\vec{C}(\vec{x}): \mathbb{R}^d \mapsto \mathbb{R}^d$ can then be constructed by a path integral over the local distortions $D$ from the heatpump to the untransformed coordinate:
+$$
+\vec{C}(\vec{x}) = \oint_{\vec{x}_{heatpump}}^{\vec{x}} D(\vec{x}) d\vec{x}'
+$$
+The discrete case is just a sum over the local distortions.
+
+Consistent global coordinates are only possible if the value of the integral is independent of the path taken, implying zero curl of the distortion field ($\nabla \times \vec{D} = \vec{0}$) and requiering the local distortions to be a gradient field $\vec{D} = \nabla F$ (of an arbitrary field $F$). 
+
+### Enforcing the constraints on the local distortion
+The only way to mathematically ensure that $\vec{D}$ is a conservative field is to learn the global field $F$ and taking the gradient. This approach would not allow the use of small local distortion predictions, drastically increasing the required network size to the point where [Approach 1](#approach-1-two-stage-network) would be more efficient.
+
+Possible ways to still get a conservative field are:
+1. Always use the same easy to calculate paths (e.g. suitable for cummulative sum) and hope and pray that the network learns a reasonable field
+2. Add a loss that penalizes local curl
+3. Always take a random path integral, forcing the network to learn a conservative field to maintain consistent results for the same input
+
+### Training
 
 A temperature prediction $P$ **P for T_pred?** is then calculated as 
-$$P(\vec{x},k(\vec{x}),p(\vec{x}),Q,\dots) = T(\vec{C}(\vec{x},k_{surrounding}(\vec{x}),p_{surrounding}(\vec{x})), Q,\dots).$$ **bisschen unverständlich was genau du hier meinst**
-A single 2D temperature point needs the local distortions of all coordinates in a **distorted?** rectangle between itself and the heat pump.
+$$
+P(\vec{x},k(\vec{x}),p(\vec{x}),Q,\dots) = T(\vec{C}(\vec{x},k_{surrounding}(\vec{x}),p_{surrounding}(\vec{x})), Q,\dots).$$
+**bisschen unverständlich was genau du hier meinst**
 
 To train this model, the entire prediction pipeline is used with the weights of the NeRF-like step frozen to keep the temperature network independent of the distortion network. A MSE loss between predicted and simulated temperature should give good gradients. 
 
-### On training stability
+#### On training stability
 
 All parts of the prediction function are differentiable, but it is also important that the NeRF-like temperature function is sufficiently smooth. The global distortion function can only modify the temperature output by modifying the distorted coordinates slightly.
 
