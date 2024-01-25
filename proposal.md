@@ -66,7 +66,11 @@ This would allow changes to the NeRF step without retraining any other network.
 The distortion (deflection) is locally dependent on the permeability field and the pressure gradient. This allows the use of a small, fully convolutional neural network such as in [Approach 2](#approach-2-all-in-one). This network predicts the local distortion at any grid point (of the discrete permeability/pressure field).
 
 The network to predict the local distortion models a function 
-$$\vec{D}(\vec{x}) = \vec{D}(k_{surrounding}, p_{surrounding}): \mathbb{R}^k \times \mathbb{R}^k \mapsto \mathbb{R}^d,$$
+
+$$
+\vec{D}(\vec{x}) = \vec{D}(k_{surrounding}, p_{surrounding}): \mathbb{R}^k \times \mathbb{R}^k \mapsto \mathbb{R}^d,
+$$
+
 where $k\approx 16$ is the number of surrounding cells taken into account, and $d\in[2,3]$ are the spatial dimensions. The output is the size of the transformed cell in each direction. 
 
 The global coordinates (relative to the heat pump's location) $\vec{C}(\vec{x}): \mathbb{R}^d \mapsto \mathbb{R}^d$ can then be constructed by a path integral over the local distortions $D$ from the heatpump to the untransformed coordinate:
