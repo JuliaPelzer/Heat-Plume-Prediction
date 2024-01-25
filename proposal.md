@@ -36,8 +36,12 @@ Instead of using the discretized permeability and pressure fields as input (2x16
 
 ## 1. step: Heat pump specific temperature field
 
-A new network is introduced to model the temperature at any position $\vec{x}\mathbb{R}^2$ in the domain as 
-$$T(\vec{x}, Q, T_{inj}, \dots) : \mathbb{R}^n \mapsto \mathbb{R},$$
+A new network is introduced to model the temperature at any position $\vec{x}\mathbb{R}^2$ in the domain as
+
+$$
+T(\vec{x}, Q, T_{inj}, \dots) : \mathbb{R}^n \mapsto \mathbb{R},
+$$
+
 depending only on the parameters of the heat pump, such as volumetric pump rate $Q$ and injection temperature $T_{inj}$. As this function has only $n\approx 4$ input dimensions and a scalar output, it can be represented by a very small and shallow dense network. The training data for this network consists of variations in the input parameters of the heat pump named above and fixed standard values for the subsurface parameters such as permeability and pressure gradient.
 
 The concept of using a scalar function to model a continuous field is the same as in neural radiance fields (NeRF). The existing research  for faster training, more accurate small scale resolution of NeRFs could be leveraged if necessary.
@@ -74,7 +78,11 @@ $$
 where $k\approx 16$ is the number of surrounding cells taken into account, and $d\in[2,3]$ are the spatial dimensions. The output is the size of the transformed cell in each direction. 
 
 The global coordinates (relative to the heat pump's location) $\vec{C}(\vec{x}): \mathbb{R}^d \mapsto \mathbb{R}^d$ can then be constructed by a path integral over the local distortions $D$ from the heatpump to the untransformed coordinate:
-$$ \vec{C}(\vec{x}) = \oint_{\vec{x}_{heatpump}}^{\vec{x}} D(\vec{x}) d\vec{x}'$$
+
+$$
+\vec{C}(\vec{x}) = \oint_{\vec{x}_{heatpump}}^{\vec{x}} D(\vec{x}) d\vec{x}'
+$$
+
 The discrete case is just a sum over the local distortions.
 
 Consistent global coordinates are only possible if the value of the integral is independent of the path taken, implying zero curl of the distortion field ($\nabla \times \vec{D} = \vec{0}$) and requiering the local distortions to be a gradient field $\vec{D} = \nabla F$ (of an arbitrary field $F$). 
@@ -90,7 +98,11 @@ Possible ways to still get a conservative field are:
 ### Training
 
 A temperature prediction $P$ **P for T_pred?** is then calculated as 
-$$P(\vec{x},k(\vec{x}),p(\vec{x}),Q,\dots) = T(\vec{C}(\vec{x},k_{surrounding}(\vec{x}),p_{surrounding}(\vec{x})), Q,\dots).$$
+
+$$
+P(\vec{x},k(\vec{x}),p(\vec{x}),Q,\dots) = T(\vec{C}(\vec{x},k_{surrounding}(\vec{x}),p_{surrounding}(\vec{x})), Q,\dots).
+$$
+
 **bisschen unverständlich was genau du hier meinst**
 
 To train this model, the entire prediction pipeline is used with the weights of the NeRF-like step frozen to keep the temperature network independent of the distortion network. A MSE loss between predicted and simulated temperature should give good gradients. 
