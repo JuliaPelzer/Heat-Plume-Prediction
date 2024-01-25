@@ -11,7 +11,7 @@ Use a large U-Net to predict the temperature field of a single heat pump, then u
 
 ### Challenges:
 1. The U-Net has a fixed size, and runtime and parameters scale with the area visible to the network. This leads to long training times for larger fields of view. The Field-Of-View Training-Time tradeoff does not allow for arbitrarily large input fields. This becomes a problem when the groundwater flows too fast and does not cool quickly enough, such that the heat plumes would extend outside of the field of view of the network
-2. Adding a third dimension or time dependence would drastically increase memory and compute requirements to the point where it is not feasable to continue this approach (**strong statement?! why not possible?? rather: would require an exponentially increasing amount of training data and time?**)
+2. Adding a third dimension or time dependence would drastically increase memory and compute requirements to the point where it is not feasible to continue this approach.
 
 ### Learnings:
 - Two stage prediction is feasible.
@@ -19,7 +19,7 @@ Use a large U-Net to predict the temperature field of a single heat pump, then u
 
 ## Approach 2: All-In-One
 
-All-In-One: All heat pumps and heat plumes of a larger domain are predicted at the same time by one fully convolutional network. Training and inference are now completely independent of each other. (**??**) This means the network can predict arbitrary large areas with lots of heat pumps, such as the intended usecase of modeling the real world influence of heat pumps on groundwater in a large city such as Munich. The inferred temperature field can be much larger than the simulated training data.
+All-In-One: All heat pumps and heat plumes of a larger domain are predicted at the same time by one fully convolutional network. Training and inference are now completely independent of each other. This means the network can predict arbitrary large areas with lots of heat pumps, even when trained on much smaller domains. This is necessary for the intended usecase of modeling the real world influence of heat pumps on groundwater in a large city such as Munich. The inferred temperature field can be much larger than the simulated training data.
 
 ### Challenges:
 1. The required network size for good accuracy is even larger than in the two stage approach.
@@ -40,11 +40,11 @@ A new network is introduced to model the temperature at any position $\vec{x}\ma
 $$T(\vec{x}, Q, T_{inj}, \dots) : \mathbb{R}^n \mapsto \mathbb{R},$$
 depending only on the parameters of the heat pump, such as volumetric pump rate $Q$ and injection temperature $T_{inj}$. As this function has only $n\approx 4$ input dimensions and a scalar output, it can be represented by a very small and shallow dense network. The training data for this network consists of variations in the input parameters of the heat pump named above and fixed standard values for the subsurface parameters such as permeability and pressure gradient.
 
-The concept of using a scalar function to model a continuous field is the same as in neural radiance fields (NeRF). **LINK to paper** The existing research  for faster training, more accurate small scale resolution of NeRFs could be leveraged if necessary.
+The concept of using a scalar function to model a continuous field is the same as in neural radiance fields (NeRF). The existing research  for faster training, more accurate small scale resolution of NeRFs could be leveraged if necessary.
 
 Adding a third dimension, time dependence or any other input parameter leads to a linear instead of exponential increase in network size.
 
-A prediction at a single point $\vec{x}\$ is in the order of microseconds (**so is any of the current networks of the 2 stages..?**), as it does not take any neighboring fields **?** into account.
+A prediction at a single point $\vec{x}$ is in the order of microseconds.
 
 ### Proof of Concept
 
@@ -54,27 +54,23 @@ This general approach can quickly be experimentally verified by overfitting on o
 
 ![proof of concept](images/NeRF%20poc.png)
 
-This creates a *differentiable* function for predicting the temperature at any given point near the heat pump. (**how is this differentiable? but maybe not relevant for now**)
+This creates a *differentiable* function for predicting the temperature at any given point near the heat pump.
 
 ## 2. step: Coordinate transformation
 
 When the permeability $k$ or the pressure gradient $\nabla p$ vary over space, the heat plumes do not follow a straight line anymore, but can be longer, shorter, curved, split or distorted in any other way. This behavior is not modeled in the simple NeRF-like first step.
 
-If the distortion was known beforehand, the coordinates that are given to the first step could be distorted correspondingly.
+If this distortion were modeled beforehand, the coordinates that are given to the NeRF-like step could be distorted correspondingly.
 This would allow changes to the NeRF step without retraining any other network.
 
-The distortion (deflection) is locally dependent on the permeability field and the pressure gradient. This allows the use of a small, fully convolutional neural network such as in [Approach 2](#approach-2-all-in-one). This network would predict the local distortion at any grid point (of the discrete permeability/pressure field).
-
-**klingt alles unter 2.step so als würde jetzt ein großes "aber das wissen wir zu dem Zeitpunkt nicht" oder so kommen**
+The distortion (deflection) is locally dependent on the permeability field and the pressure gradient. This allows the use of a small, fully convolutional neural network such as in [Approach 2](#approach-2-all-in-one). This network predicts the local distortion at any grid point (of the discrete permeability/pressure field).
 
 The network to predict the local distortion models a function 
 $$\vec{D}(\vec{x}) = \vec{D}(k_{surrounding}, p_{surrounding}): \mathbb{R}^k \times \mathbb{R}^k \mapsto \mathbb{R}^d,$$
-where $k\approx 16$ is the number of surrounding cells taken into account, and $d\in[2,3]$ are the spatial dimensions. The output is the scale of the transformed cell in each direction. **was sagt mir der letzte satz**
+where $k\approx 16$ is the number of surrounding cells taken into account, and $d\in[2,3]$ are the spatial dimensions. The output is the size of the transformed cell in each direction. 
 
 The global coordinates (relative to the heat pump's location) $\vec{C}(\vec{x}): \mathbb{R}^d \mapsto \mathbb{R}^d$ can then be constructed by a path integral over the local distortions $D$ from the heatpump to the untransformed coordinate:
-$$
-\vec{C}(\vec{x}) = \oint_{\vec{x}_{heatpump}}^{\vec{x}} D(\vec{x}) d\vec{x}'
-$$
+$$ \vec{C}(\vec{x}) = \oint_{\vec{x}_{heatpump}}^{\vec{x}} D(\vec{x}) d\vec{x}'$$
 The discrete case is just a sum over the local distortions.
 
 Consistent global coordinates are only possible if the value of the integral is independent of the path taken, implying zero curl of the distortion field ($\nabla \times \vec{D} = \vec{0}$) and requiering the local distortions to be a gradient field $\vec{D} = \nabla F$ (of an arbitrary field $F$). 
@@ -90,8 +86,7 @@ Possible ways to still get a conservative field are:
 ### Training
 
 A temperature prediction $P$ **P for T_pred?** is then calculated as 
-$$
-P(\vec{x},k(\vec{x}),p(\vec{x}),Q,\dots) = T(\vec{C}(\vec{x},k_{surrounding}(\vec{x}),p_{surrounding}(\vec{x})), Q,\dots).$$
+$$P(\vec{x},k(\vec{x}),p(\vec{x}),Q,\dots) = T(\vec{C}(\vec{x},k_{surrounding}(\vec{x}),p_{surrounding}(\vec{x})), Q,\dots).$$
 **bisschen unverständlich was genau du hier meinst**
 
 To train this model, the entire prediction pipeline is used with the weights of the NeRF-like step frozen to keep the temperature network independent of the distortion network. A MSE loss between predicted and simulated temperature should give good gradients. 
