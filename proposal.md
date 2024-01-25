@@ -85,10 +85,10 @@ $$
 
 The discrete case is just a sum over the local distortions.
 
-Consistent global coordinates are only possible if the value of the integral is independent of the path taken, implying zero curl of the distortion field ($\nabla \times \vec{D} = \vec{0}$) and requiering the local distortions to be a gradient field $\vec{D} = \nabla F$ (of an arbitrary field $F$). 
+Consistent global coordinates are only possible if the value of the integral is independent of the path taken, implying zero curl of the distortion field ($\vec{\nabla} \times \vec{D} = \vec{0}$) and requiring the local distortions to be a gradient field $\vec{D} = \nabla F$ (of any arbitrary field $F$). 
 
 ### Enforcing the constraints on the local distortion
-The only way to mathematically ensure that $\vec{D}$ is a conservative field is to learn the global field $F$ and taking the gradient. This approach would not allow the use of small local distortion predictions, drastically increasing the required network size to the point where [Approach 1](#approach-1-two-stage-network) would be more efficient.
+The only way to mathematically ensure that $\vec{D}$ is a conservative field is to learn the global field $F$ and taking its gradient. This approach would not allow the use of local distortion predictions, drastically increasing the required network size to the point where [Approach 1](#approach-1-two-stage-network) would be more efficient.
 
 Possible ways to still get a conservative field are:
 1. Always use the same easy to calculate paths (e.g. suitable for cummulative sum) and hope and pray that the network learns a reasonable field
@@ -97,13 +97,11 @@ Possible ways to still get a conservative field are:
 
 ### Training
 
-A temperature prediction $P$ **P for T_pred?** is then calculated as 
+A temperature prediction $T_{distorted}$ is then calculated as 
 
 $$
-P(\vec{x},k(\vec{x}),p(\vec{x}),Q,\dots) = T(\vec{C}(\vec{x},k_{surrounding}(\vec{x}),p_{surrounding}(\vec{x})), Q,\dots).
+T_{distorted}(\vec{x},k(\vec{x}),p(\vec{x}),Q,\dots) = T(\vec{C}(\vec{x},k_{surrounding}(\vec{x}),p_{surrounding}(\vec{x})), Q,\dots).
 $$
-
-**bisschen unverständlich was genau du hier meinst**
 
 To train this model, the entire prediction pipeline is used with the weights of the NeRF-like step frozen to keep the temperature network independent of the distortion network. A MSE loss between predicted and simulated temperature should give good gradients. 
 
