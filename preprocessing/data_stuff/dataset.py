@@ -46,7 +46,6 @@ class SimulationDataset(Dataset):
     def __getitem__(self, index):
         input = torch.load(self.path.joinpath(
             "Inputs", self.input_names[index]))
-        # input = input[:, 512:1280, 512:1280]
         label = torch.load(self.path.joinpath(
             "Labels", self.label_names[index]))
         # label = label[:, 512:1280, 512:1280]
@@ -67,7 +66,7 @@ class SimulationDatasetCuts(Dataset):
         assert self.inputs.shape[1:] == self.labels.shape[1:], "inputs and labels have different shapes"
         self.spatial_size = self.inputs.shape[1:]
         assert self.spatial_size == self.labels.shape[1:], "inputs and labels have different spatial sizes" # TODO attention, if ever load several datapoints at once, this will fail
-        self.box_size = np.array([128,128]) #512,512]) #[128,64] #[64, 32])
+        self.box_size = np.array([64,64]) #512,512]) #[128,64] #[64, 32])
         self.box_out = np.array([0,0]).astype(int) #((self.box_size - np.array([244,244]))/2).astype(int)
         self.skip_per_dir = skip_per_dir
 
@@ -90,17 +89,14 @@ class SimulationDatasetCuts(Dataset):
     def __getitem__(self, idx):
         pos = self.idx_to_pos(idx)
         # assert id too close to wall
-        assert (pos+self.box_size < self.spatial_size).all(), "box too close to wall"
+        # assert (pos+self.box_size < self.spatial_size).all(), "box too close to wall" TODO too expensive if in every call?
         inputs = self.inputs[:, pos[0]:pos[0]+self.box_size[0], pos[1]:pos[1]+self.box_size[1]]
         labels = self.labels[:, pos[0]+self.box_out[0] : pos[0]+self.box_size[0]-self.box_out[0], pos[1]+self.box_out[1] : pos[1]+self.box_size[1]-self.box_out[1]]
         return inputs, labels
 
     def idx_to_pos(self, idx):
-        assert idx < (self.spatial_size[0] - self.box_size[0]) * (self.spatial_size[1] - self.box_size[1]) // self.skip_per_dir**2, "id out of range" # should later not be required because of __len__
+        # assert idx < (self.spatial_size[0] - self.box_size[0]) * (self.spatial_size[1] - self.box_size[1]) // self.skip_per_dir**2, "id out of range" # should later not be required because of __len__ TODO too expensive if in every call?
         return np.array([((idx*self.skip_per_dir) // ((self.spatial_size[1] - self.box_size[1])))*self.skip_per_dir, (idx*self.skip_per_dir) % ((self.spatial_size[1] - self.box_size[1]))])
-    
-    # def get_run_id(self, index):
-    #     return self.input_names[index]
 
 def _get_splits(n, splits):
     splits = [int(n * s) for s in splits[:-1]]

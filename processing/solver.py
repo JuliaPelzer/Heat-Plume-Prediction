@@ -97,14 +97,14 @@ class Solver(object):
                         csv_writer.writerow([epoch, val_epoch_loss, train_epoch_loss])
                         csv_writer_best.writerow([epoch, self.best_model_params["loss"], self.best_model_params["train loss"]])
                         
-                        model_tmp = UNet(in_channels=len(settings.inputs), out_channels=1, init_features=self.model.features, depth=self.model.depth, kernel_size=self.model.kernel_size)
-                        model_tmp.load_state_dict(self.best_model_params["state_dict"])
-                        model_tmp.to(settings.device)
-                        model_tmp.save(settings.destination, model_name=f"interim_model_epoche{epoch}.pt")
-                        visualizations(model_tmp, self.val_dataloader, settings.device, plot_path=settings.destination / f"plot_val_interim", amount_datapoints_to_visu=5, pic_format="png")
+                        # model_tmp = UNet(in_channels=len(settings.inputs), out_channels=1, init_features=self.model.features, depth=self.model.depth, kernel_size=self.model.kernel_size)
+                        # model_tmp.load_state_dict(self.best_model_params["state_dict"])
+                        # model_tmp.to(settings.device)
+                        # model_tmp.save(settings.destination, model_name=f"interim_model_epoche{epoch}.pt")
+                        # visualizations(model_tmp, self.val_dataloader, settings.device, plot_path=settings.destination / f"val_interim", amount_datapoints_to_visu=1, pic_format="png")
                         
-                        for name, param in self.model.named_parameters():
-                            writer.add_histogram(name, param, epoch)
+                        # for name, param in self.model.named_parameters():
+                        #     writer.add_histogram(name, param, epoch)
                     if epoch == 1:
                         for name, param in self.model.named_parameters():
                             print(name, param.shape)

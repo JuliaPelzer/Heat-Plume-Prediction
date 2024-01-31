@@ -1,6 +1,5 @@
 import logging
 import time
-import warnings
 from dataclasses import dataclass, field
 from math import inf
 from typing import Dict
@@ -11,7 +10,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from torch.nn import Module, MSELoss, modules
-from line_profiler_decorator import profiler
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from torch.utils.data import DataLoader
 
@@ -19,10 +17,7 @@ from preprocessing.data_stuff.transforms import NormalizeTransform
 from processing.networks.unet import UNet
 # from postprocessing.measurements import measure_len_width_1K_isoline # circular import
 
-# mpl.rcParams.update({'figure.max_open_warning': 0})
 # plt.rcParams['figure.figsize'] = [16, 5]
-
-# TODO: look at vispy library for plotting 3D data
 
 @dataclass
 class DataToVisualize:
@@ -64,11 +59,15 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
     if amount_datapoints_to_visu > len(dataloader.dataset):
         amount_datapoints_to_visu = len(dataloader.dataset)
 
-    norm = dataloader.dataset.dataset.norm
-    info = dataloader.dataset.dataset.info
+    try:
+        norm = dataloader.dataset.norm
+        info = dataloader.dataset.info
+    except AttributeError:
+        norm = dataloader.dataset.dataset.norm
+        info = dataloader.dataset.dataset.info
     model.eval()
     settings_pic = {"format": pic_format,
-                    "dpi": 1200,}
+                    "dpi": 600,}
 
     current_id = 0
     for inputs, labels in dataloader:
@@ -85,7 +84,7 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
 
             if case=="test":
                 plot_datafields(dict_to_plot, name_pic, settings_pic, only_inner=True)
-            plot_datafields(dict_to_plot, name_pic, settings_pic, only_inner=False)
+            plot_datafields(dict_to_plot, name_pic, settings_pic, only_inner=False, plot_all_in_1_pic=False)
             # plot_isolines(dict_to_plot, name_pic, settings_pic)
             # measure_len_width_1K_isoline(dict_to_plot)
 
@@ -118,36 +117,49 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
 
     return dict_to_plot
 
-def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict, only_inner: bool = False):
+def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict, only_inner: bool = False, plot_all_in_1_pic: bool = True):
     # plot datafields (temperature true, temperature out, error, physical variables (inputs))
 
-    num_subplots = len(data)
-    fig, axes = plt.subplots(num_subplots, 1, sharex=True)
-    fig.set_figheight(num_subplots*5)
-    
-    for index, (name, datapoint) in enumerate(data.items()):
-        plt.sca(axes[index])
-        plt.title(datapoint.name)
-        # if name in ["t_true", "t_out"]:  
-        #     with warnings.catch_warnings():
-        #         warnings.simplefilter("ignore")
+    if plot_all_in_1_pic:
+        num_subplots = len(data)
+        fig, axes = plt.subplots(num_subplots, 1, sharex=True)
+        fig.set_figheight(num_subplots*5)
+        
+        for index, (name, datapoint) in enumerate(data.items()):
+            plt.sca(axes[index])
+            plt.title(datapoint.name)
+            if only_inner:
+                plt.imshow(datapoint.data[100:400,100:400].T, **datapoint.imshowargs)
+            else:  
+                plt.imshow(datapoint.data.T, **datapoint.imshowargs)
+            plt.gca().invert_yaxis()
 
-        #         CS = plt.contour(torch.flip(datapoint.data, dims=[1]).T, **datapoint.contourargs)
-        #     plt.clabel(CS, inline=1, fontsize=10)
-        if only_inner:
-            plt.imshow(datapoint.data[100:400,100:400].T, **datapoint.imshowargs)
-        else:  
-            plt.imshow(datapoint.data.T, **datapoint.imshowargs)
-        plt.gca().invert_yaxis()
+            plt.ylabel("x [m]")
+            _aligned_colorbar()
 
-        plt.ylabel("x [m]")
-        _aligned_colorbar()
+        plt.sca(axes[-1])
+        plt.xlabel("y [m]")
+        plt.tight_layout()
+        ext_inner = "_inner" if only_inner else ""
+        plt.savefig(f"{name_pic}{ext_inner}.{settings_pic['format']}", **settings_pic)
+    else:
+        for (name, datapoint) in data.items():
+            fig, _ = plt.subplots(1, 1, sharex=True)
+            fig.set_figheight(5)
+            plt.title(datapoint.name)
+            if only_inner:
+                plt.imshow(datapoint.data[100:400,100:400].T, **datapoint.imshowargs)
+            else:  
+                plt.imshow(datapoint.data.T, **datapoint.imshowargs)
+            plt.gca().invert_yaxis()
 
-    plt.sca(axes[-1])
-    plt.xlabel("y [m]")
-    plt.tight_layout()
-    ext_inner = "_inner" if only_inner else ""
-    plt.savefig(f"{name_pic}{ext_inner}.{settings_pic['format']}", **settings_pic)
+            plt.ylabel("x [m]")
+            _aligned_colorbar()
+
+            plt.xlabel("y [m]")
+            plt.tight_layout()
+            ext_inner = "_inner" if only_inner else ""
+            plt.savefig(f"{name_pic}{ext_inner}_{name}.{settings_pic['format']}", **settings_pic)
 
 def plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
     # plot isolines of temperature fields

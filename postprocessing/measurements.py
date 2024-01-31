@@ -50,7 +50,10 @@ def measure_len_width_1K_isoline(data: Dict[str, "DataToVisualize"]):
 
 def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: modules.loss._Loss = MSELoss()):
 
-    norm = dataloader.dataset.dataset.norm
+    try:
+        norm = dataloader.dataset.norm
+    except AttributeError:
+        norm = dataloader.dataset.dataset.norm
     model.eval()
     mse_loss = 0.0
     mse_closs = 0.0
