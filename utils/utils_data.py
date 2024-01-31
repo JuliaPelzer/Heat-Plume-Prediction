@@ -19,7 +19,9 @@ def save_yaml(settings: Dict, path: str, name_file: str = "settings"):
 
 @dataclass
 class SettingsTraining:
-    dataset_raw: str
+    dataset_train: str
+    dataset_val: str
+    dataset_test: str
     inputs: str
     device: str
     epochs: int
@@ -29,7 +31,6 @@ class SettingsTraining:
     finetune: bool = False
     model: str = None
     test: bool = False
-    case_2hp: bool = False
     visualize: bool = False
     save_inference: bool = False
     problem: str = "2stages"
@@ -53,14 +54,14 @@ class SettingsTraining:
             assert self.model != "runs/default", "Please specify model path for testing or finetuning"
 
         if self.destination == "":
-            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case
+            self.destination = self.dataset_train + " inputs_" + self.inputs + " case_"+self.case
 
     def save(self):
         save_yaml(self.__dict__, self.destination, "command_line_arguments")
         
     def make_destination_path(self, destination_dir: pathlib.Path):
         if self.destination == "":
-            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case
+            self.destination = self.dataset_train + " inputs_" + self.inputs + " case_"+self.case
         self.destination = destination_dir / self.destination
         self.destination.mkdir(exist_ok=True)
 

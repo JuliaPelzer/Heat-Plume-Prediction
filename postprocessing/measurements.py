@@ -91,7 +91,9 @@ def save_all_measurements(settings:SettingsTraining, len_dataset, times, solver:
 
         f.write(f"input params: {settings.inputs}\n")
         f.write(f"dataset location: {settings.dataset_prep.parent}\n")
-        f.write(f"dataset name: {settings.dataset_raw}\n")
+        f.write(f"dataset name: {settings.dataset_train}\n")
+        f.write(f"dataset val: {settings.dataset_val}\n")
+        f.write(f"dataset test: {settings.dataset_test}\n")
         f.write(f"case: {settings.case}\n")
         f.write(f"number of datapoints: {len_dataset}\n")
         f.write(f"name_destination_folder: {settings.destination}\n")
