@@ -6,7 +6,7 @@ import torch
 from diff_conv2d.layers import DiffConv2dLayer
 
 class UNet(nn.Module):
-    def __init__(self, in_channels=4, out_channels=1, init_features=32, depth=3, kernel_size=3):
+    def __init__(self, in_channels=4, out_channels=2, init_features=32, depth=3, kernel_size=3):
         super().__init__()
         features = init_features
         padding_mode =  "circular"            
@@ -29,11 +29,11 @@ class UNet(nn.Module):
         self.conv = nn.Conv2d(in_channels=features+4, out_channels=out_channels, kernel_size=1)
         self.activa = nn.ReLU()
 
-        self.dist = torch.tensor([[1.0 - i/959 for j in range(64)] for i in range(960)]).to("cuda:1")
-        self.mask = torch.tensor([[((j == 0 or j == 64)) for j in range(64)] for i in range(960)]).to("cuda:1")
+        # self.dist = torch.tensor([[1.0 - i/63 for j in range(64)] for i in range(64)]).to("cuda:2")
+        self.mask = torch.tensor([[((j == 0 or j == 63)) for j in range(64)] for i in range(64)]).to("cuda:2")
 
     def forward(self, x: tensor) -> tensor:
-        x = cat((x[:, 0:3], self.dist.repeat(x.shape[0], 1, 1, 1)), dim=1)
+        # x = cat((x[:, 0:3], self.dist.repeat(x.shape[0], 1, 1, 1)), dim=1)
         encodings = [x]
         for encoder, pool in zip(self.encoders, self.pools):
             x = encoder(x)
@@ -49,8 +49,8 @@ class UNet(nn.Module):
 
         x = self.conv(cat((x, encodings[0]), dim=1))
         #x = encodings[0][:, 0:1] + x
-        x[self.mask.repeat(x.shape[0], 1, 1, 1)] = torch.zeros_like(x)[self.mask.repeat(x.shape[0], 1, 1, 1)]
-        return x
+        x[:, 0:1][self.mask.repeat(x.shape[0], 1, 1, 1)] = torch.zeros_like(x[:, 0:1])[self.mask.repeat(x.shape[0], 1, 1, 1)]
+        return torch.cat((encodings[0][:, 0:2, :, :], x), dim=2)
 
     @staticmethod
     def _block(in_channels, features, kernel_size=5, padding_mode="replicate"):
