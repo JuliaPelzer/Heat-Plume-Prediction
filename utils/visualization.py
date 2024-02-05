@@ -103,31 +103,26 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     # prepare data of temperature true, temperature out, error, physical variables (inputs)
     temp = y[0]
     temp_out = y_out[0]
-    press = y[1]
-    press_out = y_out[1]
+    pressure = torch.tensor(848673.4375)
+    gradient = x[1].repeat(2, 1)
     perm = x[2].repeat(2, 1)
 
     temp_max = max(temp.max(), temp_out.max())
     temp_min = min(temp.min(), temp_out.min())
-    press_max = max(press.max(), press_out.max())
-    press_min = min(press.min(), press_out.min())
     print(info["CellsSize"][:2], x.shape[-2:])
     extent_highs = (np.array(info["CellsSize"][:2]) * y.shape[-2:])
 
     PhysicalLoss = PhysicalLossV2("cpu")
-    energy_residual_true = PhysicalLoss.get_energy_error(temp.unsqueeze(0), press.unsqueeze(0), perm.unsqueeze(0), 5).squeeze()
-    energy_residual_out = PhysicalLoss.get_energy_error(temp_out.unsqueeze(0), press_out.unsqueeze(0), perm.unsqueeze(0), 5).squeeze()
-    cont_residual_true = PhysicalLoss.get_continuity_error(temp.unsqueeze(0), press.unsqueeze(0), perm.unsqueeze(0), 5).squeeze()
-    cont_residual_out = PhysicalLoss.get_continuity_error(temp_out.unsqueeze(0), press_out.unsqueeze(0), perm.unsqueeze(0), 5).squeeze()
+    energy_residual_true = PhysicalLoss.get_energy_error(temp.unsqueeze(0), gradient.unsqueeze(0), pressure, perm.unsqueeze(0), 5).squeeze()
+    energy_residual_out = PhysicalLoss.get_energy_error(temp_out.unsqueeze(0), gradient.unsqueeze(0), pressure, perm.unsqueeze(0), 5).squeeze()
+    cont_residual_true = PhysicalLoss.get_continuity_error(temp.unsqueeze(0), gradient.unsqueeze(0), pressure, perm.unsqueeze(0), 5).squeeze()
+    cont_residual_out = PhysicalLoss.get_continuity_error(temp_out.unsqueeze(0), gradient.unsqueeze(0), pressure, perm.unsqueeze(0), 5).squeeze()
     
 
     dict_to_plot = {
         "t_true": DataToVisualize(temp, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
         "t_out": DataToVisualize(temp_out, "Prediction: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
         "t_error": DataToVisualize(temp-temp_out, "Error in [°C]", extent_highs),
-        "p_true": DataToVisualize(press, "Label: Pressure in [Pa]", extent_highs, {"vmax": press_max, "vmin": press_min}),
-        "p_out": DataToVisualize(press_out, "Prediction: Pressure in [Pa]", extent_highs, {"vmax": press_max, "vmin": press_min}),
-        "p_error": DataToVisualize(press-press_out, "Error in [Pa]", extent_highs),
         "energy_residual_true": DataToVisualize(energy_residual_true, "Label: Energy residual   {:.5e}".format(torch.mean(torch.pow(energy_residual_true, 2))), extent_highs),
         "energy_residual_out": DataToVisualize(energy_residual_out, "Prediction: Energy residual   {:.5e}".format(torch.mean(torch.pow(energy_residual_out, 2))), extent_highs),
         "cont_residual_true": DataToVisualize(cont_residual_true, "Label: Continuity residual   {:.5e}".format(torch.mean(torch.pow(cont_residual_true, 2))), extent_highs),
@@ -216,7 +211,7 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str):
             y = norm.reverse(y.cpu().detach(),"Labels")[0]
             y_out = norm.reverse(y_out.cpu().detach()[0],"Labels")[0]
             avg_inference_time += (time.perf_counter() - start_time)
-            summed_error_pic += abs(y[0]-y_out[0])
+            summed_error_pic += abs(y[64:]-y_out[64:])
 
             current_id += 1
 

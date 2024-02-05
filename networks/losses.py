@@ -128,25 +128,38 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and linear i
         output_swap = output.clone().swapaxes(0, 1)
         inputs = norm.reverse(input_swap, "Inputs")
         permeability = inputs[2,:,:,:].repeat(1, 2, 1).unsqueeze(1)
+        gradient = inputs[1,:,:,:].repeat(1, 2, 1).unsqueeze(1)
         outputs = norm.reverse(output_swap, "Labels")
         temperature = outputs[0,:,:,:].unsqueeze(1)
-        pressure = outputs[1,:,:,:].unsqueeze(1)
+        pressure = torch.tensor(848673.4375)
         # boundary_error = torch.mean(torch.pow(output[:, 0][self.mask.repeat(temperature.size(0), 1, 1)] - target[:, 0][self.mask.repeat(temperature.size(0), 1, 1)], 2))
         # boundary_error += torch.mean(torch.pow(output[:, 1][self.mask.repeat(temperature.size(0), 1, 1)] - target[:, 1][self.mask.repeat(temperature.size(0), 1, 1)], 2))
         # temperature_error = torch.mean(torch.pow(torch.minimum(temperature-10.6, torch.zeros_like(temperature)), 2)) + torch.mean(torch.pow(torch.maximum(temperature - 15.6, torch.zeros_like(temperature)), 2))
 
         cell_width = dataset.info["CellsSize"][0]
 
-        continuity_error = self.get_continuity_error(temperature, pressure, permeability, cell_width)
+        # continuity_error = self.get_continuity_error(temperature[:, :, 62:], gradient[:, :, 62:], pressure, permeability[:, :, 62:], cell_width)
+        # continuity_error[:, :, 0:3] = continuity_error[:, :, 0:3] * 10.0
         
-        energy_error = self.get_energy_error(temperature, pressure, permeability, cell_width)
+        energy_error = self.get_energy_error(temperature[:, :, 62:], gradient[:, :, 62:], pressure, permeability[:, :, 62:], cell_width)
+        # energy_error[:, :, 0:3] = energy_error[:, :, 0:3] * 2.0
 
-        physics_loss_orig = self.weight[0] * torch.mean(torch.pow(continuity_error, 2)) + self.weight[1] * torch.mean(torch.pow(energy_error, 2))
+        weights = torch.tensor([[1., 1.],
+                                [1., 1.]], device=self.device)
+        weights = weights.view(1, 1, 2, 2)
+
+        energy_error_downsampled = nn.functional.conv2d(energy_error, weights)
+
+        # physics_loss_orig = self.temporally_weighted_loss(energy_error)
+        physics_loss_orig = torch.mean(torch.pow(energy_error_downsampled, 2))
+        # physics_loss_orig = torch.mean(torch.pow(energy_error, 2)) #+ torch.mean(torch.pow(continuity_error, 2))
+
+        #physics_loss_orig = self.weight[0] * torch.mean(torch.pow(continuity_error, 2)) + self.weight[1] * torch.mean(torch.pow(energy_error, 2))
         #physics_loss_orig = self.weight[0] * torch.mean(torch.abs(continuity_error)) + self.weight[1] * torch.mean(torch.abs(energy_error)) # 
-        continuity_error_dx = self.central_differences_x(continuity_error, cell_width)
-        continuity_error_dy = self.central_differences_y(continuity_error, cell_width)
-        energy_error_dx = self.central_differences_x(energy_error, cell_width)
-        energy_error_dy = self.central_differences_y(energy_error, cell_width)
+        # continuity_error_dx = self.central_differences_x(continuity_error, cell_width)
+        # continuity_error_dy = self.central_differences_y(continuity_error, cell_width)
+        # energy_error_dx = self.central_differences_x(energy_error, cell_width)
+        # energy_error_dy = self.central_differences_y(energy_error, cell_width)
 
 
         # multigrid losses
@@ -163,6 +176,17 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and linear i
         # physics_loss_grid_4 = self.get_physical_loss(temperature_grid_4, pressure_grid_4, permeability_grid_4, cell_width_grid_4)
 
         return physics_loss_orig #+ 1e4 *  boundary_error +  (torch.max(torch.abs(continuity_error_dx)) + torch.max(torch.abs(continuity_error_dy)) + torch.max(torch.abs(energy_error_dx)) + torch.max(torch.abs(energy_error_dy)))
+
+    def temporally_weighted_loss(self, residual):
+        epsilon = -100.0
+        residual = torch.mean(torch.pow(residual, 2), (0, 1, 3))
+        N = residual.shape[0]
+        weights = torch.zeros(N, device=residual.device)
+        partial_sum = torch.tensor(0.0)
+        for i in range(N):
+            partial_sum = partial_sum + residual[i]
+            weights[i] = torch.exp(epsilon * partial_sum)
+        return torch.mean(weights.detach() * residual)
 
     def get_physical_loss(self, temperature, pressure, permeability, cell_width):
         continuity_error = self.get_continuity_error(temperature, pressure, permeability, cell_width)
@@ -184,28 +208,28 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and linear i
         return q_x, q_y
 
 
-    def get_continuity_error(self, temperature, pressure, permeability, cell_width):
+    def get_continuity_error(self, temperature, gradient, pressure, permeability, cell_width):
         density, molar_density = eos_water_density_IFC67(temperature, pressure)
-        saturation_pressure = eos_water_saturation_pressure_IFC67(temperature)
-        viscosity = eos_water_viscosity_1(temperature, pressure, saturation_pressure)
 
-        alpha_pressure = -1.0 * molar_density * permeability / viscosity
+        q_x = -1.0 * gradient * permeability *1000*1000*9.81
 
-        return self.complex_laplace(alpha_pressure, pressure, cell_width)  # mistake around pump
+        cont_error_pressure = self.central_differences_x(molar_density * q_x, cell_width)
+
+        return cont_error_pressure
     
 
-    def get_energy_error(self, temperature, pressure, permeability, cell_width):
+    def get_energy_error(self, temperature, gradient, pressure, permeability, cell_width):
         # thermal conductivity is constant
         thermal_conductivity = 1.0
     
         density, molar_density = eos_water_density_IFC67(temperature, pressure)
         enthalpy = eos_water_enthalphy(temperature, pressure)
-        saturation_pressure = eos_water_saturation_pressure_IFC67(temperature)
-        viscosity = eos_water_viscosity_1(temperature, pressure, saturation_pressure)
 
-        alpha_pressure = -1.0 * molar_density * permeability / viscosity * enthalpy
+        alpha_pressure = molar_density * enthalpy
 
-        energy_error_pressure = self.complex_laplace(alpha_pressure, pressure, cell_width)
+        q_x = -1.0 * gradient * permeability *1000*1000*9.81
+
+        energy_error_pressure = self.central_differences_x(alpha_pressure * q_x, cell_width)
         energy_error_temperature = -1.0 * thermal_conductivity * self.laplace(temperature, cell_width)
         
         # print("enthalpy:", enthalpy[..., 22, 6])
@@ -213,7 +237,7 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and linear i
         # print("energy_error_temperature:", energy_error_temperature[..., 22, 6])
         # print("energy_error:", energy_error_pressure[..., 22, 6] + energy_error_temperature[..., 22, 6])
 
-        return energy_error_pressure + energy_error_temperature # mistake around pump
+        return energy_error_pressure + energy_error_temperature
 
 
     def central_differences_x(self, values: torch.tensor, h = 1.0):

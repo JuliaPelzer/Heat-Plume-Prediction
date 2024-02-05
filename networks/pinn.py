@@ -4,7 +4,7 @@ import pathlib
 import torch
 
 class SVDPINN(nn.Module):
-    def __init__(self, dataset, in_channels=4, out_channels=2, neurons_per_layer=80, hidden_layers=3, num_sing_values=50):
+    def __init__(self, dataset, in_channels=4, out_channels=2, neurons_per_layer=80, hidden_layers=2, num_sing_values=50):
         super().__init__()    
         self.layers = nn.ModuleList()
         self.layers.append(nn.Linear(num_sing_values+2, neurons_per_layer))
@@ -13,24 +13,24 @@ class SVDPINN(nn.Module):
             self.layers.append(nn.Linear(neurons_per_layer, neurons_per_layer))
             self.layers.append(nn.ReLU())
         self.layers.append(nn.Linear(neurons_per_layer, num_sing_values))
-        self.U = dataset.U[:, 0:num_sing_values].to("cuda:2")
+        self.U = dataset.U[:, 0:num_sing_values].to("cuda:1")
         self.sigmoid = nn.Sigmoid()
 
 
     def forward(self, x_in: tensor) -> tensor:
-        x = x_in[:, 0:2, :, :]
+        x = x_in[:, 0:1, :, :]
         batch, dim, N, M = x.shape
-        temp_in = torch.matmul(x.reshape(batch, 1, dim * N * M), self.U)[:, 0]
+        temp_in = torch.matmul(x.reshape(batch, 1,  N * M), self.U)[:, 0]
         permeability = x_in[:, 2, 0, 0].unsqueeze(1)
-        gradient = x_in[:, 3, 0, 0].unsqueeze(1)
+        gradient = x_in[:, 1, 0, 0].unsqueeze(1)
         
         x = torch.cat((temp_in, permeability, gradient), dim=1)
         for layer in self.layers:
             x = layer(x)
 
-        x = torch.matmul(x.unsqueeze(1), torch.t(self.U)).reshape((batch, dim, N, M))
-        x[0] = self.sigmoid(x[0])
-        return torch.cat((x_in[:, 0:2, :, :], x), dim=2)
+        x = torch.matmul(x.unsqueeze(1), torch.t(self.U)).reshape((batch, 1, N, M))
+        #x = self.sigmoid(x)
+        return torch.cat((x_in[:, 0:1, :, :], x), dim=2)
 
     def load(self, model_path:pathlib.Path, device:str = "cpu", model_name: str = "model.pt"):
         self.load_state_dict(load(model_path/model_name))
