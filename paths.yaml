@@ -1,5 +1,5 @@
 default_raw_dir: /scratch/sgs/pelzerja/datasets
-datasets_prepared_dir: /home/pelzerja/pelzerja/test_nn/datasets_prepared
+datasets_prepared_dir: /scratch/sgs/pelzerja/datasets_prepared #/home/pelzerja/pelzerja/test_nn/datasets_prepared
 datasets_raw_domain_dir: /scratch/sgs/pelzerja/datasets/2hps_demonstrator_copy_of_local
 datasets_prepared_domain_dir: /home/pelzerja/pelzerja/test_nn/datasets_prepared/2HP_domain
 prepared_1hp_best_models_and_data_dir: /home/pelzerja/pelzerja/test_nn/1HP_NN_preparation_BEST_models_and_data
