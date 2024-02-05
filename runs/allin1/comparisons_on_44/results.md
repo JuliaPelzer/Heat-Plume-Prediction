@@ -148,3 +148,5 @@ compared to the cutout validation above: not better: immediatly overfits (see lo
 | **32** | 242064 | 60516 | 15129 | 3782 | 945 |
 | **64** | 234256 | 58564 | 14641 | 3660 | 915 |
 | **128** | ? | 54756 | 13689 | 3422 | 855 |
+
+# IMPORTANT NOTE: ALL DONE ON 5 years!! Change back in prepare_1ststage.py
