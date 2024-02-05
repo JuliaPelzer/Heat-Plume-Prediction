@@ -19,6 +19,8 @@ def save_yaml(settings: Dict, path: str, name_file: str = "settings"):
 
 @dataclass
 class SettingsTraining:
+    skip_per_dir: int
+    box_size: int
     dataset_train: str
     dataset_val: str
     dataset_test: str

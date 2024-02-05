@@ -45,17 +45,18 @@ def init_data(settings: SettingsTraining, seed=1):
     return dataset.input_channels, dataloaders
 
 
-def init_data_different_datasets(settings: SettingsTraining, settings_val: SettingsTraining = None, settings_test: SettingsTraining = None):
+def init_data_different_datasets(settings: SettingsTraining, settings_val: SettingsTraining = None, settings_test: SettingsTraining = None, skip_per_dir:int=32, box_size:int=64):
+    # TODO more efficient: skip_per_dir und box_size sind eh schon in settings drin...
     dataloaders = {}
 
     if settings.case == "test":
         dataset = SimulationDataset(settings.dataset_prep)
         dataloaders["test"] = DataLoader(dataset, batch_size=100, shuffle=True, num_workers=0)
     else:
-        dataset = SimulationDatasetCuts(settings.dataset_prep, skip_per_dir=32)
+        dataset = SimulationDatasetCuts(settings.dataset_prep, skip_per_dir=skip_per_dir, box_size=box_size)
         dataloaders["train"] = DataLoader(dataset, batch_size=100, shuffle=True, num_workers=0)
         if settings_val:
-            dataset_tmp = SimulationDatasetCuts(settings_val.dataset_prep, skip_per_dir=32)
+            dataset_tmp = SimulationDatasetCuts(settings_val.dataset_prep, skip_per_dir=skip_per_dir, box_size=box_size)
             dataloaders["val"] = DataLoader(dataset_tmp, batch_size=100, shuffle=True, num_workers=0)
         if settings_test:
             dataset_tmp = SimulationDataset(settings_test.dataset_prep)
@@ -66,7 +67,7 @@ def init_data_different_datasets(settings: SettingsTraining, settings_val: Setti
     return dataset.input_channels, dataloaders
 
 
-def run(settings: SettingsTraining, settings_val: SettingsTraining = None, settings_test: SettingsTraining = None):
+def run(settings: SettingsTraining, settings_val: SettingsTraining = None, settings_test: SettingsTraining = None, skip_per_dir:int=32, box_size:int=64):
     np.random.seed(1)
     multiprocessing.set_start_method("spawn", force=True)
 
@@ -77,7 +78,7 @@ def run(settings: SettingsTraining, settings_val: SettingsTraining = None, setti
     times["timestamp_begin"] = time.ctime()
 
     if different_datasets:
-        input_channels, dataloaders = init_data_different_datasets(settings, settings_val, settings_test)
+        input_channels, dataloaders = init_data_different_datasets(settings, settings_val, settings_test, skip_per_dir=skip_per_dir, box_size=box_size)
     else:
         input_channels, dataloaders = init_data(settings)
 
@@ -126,7 +127,9 @@ def run(settings: SettingsTraining, settings_val: SettingsTraining = None, setti
             print("Visualizations finished")
         else:
             # settings.device = "cpu"
-            visualizations(model, dataloaders["val"], settings.device, plot_path=settings.destination / f"val", amount_datapoints_to_visu=1, pic_format=pic_format, case=settings.case)
+            try:
+                visualizations(model, dataloaders["val"], settings.device, plot_path=settings.destination / f"val", amount_datapoints_to_visu=1, pic_format=pic_format, case=settings.case)
+            except: pass
             visualizations(model, dataloaders["test"], settings.device, plot_path=settings.destination / f"test", amount_datapoints_to_visu=1, pic_format=pic_format, case=settings.case)
 
             settings.case = "test"
@@ -176,18 +179,21 @@ if __name__ == "__main__":
     parser.add_argument("--save_inference", type=bool, default=False)
     parser.add_argument("--problem", type=str, choices=["extend", "allin1", "2stages"], default="allin1")
     parser.add_argument("--notes", type=str, default="")
+    parser.add_argument("--skip_per_dir", type=int, default=32)
+    parser.add_argument("--box_size", type=int, default=64)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 
+    settings_case = settings.case
     settings = prepare_data_and_paths(settings, dataset_raw=settings.dataset_train)
     settings.case = "test"
     settings.model = settings.destination
     settings_val = prepare_data_and_paths(deepcopy(settings), dataset_raw=settings.dataset_val)
     settings_test = prepare_data_and_paths(deepcopy(settings), dataset_raw=settings.dataset_test)
-    settings.case = "train"
+    settings.case = settings_case
 
 
-    model = run(settings, settings_val, settings_test)
+    model = run(settings, settings_val, settings_test, skip_per_dir=args.skip_per_dir, box_size=args.box_size)
 
     if args.save_inference:
         save_inference(settings.model, len(args.inputs), settings)
