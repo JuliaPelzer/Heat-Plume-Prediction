@@ -82,10 +82,13 @@ def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name: str = 
         ), inputs, destination_dir
 
 def extend_paths_for_problem(problem:str, default_raw_dir: pathlib.Path, destination_dir: pathlib.Path, datasets_prepared_dir: pathlib.Path)-> typing.Tuple[pathlib.Path, pathlib.Path, pathlib.Path]:
-    if problem == "extend":
-        default_raw_dir = default_raw_dir / "1hp_boxes"
-        destination_dir = destination_dir / "extend_plumes"
-        datasets_prepared_dir = datasets_prepared_dir / "1hp_boxes"
+    if problem in ["extend1", "extend2"]:
+        default_raw_dir = default_raw_dir / "extend_plumes"
+        datasets_prepared_dir = datasets_prepared_dir / "extend_plumes"
+        if problem == "extend1":
+            destination_dir = destination_dir / "extend_plumes1"
+        else:
+            destination_dir = destination_dir / "extend_plumes2"
     elif problem == "allin1":
         default_raw_dir = default_raw_dir / "giant_manyhps"
         destination_dir = destination_dir / "allin1"
