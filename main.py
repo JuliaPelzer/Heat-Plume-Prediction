@@ -4,15 +4,15 @@ import multiprocessing
 import numpy as np
 import time
 import torch
+import yaml
 from torch.utils.data import DataLoader, random_split
 # tensorboard --logdir=runs/ --host localhost --port 8088
-from torch.utils.tensorboard import SummaryWriter
 from torch.nn import MSELoss
 
 from data_stuff.dataset import SimulationDataset, _get_splits
 from data_stuff.utils import SettingsTraining
 from networks.unet import UNet, UNetBC
-from solvers.solver import Solver
+from processing.solver import Solver
 from preprocessing.prepare import prepare_data_and_paths
 from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
 from postprocessing.measurements import measure_loss, save_all_measurements
@@ -37,7 +37,7 @@ def init_data(settings: SettingsTraining, seed=1):
     except: pass
     dataloaders["test"] = DataLoader(datasets[2], batch_size=50, shuffle=True, num_workers=0)
 
-    return dataset, dataloaders
+    return dataset.input_channels, dataloaders
 
 
 def run(settings: SettingsTraining):
@@ -47,10 +47,10 @@ def run(settings: SettingsTraining):
     times["time_begin"] = time.perf_counter()
     times["timestamp_begin"] = time.ctime()
 
-    dataset, dataloaders = init_data(settings)
+    input_channels, dataloaders = init_data(settings)
 
     # model
-    model = UNet(in_channels=dataset.input_channels).float()
+    model = UNet(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)
@@ -125,11 +125,14 @@ if __name__ == "__main__":
     parser.add_argument("--case", type=str, choices=["train", "test", "finetune"], default="train")
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
     parser.add_argument("--destination", type=str, default="")
-    parser.add_argument("--inputs", type=str, choices=["gki", "gksi", "pksi", "gks", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100", "t", "gkiab", "gksiab", "gkt"], default="gksi")
+    parser.add_argument("--inputs", type=str, default="gksi") #choices=["gki", "gksi", "pksi", "gks", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100", "t", "gkiab", "gksiab", "gkt"]
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
-    parser.add_argument("--problem", type=str, choices=["extend", "allin1", "2stages"], default="extend")
+    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2",], default="extend1")
+    parser.add_argument("--notes", type=str, default="")
+    parser.add_argument("--len_box", type=int, default=256)
+    parser.add_argument("--skip_per_dir", type=int, default=256)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 
@@ -139,4 +142,3 @@ if __name__ == "__main__":
 
     if args.save_inference:
         save_inference(settings.model, len(args.inputs), settings)
-

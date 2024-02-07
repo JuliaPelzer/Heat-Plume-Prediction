@@ -13,10 +13,12 @@ def prepare_data_and_paths(settings:SettingsTraining):
         settings.dataset_prep = paths.dataset_1st_prep_path
 
     else:
+        assert settings.problem == "2stages", "2nd stage is only possible with 2stages problem"
         paths: Paths2HP
-        paths, inputs_1hp, destination_dir = set_paths_2hpnn(settings.dataset_raw, settings.inputs, dataset_prep = settings.dataset_prep, problem=settings.problem)
+        paths, inputs_1hp, destination_dir = set_paths_2hpnn(settings.dataset_raw, settings.inputs, dataset_prep = settings.dataset_prep,)
         settings.dataset_prep = paths.datasets_boxes_prep_path
     settings.make_destination_path(destination_dir)
+    settings.save_notes()
     settings.make_model_path(destination_dir)
 
     if not settings.case_2hp:

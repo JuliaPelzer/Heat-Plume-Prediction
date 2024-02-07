@@ -17,7 +17,6 @@ from torch.utils.data import DataLoader
 
 from data_stuff.transforms import NormalizeTransform
 from networks.unet import UNet
-from postprocessing.measurements import measure_len_width_1K_isoline
 
 # mpl.rcParams.update({'figure.max_open_warning': 0})
 # plt.rcParams['figure.figsize'] = [16, 5]

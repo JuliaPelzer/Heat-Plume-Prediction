@@ -19,10 +19,11 @@ from preprocessing.prepare_paths import Paths1HP, Paths2HP
 
 def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, info_file: str = "info.yaml"):
     time_begin = time.perf_counter()
+    info_file_path = settings.model / info_file
 
     if settings.case == "test" or settings.case_2hp:
         # get info of training
-        with open(settings.model / info_file, "r") as file:
+        with open(info_file_path, "r") as file:
             info = yaml.safe_load(file)
         prepare_dataset(paths, settings.inputs, info=info)
     else:

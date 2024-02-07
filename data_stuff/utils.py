@@ -33,6 +33,9 @@ class SettingsTraining:
     visualize: bool = False
     save_inference: bool = False
     problem: str = "2stages"
+    notes: str = ""
+    skip_per_dir: int = 4
+    len_box: int = 256
     
     def __post_init__(self):
         if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:
@@ -65,3 +68,9 @@ class SettingsTraining:
 
     def make_model_path(self, destination_dir: pathlib.Path):
         self.model = destination_dir / self.model
+
+    def save_notes(self):
+        # save notes to text file in destination
+        if self.notes != "":
+            with open(self.destination / "notes.txt", "w") as file:
+                file.write(self.notes)

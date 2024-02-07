@@ -8,7 +8,9 @@ from torch.nn import Module, MSELoss, modules
 from torch.optim import Adam, Optimizer
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torch import manual_seed
 from tqdm.auto import tqdm
+from postprocessing.visualization import visualizations
 
 from data_stuff.utils import SettingsTraining
 from networks.unet import weights_init, UNet
@@ -35,6 +37,7 @@ class Solver(object):
             self.model.apply(weights_init)
 
     def train(self, settings: SettingsTraining):
+        manual_seed(0)
         log_val_epoch = True
         if log_val_epoch:
             file = open(settings.destination / "log_loss_per_epoch.csv", 'w', newline='')
@@ -92,8 +95,8 @@ class Solver(object):
                     if epoch in [1, 250, 500, 1000, 2500, 5000, 10000, 15000, 20000, 24999]:
                         csv_writer.writerow([epoch, val_epoch_loss, train_epoch_loss])
                         csv_writer_best.writerow([epoch, self.best_model_params["loss"], self.best_model_params["train loss"]])
-                        for name, param in self.model.named_parameters():
-                            writer.add_histogram(name, param, epoch)
+                        # for name, param in self.model.named_parameters():
+                        #     writer.add_histogram(name, param, epoch)
                     if epoch == 1:
                         for name, param in self.model.named_parameters():
                             print(name, param.shape)
@@ -101,7 +104,9 @@ class Solver(object):
             except KeyboardInterrupt:
                 model_tmp = UNet(in_channels=len(settings.inputs), out_channels=1)
                 model_tmp.load_state_dict(self.best_model_params["state_dict"])
+                model_tmp.to(settings.device)
                 model_tmp.save(settings.destination, model_name=f"interim_model_epoche{epoch}.pt")
+                visualizations(model_tmp, self.val_dataloader, settings.device, plot_path=settings.destination / f"plot_val_interim", amount_datapoints_to_visu=2, pic_format="png")
 
                 try:
                     new_lr = float(input("\nNew learning rate: "))
@@ -156,7 +161,7 @@ class Solver(object):
         # check if path contains lr-schedule, else use default one
         if not path.exists():
             logging.warning(f"Could not find lr-schedule at {path}. Using default lr-schedule instead.")
-            path = pathlib.Path.cwd() / "networks"
+            path = pathlib.Path.cwd() / "processing" / "lr_schedules"
             lr_schedule_file = "default_lr_schedule.csv" if not case_2hp else "default_lr_schedule_2hp.csv"
             path = path / lr_schedule_file
 
