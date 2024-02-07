@@ -61,7 +61,7 @@ class SettingsTraining:
         
     def make_destination_path(self, destination_dir: pathlib.Path):
         if self.destination == "":
-            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case
+            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " box"+str(self.len_box) + " skip"+str(self.skip_per_dir)
         self.destination = destination_dir / self.destination
         self.destination.mkdir(exist_ok=True)
 
