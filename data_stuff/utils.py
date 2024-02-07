@@ -5,16 +5,15 @@ from typing import Dict
 import yaml
 
 
-def load_yaml(path: str, file_name="settings") -> Dict:
-    path = pathlib.Path(path)
-    with open(path.joinpath(f"{file_name}.yaml"), "r") as file:
+def load_yaml(path: pathlib.Path, file_name="settings") -> Dict:
+    with open(path / f"{file_name}.yaml", "r") as file:
         settings = yaml.safe_load(file)
     return settings
 
 
 def save_yaml(settings: Dict, path: str, name_file: str = "settings"):
     path = pathlib.Path(path)
-    with open(path.joinpath(f"{name_file}.yaml"), "w") as file:
+    with open(path / f"{name_file}.yaml", "w") as file:
         yaml.dump(settings, file)
 
 @dataclass

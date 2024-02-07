@@ -81,7 +81,7 @@ def calc_learnable_params(datapoint: DataToVisualize, domain_size_meters: np.arr
 def main_input_params(dataset_raw_path: pathlib.Path, destination_path: pathlib.Path):
     # attention: expects the loc_hp to NOT vary over the dataset
     
-    settings = load_yaml(os.path.join(dataset_raw_path, "inputs"))
+    settings = load_yaml(pathlib.Path(dataset_raw_path) / "inputs")
     loc_hp = settings["grid"]["loc_hp"]
 
     for dir in dataset_raw_path.iterdir():
