@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, random_split
 # tensorboard --logdir=runs/ --host localhost --port 8088
 from torch.nn import MSELoss
 
-from data_stuff.dataset import SimulationDataset, _get_splits
+from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, _get_splits
 from data_stuff.utils import SettingsTraining
 from networks.unet import UNet, UNetBC
 from processing.solver import Solver
@@ -22,7 +22,13 @@ from postprocessing.measurements import measure_loss, save_all_measurements
 # torch.cuda.empty_cache()
 
 def init_data(settings: SettingsTraining, seed=1):
-    dataset = SimulationDataset(settings.dataset_prep)
+    if settings.problem == "2stages":
+        dataset = SimulationDataset(settings.dataset_prep)
+    elif settings.problem == "extend1":
+        dataset = DatasetExtend1(settings.dataset_prep, box_size=settings.len_box)
+    elif settings.problem == "extend2":
+        dataset = DatasetExtend2(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
+    print(f"Length of dataset: {len(dataset)}")
     generator = torch.Generator().manual_seed(seed)
 
     split_ratios = [0.7, 0.2, 0.1]
