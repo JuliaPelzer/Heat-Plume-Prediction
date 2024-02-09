@@ -54,7 +54,7 @@ class SettingsTraining:
             assert self.model != "runs/default", "Please specify model path for testing or finetuning"
 
         if self.destination == "":
-            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case
+            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " box"+str(self.len_box) + " skip"+str(self.skip_per_dir)
 
     def save(self):
         save_yaml(self.__dict__, self.destination, "command_line_arguments")
