@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, random_split
 # tensorboard --logdir=runs/ --host localhost --port 8088
 from torch.nn import MSELoss
 
-from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, _get_splits
+from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits, random_split_extend
 from data_stuff.utils import SettingsTraining
 from networks.unet import UNet, UNetBC
 from processing.solver import Solver
@@ -34,7 +34,7 @@ def init_data(settings: SettingsTraining, seed=1):
     split_ratios = [0.7, 0.2, 0.1]
     if settings.case == "test": # TODO change back
         split_ratios = [0.0, 0.0, 1.0] 
-    datasets = random_split(dataset, _get_splits(len(dataset), split_ratios), generator=generator)
+    datasets = random_split_extend(dataset, get_splits(len(dataset.input_names), split_ratios), generator=generator)
 
     dataloaders = {}
     try:

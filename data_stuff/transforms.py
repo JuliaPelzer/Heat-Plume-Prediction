@@ -243,8 +243,7 @@ class ReduceTo2DTransform:
                 assert self.loc_hp_slice <= data[prop].shape[
                     0], "ReduceTo2DTransform: x is larger than data dimension 0"
                 data[prop] = data[prop][self.loc_hp_slice, :, :]
-                data[prop] = unsqueeze(
-                    data[prop], 0)  # TODO necessary?
+                data[prop] = unsqueeze(data[prop], 0)  # TODO necessary?
         logging.info(
             "Reduced data to 2D, but still has dummy dimension 0 for Normalization to work")
         return data

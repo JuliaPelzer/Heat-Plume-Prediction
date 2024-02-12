@@ -1,10 +1,12 @@
 import os
 import pathlib
 
-import numpy as np
 import torch
 import yaml
-from torch.utils.data import Dataset
+from torch import default_generator, randperm, Generator
+from torch.utils.data import Dataset, Subset
+from torch._utils import _accumulate
+from typing import List,Optional,Sequence
 
 from data_stuff.transforms import NormalizeTransform
 
@@ -124,7 +126,7 @@ class DatasetExtend2(Dataset):
         with open(self.path / "info.yaml", "r") as f:
             info = yaml.safe_load(f)
         return info
-
+    
     def __len__(self):
         return len(self.input_names) * self.dp_per_run
 
@@ -142,8 +144,22 @@ class DatasetExtend2(Dataset):
 
     def idx_to_pos(self, idx):
         return idx // self.dp_per_run, idx % self.dp_per_run
-    
-def _get_splits(n, splits):
+
+def get_splits(n, splits):
     splits = [int(n * s) for s in splits[:-1]]
     splits.append(n - sum(splits))
     return splits
+
+def random_split_extend(dataset: DatasetExtend2, lengths: Sequence[int],
+                 generator: Optional[Generator] = default_generator) -> List[Subset]:
+    r"""
+        Copy from torch.utils.data.dataset with adaptation to of 'blow up indices'
+    """
+    indices = randperm(sum(lengths), generator=generator).tolist()
+    indices_extend = []
+    for index in indices:
+        indices_extend.extend([index*dataset.dp_per_run + i for i in range(dataset.dp_per_run)])
+
+    lengths = [length * dataset.dp_per_run for length in lengths]
+
+    return [Subset(dataset, indices_extend[offset - length : offset]) for offset, length in zip(_accumulate(lengths), lengths)]
