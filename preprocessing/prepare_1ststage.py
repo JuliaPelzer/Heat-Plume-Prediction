@@ -123,7 +123,10 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
     assert len(y.shape) == 3, "y is expected to be 2D"
     dims = list(y.shape)[1:]
     info["CellsNumber"] = dims
-    info["PositionLastHP"] = loc_hp.tolist()
+    try:
+        info["PositionLastHP"] = loc_hp.tolist()
+    except:
+        info["PositionLastHP"] = loc_hp
     # info["PositionLastHP"] = get_hp_location_from_tensor(x, info)
     with open(dataset_prepared_path / "info.yaml", "w") as file:
         yaml.dump(info, file)
@@ -256,7 +259,10 @@ def get_hp_location(data):
     try:  # TODO problematic with SDF?
         ids = data["Material ID"]
     except:
-        ids = data["SDF"]
+        try:
+            ids = data["SDF"]
+        except:
+            return None
     max_id = ids.max()
     loc_hp = np.array(np.where(ids == max_id)).squeeze()
     return loc_hp
