@@ -85,9 +85,12 @@ def dists_from_coords(coords):
 
 
 class CustomTensorboard(keras.callbacks.Callback):
-    def __init__(self, log_dir="logs"):
+    def __init__(self, log_dir="logs", name = None):
         self.log_dir = Path(log_dir)
-        self.name = f"{datetime.datetime.now():%y-%m-%d %H-%M-%S}"
+        if name is None:
+            self.name = f"{datetime.datetime.now():%y-%m-%d %H-%M-%S}"
+        else:
+            self.name = name
         self.sw = SummaryWriter(self.log_dir / self.name)
 
     def on_epoch_end(self, epoch, logs=None):
@@ -187,33 +190,44 @@ class SaveOutputsCallback(keras.callbacks.Callback):
         self.every = every
         self.input = input
         self.output_dir = Path("animation")
-        try:
-            shutil.rmtree(self.output_dir)
-        except Exception as e:
-            logging.warning(f"Could not delete animation dir: {e}")
-        self.output_dir.mkdir(exist_ok=True)
+
 
     def save_outputs(self, epoch):
+        if epoch == 0:
+            try:
+                shutil.rmtree(self.output_dir)
+            except Exception as e:
+                logging.warning(f"Could not delete animation dir: {e}")
+            self.output_dir.mkdir(exist_ok=True)
         result = self.model.predict(self.input, verbose=0)
         (oob_loss,) = [l.item() for l in self.model.losses]
         local_to_global = self.model.get_layer("Local to Global")
+        nerf = self.model.get_layer("Pretrained Model").model
         to_global = local_to_global.get_layer("Global Coordinate")
-        fig = plt.figure(figsize=(8, 10))
+        fig = plt.figure(figsize=(12, 10))
         plt.suptitle(
             f"epoch: {epoch}, offset = {to_global.offset.numpy()}\noob_loss: {oob_loss:.2e}"
         )
-        plt.subplot(1, 3, 1)
+        size = (100,16)
+        larger_coords = coordinates(*size, (23,7))
+        nerf_output = nerf.predict(larger_coords.reshape(-1,2), batch_size= 10000, verbose = 0)
+        nerf_output = nerf_output.reshape(size)
+        plt.subplot(1,4,1)
+        plt.title("Nerf output")
+        plt.imshow(nerf_output)
+        plt.colorbar()
+        plt.subplot(1, 4, 2)
         plt.title("Temperature")
         plt.imshow(result[0, :, :, 0], vmin=0, vmax=1)
         plt.colorbar()
-        plt.subplot(1, 3, 2)
-        coordinates = local_to_global.predict(self.input, verbose=0)
-        ys = coordinates[0, :, :, 0]
-        xs = coordinates[0, :, :, 1]
+        plt.subplot(1, 4, 3)
+        coords = local_to_global.predict(self.input, verbose=0)
+        ys = coords[0, :, :, 0]
+        xs = coords[0, :, :, 1]
         plt.title(f"y")
         plt.imshow(ys)
         plt.colorbar()
-        plt.subplot(1, 3, 3)
+        plt.subplot(1, 4, 4)
         plt.title(f"x")
         plt.imshow(xs)
         plt.colorbar()
