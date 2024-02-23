@@ -104,8 +104,9 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     temp = y[0]
     temp_out = y_out[0]
     pressure = torch.tensor(848673.4375)
-    gradient = x[1].repeat(2, 1)
-    perm = x[2].repeat(2, 1)
+    repeats = temp_out.shape[0] // x[1].shape[0]
+    gradient = x[1].repeat(repeats, 1)
+    perm = x[2].repeat(repeats, 1)
 
     temp_max = max(temp.max(), temp_out.max())
     temp_min = min(temp.min(), temp_out.min())
@@ -194,7 +195,7 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str):
 
     current_id = 0
     avg_inference_time = 0
-    summed_error_pic = torch.zeros_like(torch.Tensor(dataloader.dataset[0][0][0])).cpu()
+    summed_error_pic = None
 
     for inputs, labels in dataloader:
         len_batch = inputs.shape[0]
@@ -211,7 +212,10 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str):
             y = norm.reverse(y.cpu().detach(),"Labels")[0]
             y_out = norm.reverse(y_out.cpu().detach()[0],"Labels")[0]
             avg_inference_time += (time.perf_counter() - start_time)
-            summed_error_pic += abs(y[64:]-y_out[64:])
+            if summed_error_pic == None:
+                summed_error_pic = abs(y[64:]-y_out[64:])
+            else:
+                summed_error_pic += abs(y[64:]-y_out[64:])
 
             current_id += 1
 

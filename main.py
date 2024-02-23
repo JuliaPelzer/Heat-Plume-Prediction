@@ -14,7 +14,7 @@ from torch.nn import MSELoss
 from data_stuff.dataset import SimulationDataset, _get_splits
 from data_stuff.utils import SettingsTraining
 from networks.unet import UNet, UNetBC, TestNet, UNetImproved
-from networks.pinn import SVDPINN
+from networks.pinn import SVDPINN, SVDPINN_one_extension
 from networks.rnn import Autoencoder
 from preprocessing.prepare_1ststage import prepare_dataset_for_1st_stage
 from preprocessing.prepare_2ndstage import prepare_dataset_for_2nd_stage
@@ -59,8 +59,8 @@ def run(settings: SettingsTraining):
 
     # model
     # model = UNet().float()
-    model = SVDPINN(dataset = dataset).float()
-    #model = Autoencoder()
+    number_iterations = (dataset[0][1].shape[1] // dataset[0][0].shape[1]) - 1
+    model = SVDPINN_one_extension(dataset = dataset, device = settings.device, number_iterations=number_iterations).float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_raw", type=str, default="dataset_2d_small_1000dp", help="Name of the raw dataset (without inputs)")
     parser.add_argument("--dataset_prep", type=str, default="")
-    parser.add_argument("--device", type=str, default="cuda:1")
+    parser.add_argument("--device", type=str, default="cuda:2")
     parser.add_argument("--epochs", type=int, default=10000)
     parser.add_argument("--case", type=str, choices=["train", "test", "finetune"], default="train")
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning

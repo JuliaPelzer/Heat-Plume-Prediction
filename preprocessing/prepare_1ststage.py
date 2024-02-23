@@ -225,6 +225,8 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
     """
     data = dict()
     with h5py.File(data_path, "r") as file:
+        if time == "   4 Time  2.75000E+01 y":
+            time = list(file.keys())[-1]
         for key in variables:  # properties
             try:
                 data[key] = torch.tensor(np.array(file[time][key]).reshape(

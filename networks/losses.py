@@ -119,6 +119,9 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and linear i
         self.weight = [1.0, 1.0]
         self.mask = torch.tensor([[(i == 0) for j in range(64)] for i in range(64)])
         self.downsample = lambda x: nn.functional.interpolate(x, scale_factor=0.5, mode="bicubic")#nn.AvgPool2d(kernel_size=2, stride=2)
+        self.weights = torch.tensor([[.25, .25],
+                                [.25, .25]], device=self.device) * 8.0
+        self.weights = self.weights.view(1, 1, 2, 2)
 
     def __call__(self, input, output, target, dataloader): # permeability index 1 of input, temperature index 1 and pressure index 0 of label
         dataset = dataloader.dataset.dataset
@@ -127,8 +130,9 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and linear i
         input_swap = input.detach().clone().swapaxes(0, 1)
         output_swap = output.clone().swapaxes(0, 1)
         inputs = norm.reverse(input_swap, "Inputs")
-        permeability = inputs[2,:,:,:].repeat(1, 2, 1).unsqueeze(1)
-        gradient = inputs[1,:,:,:].repeat(1, 2, 1).unsqueeze(1)
+        repeats = output.shape[2] // inputs.shape[2]
+        permeability = inputs[2,:,:,:].repeat(1, repeats, 1).unsqueeze(1)
+        gradient = inputs[1,:,:,:].repeat(1, repeats, 1).unsqueeze(1)
         outputs = norm.reverse(output_swap, "Labels")
         temperature = outputs[0,:,:,:].unsqueeze(1)
         pressure = torch.tensor(848673.4375)
@@ -144,11 +148,10 @@ class PhysicalLossV2(BaseLoss): # version 2: without darcy velocity and linear i
         energy_error = self.get_energy_error(temperature[:, :, 62:], gradient[:, :, 62:], pressure, permeability[:, :, 62:], cell_width)
         # energy_error[:, :, 0:3] = energy_error[:, :, 0:3] * 2.0
 
-        weights = torch.tensor([[1., 1.],
-                                [1., 1.]], device=self.device)
-        weights = weights.view(1, 1, 2, 2)
+        # TODO is this useful or unnecessary? Initial experiment says useful
+        # Idea is that averaging and scaling cancels out in 'random' are but not in end of plume or similar ones
 
-        energy_error_downsampled = nn.functional.conv2d(energy_error, weights)
+        energy_error_downsampled = nn.functional.conv2d(energy_error, self.weights)
 
         # physics_loss_orig = self.temporally_weighted_loss(energy_error)
         physics_loss_orig = torch.mean(torch.pow(energy_error_downsampled, 2))
