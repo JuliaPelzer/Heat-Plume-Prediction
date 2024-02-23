@@ -15,7 +15,7 @@ from networks.unet import UNet, UNetBC
 from solvers.solver import Solver
 from preprocessing.prepare import prepare_data_and_paths
 from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
-from postprocessing.measurements import measure_loss, save_all_measurements
+from postprocessing.measurements import measure_loss, save_all_measurements, measure_additional_losses
 
 # import os
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -26,8 +26,8 @@ def init_data(settings: SettingsTraining, seed=1):
     generator = torch.Generator().manual_seed(seed)
 
     split_ratios = [0.7, 0.2, 0.1]
-    if settings.case == "test": # TODO change back
-        split_ratios = [0.0, 0.0, 1.0] 
+    # if settings.case == "test": # TODO change back
+    #     split_ratios = [0.0, 0.0, 1.0] 
     datasets = random_split(dataset, _get_splits(len(dataset), split_ratios), generator=generator)
 
     dataloaders = {}
@@ -83,15 +83,16 @@ def run(settings: SettingsTraining):
         settings.visualize = True
         which_dataset = "test"
     if settings.visualize:
-        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
+        # visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
         times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
-        plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
-        # errors = measure_loss(model, dataloaders[which_dataset], settings.device)
+        # plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
+        errors = measure_loss(model, dataloaders[which_dataset], settings.device)
         print("Visualizations finished")
+    measure_additional_losses(model, dataloaders, settings.device, summed_error_pic, settings)
         
     times["time_end"] = time.perf_counter()
-    save_all_measurements(settings, len(dataset), times, solver) #, errors)
-    print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
+    save_all_measurements(settings, len(dataset), times, solver, errors)
+    # print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
 
     return model
 
