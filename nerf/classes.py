@@ -106,23 +106,24 @@ def almost_rectangle_sdf(coordinates, center, size):
 
 
 class GlobalCoordinate(keras.layers.Layer):
-    def __init__(self, coordinate_origin, oob_weight=1, **kwargs):
+    def __init__(self, pump_indices, oob_weight=1, **kwargs):
         # ortho loss broken at the moment
         super().__init__(**kwargs)
-        self.coordinate_origin = ops.convert_to_tensor(
-            coordinate_origin, dtype="float64"
-        )
+        self.pump_indices = ops.convert_to_tensor(pump_indices)
+        self.oob_weight = oob_weight
+    
+    def build(self, input_shape):
         self.offset = self.add_weight(
             shape=(2,),
             initializer=keras.initializers.Zeros(),
+            name = "offset"
         )
-        self.oob_weight = oob_weight
 
     def call(self, inputs):
         # input has shape (batch, height, width, channels), channels should be (2,2)
         batch, height, width, channels = inputs.shape
         tmp = ops.reshape(inputs, (*inputs.shape[:-1], 2, 2))
-        oy, ox = 23, 7
+        oy, ox = self.pump_indices
 
         # (batch, height, to_the_right, dir=right, both vector elements)
         x_pos = ops.cumsum(tmp[..., ox:-1, 1, :], axis=-2)
@@ -141,17 +142,9 @@ class GlobalCoordinate(keras.layers.Layer):
         from_dy = ops.concatenate((y_neg, y_middle, y_pos), axis=-3)
         coordinates = from_dx + from_dy + self.offset
 
-        # tmp now has the change of coordinates from going in the x direction and the y direction in tmp[...,0,:] and tmp[...,1,:] respectively
-        # tmp shape = (batch, height, width, 2,2)
-        # from_dx = ops.cumsum(tmp[:, :-1, :, 0, :], axis=-3)
-        # from_dx = ops.pad(from_dx, ((0, 0), (1, 0), (0, 0), (0, 0)))
-        # from_dy = ops.cumsum(tmp[:, :, :-1, 1, :], axis=-2)
-        # from_dy = ops.pad(from_dy, ((0, 0), (0, 0), (1, 0), (0, 0)))
-        # coordinates = from_dx + from_dy - self.coordinate_origin + self.offset
-
         # TODO maybe scale this
         distances = almost_rectangle_sdf(
-            coordinates, self.coordinate_origin, ops.array([2, 2])
+            coordinates, ops.zeros(2), ops.array([2, 2])
         )
         oob_loss = ops.mean(distances) * self.oob_weight
         self.add_loss(oob_loss)
@@ -163,13 +156,20 @@ class GlobalCoordinate(keras.layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({"coordinate_origin": self.coordinate_origin})
+        config.update({"pump_indices": self.pump_indices, "oob_weight": self.oob_weight})
         return config
+    
+    @classmethod
+    def from_config(cls, config):
+        config["pump_indices"] = keras.saving.deserialize_keras_object(config["pump_indices"])
+        return cls(**config)
 
 
 class Rotation(keras.layers.Layer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+    
+    def build(self, input_shape):
         self.w = self.add_weight(shape=(), trainable=True, name="angle")
 
     def call(self, inputs):
@@ -201,17 +201,12 @@ class SaveOutputsCallback(keras.callbacks.Callback):
             self.output_dir.mkdir(exist_ok=True)
         result = self.model.predict(self.input, verbose=0)
         (oob_loss,) = [l.item() for l in self.model.losses]
-        local_to_global = self.model.get_layer("Local to Global")
-        nerf = self.model.get_layer("Pretrained Model").model
-        to_global = local_to_global.get_layer("Global Coordinate")
         fig = plt.figure(figsize=(12, 10))
         plt.suptitle(
-            f"epoch: {epoch}, offset = {to_global.offset.numpy()}\noob_loss: {oob_loss:.2e}"
+            f"epoch: {epoch}, \noob_loss: {oob_loss:.2e}"
         )
         size = (100,16)
-        larger_coords = coordinates(*size, (23,7))
-        nerf_output = nerf.predict(larger_coords.reshape(-1,2), batch_size= 10000, verbose = 0)
-        nerf_output = nerf_output.reshape(size)
+        nerf_output = self.model.predict_undisturbed(self.input)[0]
         plt.subplot(1,4,1)
         plt.title("Nerf output")
         plt.imshow(nerf_output)
@@ -221,7 +216,7 @@ class SaveOutputsCallback(keras.callbacks.Callback):
         plt.imshow(result[0, :, :, 0], vmin=0, vmax=1)
         plt.colorbar()
         plt.subplot(1, 4, 3)
-        coords = local_to_global.predict(self.input, verbose=0)
+        coords = self.model.predict_coordinates(self.input)
         ys = coords[0, :, :, 0]
         xs = coords[0, :, :, 1]
         plt.title(f"y")
@@ -249,8 +244,101 @@ class ApplyToImage(keras.layers.Layer):
 
     def call(self, inputs):
         shape = inputs.shape
-        inputs = inputs.reshape((-1, 2))
+        inputs = inputs.reshape((-1, shape[-1]))
         return self.model(inputs).reshape((*shape[:-1], 1))
 
     def compute_output_shape(self, input_shape):
         return (*input_shape[:-1], 1)
+    
+    def get_config(self):
+        config = super().get_config()
+        config.update({"model": self.model})
+        return config
+    
+    @classmethod
+    def from_config(cls, config):
+        config["model"] = keras.saving.deserialize_keras_object(config["model"])
+        return cls(**config)
+
+class ValuesAroundPump(keras.layers.Layer):
+    def __init__(self, pump_indices, **kwargs):
+        super().__init__(**kwargs)
+        self.pump_indices = ops.convert_to_tensor(pump_indices)
+
+    def call(self, inputs):
+        batch,height,width,channels = inputs.shape
+        py,px = self.pump_indices
+        all_values = inputs[:,py,px, :-2]
+        # last two are coordinates, so we don't want them
+        return ops.reshape(ops.repeat(all_values[:,None,:], height*width, axis = 1), (batch, height, width, -1))
+
+    def compute_output_shape(self, input_shape):
+        batch,height,width,channels = input_shape
+        return *input_shape[:-1], channels - 2
+    
+    def get_config(self):
+        config = super().get_config()
+        config.update({"pump_indices": self.pump_indices})
+        return config
+    
+    @classmethod
+    def from_config(cls, config):
+        config["pump_indices"] = keras.saving.deserialize_keras_object(config["pump_indices"])
+        return cls(**config)
+    
+class CompleteModel(keras.models.Model):
+    def __init__(self,pump_indices, nerf, dist_model,edge_size, **kwargs):
+        super().__init__(**kwargs)
+        self.edge_size = edge_size
+        self.pump_indices = pump_indices
+        self.nerf = nerf
+        self.dist_model = dist_model
+        self.local_to_global = keras.Sequential(
+            [
+                keras.layers.Input(shape=dist_model.input_shape[1:]),
+                dist_model,
+                GlobalCoordinate(self.pump_indices,oob_weight = 1, name = "Global Coordinate"),
+            ],
+            name="Local to Global",
+        )
+        self.apply_to_image = ApplyToImage(self.nerf, name="Nerf wrapper")
+        self.apply_to_image_model = keras.Sequential(
+            [
+                keras.layers.Input(shape=(*dist_model.input_shape[1:-1],4)),
+                self.apply_to_image
+            ]
+        )
+        self.values_around_pump = ValuesAroundPump(self.pump_indices, name = "Values around pump")
+
+    def call(self, inputs):
+        global_coords = self.local_to_global(inputs)
+        s = self.edge_size
+        fixed_values = self.values_around_pump(inputs)[:,s:-s,s:-s,:]
+        nerf_input = ops.concatenate((global_coords, fixed_values), axis = -1)
+        return self.apply_to_image(nerf_input)
+    
+    def predict_coordinates(self,inputs):
+        return self.local_to_global.predict(inputs, verbose = 0)
+    
+    def predict_undisturbed(self, inputs):
+        # only works for single image
+        batch, height, width, channels = inputs.shape
+        coords = coordinates(height,width, self.pump_indices).reshape(1,height,width,-1)
+        fixed_values = self.values_around_pump.__call__(inputs)
+        nerf_input = ops.concatenate((coords, fixed_values), axis = -1)
+        return self.apply_to_image_model.predict(nerf_input, verbose = 0)
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[:-1] + (1,)
+    
+    def get_config(self):
+        config = super().get_config()
+        config.update({"pump_indices": self.pump_indices, "nerf": self.nerf, "dist_model": self.dist_model, "edge_size": self.edge_size})
+        return config
+    
+    @classmethod
+    def from_config(cls, config):
+        config["pump_indices"] = keras.saving.deserialize_keras_object(config["pump_indices"])
+        config["nerf"] = keras.saving.deserialize_keras_object(config["nerf"])
+        config["dist_model"] = keras.saving.deserialize_keras_object(config["dist_model"])
+        return cls(**config)
