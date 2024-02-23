@@ -27,7 +27,7 @@ def pre_prepare_dataset(args, default_raw_dir:str, dataset_prepared_full_path:st
 
     if args.case == "test":
         # get info of training
-        with open(os.path.join(os.getcwd(), "runs", args.path_to_model, "info.yaml"), "r") as file:
+        with open(os.path.join("/scratch/sgs/pelzerja/models/paper23/best_models_1hpnn/", args.path_to_model, "info.yaml"), "r") as file:
             info = yaml.safe_load(file)
         prepare_dataset(args_prep, dataset_prepared_full_path, info=info)
     else:

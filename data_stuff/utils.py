@@ -35,7 +35,7 @@ class SettingsTraining:
         if not self.case_2hp: 
             self.dataset_name += " inputs_"+self.inputs_prep
 
-        self.path_to_model = os.path.join("runs", self.path_to_model)
+        self.path_to_model = self.path_to_model
 
         if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:
             self.finetune = True
