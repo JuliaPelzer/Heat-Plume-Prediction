@@ -12,7 +12,7 @@ from typing import Union
 from tqdm.auto import tqdm
 
 from data_stuff.transforms import (ComposeTransform, NormalizeTransform,
-                             PowerOfTwoTransform, ReduceTo2DTransform,
+                             PowerOfTwoTransform, ReduceTo2DTransform, CutLengthTransform,
                              SignedDistanceTransform, PositionalEncodingTransform, ToTensorTransform)
 from data_stuff.utils import SettingsTraining
 from preprocessing.prepare_paths import Paths1HP, Paths2HP
@@ -21,17 +21,25 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
     time_begin = time.perf_counter()
     info_file_path = settings.model / info_file
 
+    if settings.problem == "extend1":
+        cutlengthtrafo=True
+    else:
+        cutlengthtrafo=False
+
     if settings.case == "test" or settings.case_2hp:
         # get info of training
         with open(info_file_path, "r") as file:
             info = yaml.safe_load(file)
-        prepare_dataset(paths, settings.inputs, info=info, power2trafo=False)
     else:
-        info = prepare_dataset(paths, settings.inputs, power2trafo=False)
-        if settings.case == "train":
-            # store info of training
-            with open(settings.destination / info_file, "w") as file:
-                yaml.safe_dump(info, file)
+        info = None
+            
+    # TODO unsauber, TODO cutlengthtrafo zu länge die in info.yaml gespeichert ist
+    prepare_dataset(paths, settings.inputs, info=info, power2trafo=False, cutlengthtrafo=cutlengthtrafo)
+    
+    if settings.case == "train" and not settings.case_2hp:
+        # store info of training
+        with open(settings.destination / info_file, "w") as file:
+            yaml.safe_dump(info, file)
 
     time_end = time.perf_counter() - time_begin
     with open(paths.dataset_1st_prep_path / "preparation_time.yaml", "w") as file:
@@ -40,7 +48,7 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
                 "duration of whole process in seconds": time_end}, file)
         
 
-def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: bool = True, info:dict = None):
+def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: bool = True, cutlengthtrafo: bool = False, info:dict = None):
     """
     Create a dataset from the raw pflotran data in raw_data_path.
     The saved dataset is normalized using the mean and standard deviation, which are saved to info.yaml in the new dataset folder.
@@ -64,7 +72,7 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
     dataset_prepared_path.joinpath("Inputs").mkdir(parents=True, exist_ok=True) # TODO
     dataset_prepared_path.joinpath("Labels").mkdir(parents=True, exist_ok=True)
 
-    transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo)
+    transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo, cutlengthtrafo=cutlengthtrafo)
     inputs = expand_property_names(inputs)
     time_first = "   0 Time  0.00000E+00 y"
     time_final = "   3 Time  5.00000E+00 y"
@@ -352,7 +360,7 @@ class WelfordStatistics:
             result[key] = self.__maxs[key].item()
         return result
 
-def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool = True):
+def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool = True, cutlengthtrafo: bool = False):
     transforms_list = []
 
     if reduce_to_2D:
@@ -360,6 +368,8 @@ def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool 
             reduce_to_2D_xy=reduce_to_2D_xy))
     if power2trafo:
         transforms_list.append(PowerOfTwoTransform())
+    if cutlengthtrafo:
+        transforms_list.append(CutLengthTransform())
     transforms_list.append(SignedDistanceTransform())
     transforms_list.append(PositionalEncodingTransform())
 

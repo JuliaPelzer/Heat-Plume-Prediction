@@ -199,7 +199,23 @@ class PowerOfTwoTransform:
 
         logging.info("Data reduced to power of 2")
         return data
+    
+class CutLengthTransform:
+    """
+    Transform class to cut off the end of all data to a certain length
+    """
 
+    def __init__(self):
+        self.length = 256
+
+    def __call__(self, data):
+        logging.info("Start CutLengthTransform")
+
+        for prop in data.keys():
+            data[prop] = data[prop][:self.length]
+
+        logging.info("End CutLengthTransform, to length 256")
+        return data
 
 class ReduceTo2DTransform:
     """
