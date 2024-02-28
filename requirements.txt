@@ -1,0 +1,13 @@
+python>=3.8
+torch
+torchvision
+tqdm
+matplotlib
+numpy
+scipy
+line_profiler_decorator
+pyyaml
+h5py
+tensorboard
+pytest
+pynvml

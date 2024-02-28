@@ -1,14 +1,6 @@
-# Python Requirements
-- pyyaml
-- torch
-- h5py
-- tensorboard
-- tqdm
-- pytest
-
 # Begin working
 - clone the repository
-- install the requirements
+- install the requirements: `pip install -r requirements.txt`
 - download the raw / prepared data, (optional models and data sets for 2nd stage) and set the paths in paths.yaml (see later)
 
 ## Training a 1st stage model (1HP-NN):

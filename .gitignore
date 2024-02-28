@@ -2,6 +2,7 @@ paths.yaml
 paths_sdf.yaml
 
 datasets_prepared/
+nerf/
 
 # exclude for now in testing phase
 models/
