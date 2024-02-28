@@ -9,9 +9,11 @@ from torch.utils.data import DataLoader, random_split
 # tensorboard --logdir=runs/ --host localhost --port 8088
 from torch.nn import MSELoss
 
-from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits, random_split_extend
+from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, DatasetEncoder, get_splits, random_split_extend
 from data_stuff.utils import SettingsTraining
 from networks.unet import UNet, UNetBC
+from networks.unetHalfPad import UNetHalfPad
+from networks.encoder import Encoder
 from processing.solver import Solver
 from preprocessing.prepare import prepare_data_and_paths
 from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
@@ -28,13 +30,17 @@ def init_data(settings: SettingsTraining, seed=1):
         dataset = DatasetExtend1(settings.dataset_prep, box_size=settings.len_box)
     elif settings.problem == "extend2":
         dataset = DatasetExtend2(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
+        settings.inputs += "T"
     print(f"Length of dataset: {len(dataset)}")
     generator = torch.Generator().manual_seed(seed)
 
     split_ratios = [0.7, 0.2, 0.1]
-    if settings.case == "test": # TODO change back
-        split_ratios = [0.0, 0.0, 1.0] 
-    datasets = random_split_extend(dataset, get_splits(len(dataset.input_names), split_ratios), generator=generator)
+    # if settings.case == "test": # TODO change back
+    #     split_ratios = [0.0, 0.0, 1.0] 
+    if not settings.problem == "extend2":
+        datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
+    else:
+        datasets = random_split_extend(dataset, get_splits(len(dataset.input_names), split_ratios), generator=generator)
 
     dataloaders = {}
     try:
@@ -54,9 +60,9 @@ def run(settings: SettingsTraining):
     times["timestamp_begin"] = time.ctime()
 
     input_channels, dataloaders = init_data(settings)
-
     # model
-    model = UNet(in_channels=input_channels).float()
+    model = UNetHalfPad(in_channels=input_channels).float()
+    # model = Encoder(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)

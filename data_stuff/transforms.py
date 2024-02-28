@@ -13,8 +13,8 @@ from torch import linalg, nonzero, unsqueeze
 class NormalizeTransform:
     def __init__(self,info:dict,out_range = (0,1)):
         self.info = info
-        self.input_stats = self.info["Inputs"]
-        self.label_stats = self.info["Labels"]
+        # self.input_stats = self.info["Inputs"] #NOT USED?
+        # self.label_stats = self.info["Labels"]
         self.out_min, self.out_max = out_range 
 
     def __call__(self,data, type = "Inputs"):
