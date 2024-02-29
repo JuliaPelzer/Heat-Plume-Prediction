@@ -205,8 +205,8 @@ class CutLengthTransform:
     Transform class to cut off the end of all data to a certain length
     """
 
-    def __init__(self):
-        self.length = 256
+    def __init__(self, length):
+        self.length = length
 
     def __call__(self, data):
         logging.info("Start CutLengthTransform")
