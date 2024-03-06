@@ -5,6 +5,8 @@ import os
 import time
 from typing import Dict
 import matplotlib.pyplot as plt
+from torcheval.metrics import R2Score
+
 
 from networks.unet import UNet
 from solver import Solver
@@ -79,7 +81,7 @@ def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: mo
             "mean absolute error": mae_loss, "mean absolute error in [°C]": mae_closs,
             }
 
-def measure_additional_losses(model: UNet, dataloaders: Dict[str, DataLoader], device: str, summed_error_pic: torch.Tensor = None, settings: SettingsTraining = None):
+def measure_std_and_var(model: UNet, dataloaders: Dict[str, DataLoader], device: str, summed_error_pic: torch.Tensor = None, settings: SettingsTraining = None):
     
     norm = dataloaders["test"].dataset.dataset.norm
     model.eval()
@@ -105,6 +107,35 @@ def measure_additional_losses(model: UNet, dataloaders: Dict[str, DataLoader], d
 
     if settings is not None:
         with open(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "2ndreview_measurements_additional.yaml"), "w") as f:
+            for key, value in results.items():
+                f.write(f"{key}: {value}\n")
+
+def measure_r2(model: UNet, dataloaders: Dict[str, DataLoader], device: str, settings: SettingsTraining = None):
+    
+    norm = dataloaders["test"].dataset.dataset.norm
+    model.eval()
+    results = {}
+
+
+    for case, dataloader in dataloaders.items():
+        r2 = R2Score()
+        for x, y in dataloader: # batchwise
+            x = x.to(device)
+            y = y.to(device)
+            y_pred = model(x).to(device)
+            y = torch.swapaxes(y, 0, 1)
+            y_pred = torch.swapaxes(y_pred, 0, 1)
+            y = norm.reverse(y.detach().cpu(),"Labels")
+            y = y.squeeze()
+            y_pred = norm.reverse(y_pred.detach().cpu(),"Labels")
+            y_pred = y_pred.squeeze()
+            for yi, y_predi in zip(y, y_pred):
+                r2.update(y_predi, yi)
+
+        results[case] = {"r2 in [°C]": r2.compute()}
+
+    if settings is not None:
+        with open(os.path.join(os.getcwd(), "runs", settings.name_folder_destination, "2ndreview_measurements_r2.yaml"), "w") as f:
             for key, value in results.items():
                 f.write(f"{key}: {value}\n")
 

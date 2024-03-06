@@ -21,7 +21,7 @@ from prepare_dataset import pre_prepare_dataset
 from solver import Solver
 from utils.utils import set_paths
 from utils.visualize_data import plt_avg_error_cellwise, plot_sample, infer_all_and_summed_pic
-from utils.measurements import measure_loss, save_all_measurements, measure_additional_losses
+from utils.measurements import measure_loss, save_all_measurements, measure_std_and_var, measure_r2
 
 def init_data(settings: SettingsTraining, seed=1):
     dataset = SimulationDataset(os.path.join(settings.datasets_path, settings.dataset_name))
@@ -34,10 +34,10 @@ def init_data(settings: SettingsTraining, seed=1):
 
     dataloaders = {}
     try:
-        dataloaders["train"] = DataLoader(datasets[0], batch_size=1000, shuffle=True, num_workers=0)
-        dataloaders["val"] = DataLoader(datasets[1], batch_size=1000, shuffle=True, num_workers=0)
+        dataloaders["train"] = DataLoader(datasets[0], batch_size=100, shuffle=True, num_workers=0)
+        dataloaders["val"] = DataLoader(datasets[1], batch_size=100, shuffle=True, num_workers=0)
     except: pass
-    dataloaders["test"] = DataLoader(datasets[2], batch_size=1000, shuffle=True, num_workers=0)
+    dataloaders["test"] = DataLoader(datasets[2], batch_size=100, shuffle=True, num_workers=0)
 
     return dataset, dataloaders
 
@@ -89,7 +89,8 @@ def run(settings: SettingsTraining):
         print("Visualizations finished")
         times["time_end"] = time.perf_counter()
         save_all_measurements(settings, len(dataset), times, solver, errors, which_dataset)
-    measure_additional_losses(model, dataloaders, settings.device, summed_error_pic, settings)
+    measure_std_and_var(model, dataloaders, settings.device, summed_error_pic, settings)
+    measure_r2(model, dataloaders, settings.device, settings)
         
     # print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
 

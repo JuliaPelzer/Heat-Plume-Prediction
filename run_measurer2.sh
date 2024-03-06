@@ -1,0 +1,26 @@
+# python main.py --device cuda:0 --case test --inputs_prep gksi --name_folder_destination r2_gksi100 --dataset_name dataset_2d_small_100dp --path_to_model gksi100/current_unet_benchmark_dataset_2d_100datapoints_grad_p_v6
+# python main.py --device cuda:0 --case test --inputs_prep gksi --name_folder_destination r2_gksi1000 --dataset_name dataset_2d_small_1000dp --path_to_model gksi1000/current_unet_dataset_2d_small_1000dp_gksi_v7
+# python main.py --device cuda:0 --case test --inputs_prep pksi --name_folder_destination r2_pski100 --dataset_name dataset_2d_small_100dp --path_to_model pksi100/current_unet_benchmark_dataset_2d_100datapoints_p_v10
+# python main.py --device cuda:0 --case test --inputs_prep pksi --name_folder_destination r2_pski1000 --dataset_name dataset_2d_small_1000dp --path_to_model pksi1000/current_unet_dataset_2d_small_1000dp_pksi_v1
+
+# python main.py --device cuda:0 --case test --inputs_prep gksi --name_folder_destination r2_gksi100_bm --dataset_name BENCHMARK_BOXES --path_to_model gksi100/current_unet_benchmark_dataset_2d_100datapoints_grad_p_v6
+# python main.py --device cuda:0 --case test --inputs_prep gksi --name_folder_destination r2_gksi1000_bm --dataset_name BENCHMARK_BOXES --path_to_model gksi1000/current_unet_dataset_2d_small_1000dp_gksi_v7
+# python main.py --device cuda:0 --case test --inputs_prep pksi --name_folder_destination r2_pski100_bm --dataset_name BENCHMARK_BOXES --path_to_model pksi100/current_unet_benchmark_dataset_2d_100datapoints_p_v10
+# python main.py --device cuda:0 --case test --inputs_prep pksi --name_folder_destination r2_pski1000_bm --dataset_name BENCHMARK_BOXES --path_to_model pksi1000/current_unet_dataset_2d_small_1000dp_pksi_v1
+
+# python main.py --device cuda:0 --case test --inputs_prep 100gksi --case_2hp True --name_folder_destination r2_2hp_100_gksi100 --dataset_name dataset_2hps_1fixed_100dp_2hp_gksi_100dp --path_to_model 100dp_100gksi_separate/current_unet_dataset_2hps_1fixed_100dp_2hp_gksi_100dp_v1_ehlers
+# python main.py --device cuda:0 --case test --inputs_prep 100gksi --case_2hp True --name_folder_destination r2_2hp_1000_gksi100 --dataset_name dataset_2hps_1fixed_1000dp_2hp_gksi_100dp --path_to_model 1000dp_100gksi_separate/current_unet_dataset_2hps_1fixed_1000dp_2hp_gksi_100dp_v4
+# python main.py --case test --case_2hp True --inputs_prep 1000gksi --case_2hp True --name_folder_destination r2_2hp_100_gksi1000 --dataset_name dataset_2hps_1fixed_100dp_2hp_gksi_1000dp --path_to_model 100dp_1000gksi_separate/current_unet_dataset_2hps_1fixed_100dp_2hp_gksi_1000dp_v7
+# python main.py --case test --case_2hp True --inputs_prep 1000gksi --case_2hp True --name_folder_destination r2_2hp_1000_gksi1000 --dataset_name dataset_2hps_1fixed_1000dp_2hp_gksi_1000dp  --path_to_model 1000dp_1000gksi_separate/current_unet_dataset_2hps_1fixed_1000dp_2hp_gksi_1000dp_v1 #?
+# python main.py --case test --case_2hp True --inputs_prep 1000gksi --case_2hp True --name_folder_destination r2_2hp_1000_gksi1000_merg --dataset_name dataset_2hps_1fixed_1000dp_2hp_gksi_1000dp_merged --path_to_model 1000dp_1000gksi_merged/current_unet_dataset_2hps_1fixed_1000dp_2hp_gksi_1000dp_merged_v6
+
+
+# python main.py --device cuda:0 --case test --inputs_prep 100gksi --case_2hp True --name_folder_destination r2_2hp_100_gksi100_bm --dataset_name BENCHMARK_DOMAIN2_2hp_gksi_100dp --path_to_model 100dp_100gksi_separate/current_unet_dataset_2hps_1fixed_100dp_2hp_gksi_100dp_v1_ehlers
+# python main.py --device cuda:0 --case test --inputs_prep 100gksi --case_2hp True --name_folder_destination r2_2hp_1000_gksi100_bm --dataset_name BENCHMARK_DOMAIN2_2hp_gksi_100dp --path_to_model 1000dp_100gksi_separate/current_unet_dataset_2hps_1fixed_1000dp_2hp_gksi_100dp_v4
+# python main.py --case test --case_2hp True --inputs_prep 1000gksi --case_2hp True --name_folder_destination r2_2hp_100_gksi1000_bm --dataset_name BENCHMARK_DOMAIN2_2hp_gksi_1000dp --path_to_model 100dp_1000gksi_separate/current_unet_dataset_2hps_1fixed_100dp_2hp_gksi_1000dp_v7
+# python main.py --case test --case_2hp True --inputs_prep 1000gksi --case_2hp True --name_folder_destination r2_2hp_1000_gksi1000_bm --dataset_name BENCHMARK_DOMAIN2_2hp_gksi_1000dp  --path_to_model 1000dp_1000gksi_separate/current_unet_dataset_2hps_1fixed_1000dp_2hp_gksi_1000dp_v1 #?
+# python main.py --case test --case_2hp True --inputs_prep 1000gksi --case_2hp True --name_folder_destination r2_2hp_1000_gksi1000_merg_bm --dataset_name BENCHMARK_DOMAIN2_2hp_gksi_1000dp_merged --path_to_model 1000dp_1000gksi_merged/current_unet_dataset_2hps_1fixed_1000dp_2hp_gksi_1000dp_merged_v6
+
+## sd, var losses
+python main.py --case test --case_2hp True --inputs_prep 100gksi --path_to_model 100dp_100gksi_separate/current_unet_dataset_2hps_1fixed_100dp_2hp_gksi_100dp_v1_ehlers/ --dataset_name BENCHMARK_DOMAIN2_2hp_gksi_100dp --name_folder_destination 2hp_100_gksi100_bm_v2
+python main.py --case test --case_2hp True --inputs_prep 100gksi --path_to_model 1000dp_100gksi_separate/current_unet_dataset_2hps_1fixed_1000dp_2hp_gksi_100dp_v4 --dataset_name BENCHMARK_DOMAIN2_2hp_gksi_100dp --name_folder_destination 2hp_1000_gksi100_bm_v2
