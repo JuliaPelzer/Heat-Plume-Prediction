@@ -1,5 +1,7 @@
 import torch
+from torch import load
 import torch.nn as nn
+import pathlib
 
 
 class UNet(nn.Module):
@@ -68,6 +70,11 @@ class UNet(nn.Module):
             ),        
             nn.ReLU(inplace=True),
         )
+
+    def load(self, model_path:pathlib.Path, device:str = "cpu", model_name: str = "model.pt"):
+        print(f"Loading model from {model_path} {model_name}")
+        self.load_state_dict(load(f"{model_path}{model_name}"))
+        self.to(device)
 
     def print_params(self):
         number_parameter = sum(p.numel() for p in self.parameters() if p.requires_grad)

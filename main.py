@@ -98,17 +98,17 @@ def run(settings: SettingsTraining):
 
 def save_inference(model_name:str, in_channels: int, settings: SettingsTraining):
     # push all datapoints through and save all outputs
-    model = UNet(in_channels=in_channels).float()
-    model.load(model_name, settings.device)
+    model = UNet(in_channels=in_channels, out_channels=1, depth=3, kernel_size=5).float()
+    model.load_state_dict(torch.load(f"/scratch/sgs/pelzerja/models/paper23/best_models_2hpnn/{settings.path_to_model}/model.pt", map_location=torch.device(settings.device)))
     model.eval()
-
-    data_dir = settings.dataset_prep
-    (data_dir / "Outputs").mkdir(exist_ok=True)
+    
+    data_dir = pathlib.Path(settings.datasets_path) / settings.dataset_name # hotfix
+    (data_dir/"Outputs").mkdir(exist_ok=True, parents=True)
 
     for datapoint in (data_dir / "Inputs").iterdir():
-        data = torch.load(datapoint)
+        data = torch.Tensor(torch.load(datapoint)).to(settings.device)
         data = torch.unsqueeze(data, 0)
-        y_out = model(data.to(settings.device)).to(settings.device)
+        y_out = model(data).to(settings.device)
         y_out = y_out.detach().cpu()
         y_out = torch.squeeze(y_out, 0)
         torch.save(y_out, data_dir / "Outputs" / datapoint.name)
@@ -138,5 +138,7 @@ if __name__ == "__main__":
 
     settings = SettingsTraining(**vars(args))
     run(settings)
+
+    save_inference(settings.path_to_model, 2, settings)
 
     # tensorboard --logdir=runs/ --host localhost --port 8088
