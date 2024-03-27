@@ -9,13 +9,18 @@ from pathlib import Path
 from networks.unetHalfPad import UNetHalfPad
 from postprocessing.visualization import _aligned_colorbar
 
-def load_model_and_data(model_path, model_front_path, dataset_prep, dataset_front, params, run_id, visu=False):
-    # first box stuff (extend1)
+def load_front(model_front_path, dataset_front, run_id, model_name="model.pt"):
     inputs_front = torch.load(dataset_front / "Inputs" / f"RUN_{run_id}.pt")
+    labels_front = torch.load(dataset_front / "Labels" / f"RUN_{run_id}.pt")
     model_front = UNetHalfPad(in_channels=4).float()
-    model_front.load(model_front_path)
+    model_front.load(model_front_path, model_name=model_name)
     model_front.eval()
+    return model_front, inputs_front, labels_front
 
+def load_model_and_data(model_path, model_front_path, dataset_prep, dataset_front, params, run_id, visu=False, model_name:str = "model.pt", model_name_front:str = "model.pt"):
+    # first box stuff (extend1)
+    model_front, inputs_front, _ = load_front(model_front_path, dataset_front, run_id, model_name=model_name_front)
+ 
     # other boxes stuff (extend2)
     inputs = torch.load(dataset_prep / "Inputs" / f"RUN_{run_id}.pt")
     labels = torch.load(dataset_prep / "Labels" / f"RUN_{run_id}.pt")
@@ -28,7 +33,7 @@ def load_model_and_data(model_path, model_front_path, dataset_prep, dataset_fron
         plt.show()
 
     model = UNetHalfPad(in_channels=3).float() ## VERSION for only T - WIP: in_channels=1
-    model.load(model_path)
+    model.load(model_path, model_name=model_name)
     model.eval()
 
     # params
@@ -51,13 +56,12 @@ def infer(model, inputs, labels, params, first_box:bool=True, visu:bool=True, fr
 
     output_all = torch.cat((inputs, labels), dim=0).unsqueeze(0)
     # output_all = labels.unsqueeze(0).unsqueeze(0) ## VERSION for only T - WIP
-    print("label", labels.shape, "out", output_all.shape)
 
     if front is not None:
-        box_front = 256
+        box_front = 128
         model_front, inputs_front = front
         output_front = model_front(inputs_front[:, :box_front].unsqueeze(0).detach())
-        output_all[:,-1,:box_front] = output_front
+        output_all[0,-1,:box_front] = output_front # vs output_all[:,...]
 
         if visu:
             fig, axes = plt.subplots(1,3, sharex=True, figsize=(15,5))
@@ -211,4 +215,3 @@ def produce_front_comparison_pic():
     plt.tight_layout()
     plt.savefig(f"extend_plumes/model_2ndRound_run{run_id}_frontComparison.png", dpi=500)
     plt.show()
-
