@@ -110,8 +110,9 @@ def save_all_measurements(settings:SettingsTraining, len_dataset, times, solver:
             f.write(f"best model found with train RMSE: {solver.best_model_params['train RMSE']}\n")
             f.write(f"best model found after training time in seconds: {solver.best_model_params['training time in sec']}\n")
 
-    with open(Path.cwd() / "runs" / settings.destination.parent / f"measurements_all_runs.csv", "a") as f:
-        #name, settings.epochs, epoch, val loss, train loss, val rmse, train rmse, train time
-        f.write(f"{settings.destination.name},{settings.epochs},{solver.best_model_params['epoch']}, {round(solver.best_model_params['loss'],6)}, {round(solver.best_model_params['train loss'],6)}, {round(solver.best_model_params['val RMSE'],6)}, {round(solver.best_model_params['train RMSE'],6)}, {round(solver.best_model_params['training time in sec'],6)}\n")
+    if settings.case in ["train", "finetune"]:  
+        with open(Path.cwd() / "runs" / settings.destination.parent / f"measurements_all_runs.csv", "a") as f:
+            #name, settings.epochs, epoch, val loss, train loss, val rmse, train rmse, train time
+            f.write(f"{settings.destination.name},{settings.epochs},{solver.best_model_params['epoch']}, {round(solver.best_model_params['loss'],6)}, {round(solver.best_model_params['train loss'],6)}, {round(solver.best_model_params['val RMSE'],6)}, {round(solver.best_model_params['train RMSE'],6)}, {round(solver.best_model_params['training time in sec'],6)}\n")
 
     print(f"Measurements saved")

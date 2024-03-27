@@ -71,6 +71,8 @@ def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name: str = 
     dataset_1st_prep_path = datasets_prepared_domain_dir / f"{dataset_name} inputs_{inputs}"
     if dataset_prep == "":
         dataset_prep_2hp_path = f"{dataset_name} inputs_{preparation_case} boxes"
+    else:
+        dataset_prep_2hp_path = dataset_prep
     datasets_boxes_prep_path = datasets_prepared_2hp_dir / dataset_prep_2hp_path
 
     return Paths2HP(

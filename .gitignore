@@ -2,11 +2,11 @@ paths.yaml
 paths_sdf.yaml
 
 datasets_prepared/
+nerf/
 
-# exclude for now in testing phase
-models/
-fully_convolutional_network/
+# exclude for now
 runs/
+*.out
 
 # exclude testing notebook files and other random files
 *.ipynb

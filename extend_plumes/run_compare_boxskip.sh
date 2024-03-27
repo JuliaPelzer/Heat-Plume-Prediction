@@ -1,0 +1,22 @@
+# python main.py --device cuda:1 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --len_box 256 --skip 128 --notes "compare skip,box (padding=halfpaddding)"
+# python main.py --device cuda:1 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --len_box 256 --skip 64 --notes "compare skip,box (padding=halfpaddding)"
+# python main.py --device cuda:1 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --len_box 256 --skip 32 --notes "compare skip,box (padding=halfpaddding)"
+# python main.py --device cuda:1 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --len_box 256 --skip 16 --notes "compare skip,box (padding=halfpaddding)"
+# python main.py --device cuda:1 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --len_box 256 --skip 8 --notes "compare skip,box (padding=halfpaddding)"
+# python main.py --device cuda:1 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --len_box 256 --skip 2 --notes "compare skip,box (padding=halfpaddding)"
+# python main.py --device cuda:1 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --len_box 128 --skip 128 --notes "compare skip,box (padding=halfpaddding)"
+# python main.py --device cuda:1 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --len_box 128 --skip 64 --notes "compare skip,box (padding=halfpaddding)"
+# python main.py --device cuda:1 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --len_box 128 --skip 32 --notes "compare skip,box (padding=halfpaddding)"
+# python main.py --device cuda:1 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --len_box 128 --skip 16 --notes "compare skip,box (padding=halfpaddding)"
+
+python main.py --device cuda:1 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --dataset_prep "dataset_medium_k_3e-10_1000dp inputs_gksi reduce2pow2" --len_box 128 --skip 8 --notes "compare skip,box (padding=halfpaddding)"
+python main.py --device cuda:1 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --dataset_prep "dataset_medium_k_3e-10_1000dp inputs_gksi reduce2pow2" --len_box 128 --skip 2 --notes "compare skip,box (padding=halfpaddding)"
+
+python main.py --device cuda:0 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --dataset_prep "dataset_medium_k_3e-10_1000dp inputs_gksi reduce2pow2" --len_box 64 --skip 64 --notes "compare skip,box (padding=halfpaddding)"
+python main.py --device cuda:0 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --dataset_prep "dataset_medium_k_3e-10_1000dp inputs_gksi reduce2pow2" --len_box 64 --skip 32 --notes "compare skip,box (padding=halfpaddding)"
+python main.py --device cuda:0 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --dataset_prep "dataset_medium_k_3e-10_1000dp inputs_gksi reduce2pow2" --len_box 64 --skip 16 --notes "compare skip,box (padding=halfpaddding)"
+python main.py --device cuda:0 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --dataset_prep "dataset_medium_k_3e-10_1000dp inputs_gksi reduce2pow2" --len_box 64 --skip 2 --notes "compare skip,box (padding=halfpaddding)"
+
+python main.py --device cuda:1 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --dataset_prep "dataset_medium_k_3e-10_1000dp inputs_gksi reduce2pow2" --len_box 32 --skip 32 --notes "compare skip,box (padding=halfpaddding)"
+python main.py --device cuda:1 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --dataset_prep "dataset_medium_k_3e-10_1000dp inputs_gksi reduce2pow2" --len_box 32 --skip 16 --notes "compare skip,box (padding=halfpaddding)"
+python main.py --device cuda:1 --inputs gksi --problem extend2 --visu True --epochs 50 --dataset_raw dataset_medium_k_3e-10_1000dp --dataset_prep "dataset_medium_k_3e-10_1000dp inputs_gksi reduce2pow2" --len_box 256 --skip 64 --notes "compare skip,box (padding=halfpaddding)"

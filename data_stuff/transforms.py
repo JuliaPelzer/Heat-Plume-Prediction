@@ -13,8 +13,8 @@ from torch import linalg, nonzero, unsqueeze
 class NormalizeTransform:
     def __init__(self,info:dict,out_range = (0,1)):
         self.info = info
-        self.input_stats = self.info["Inputs"]
-        self.label_stats = self.info["Labels"]
+        # self.input_stats = self.info["Inputs"] #NOT USED?
+        # self.label_stats = self.info["Labels"]
         self.out_min, self.out_max = out_range 
 
     def __call__(self,data, type = "Inputs"):
@@ -199,7 +199,23 @@ class PowerOfTwoTransform:
 
         logging.info("Data reduced to power of 2")
         return data
+    
+class CutLengthTransform:
+    """
+    Transform class to cut off the end of all data to a certain length
+    """
 
+    def __init__(self, length):
+        self.length = length
+
+    def __call__(self, data):
+        logging.info("Start CutLengthTransform")
+
+        for prop in data.keys():
+            data[prop] = data[prop][:self.length]
+
+        logging.info("End CutLengthTransform, to length 256")
+        return data
 
 class ReduceTo2DTransform:
     """
