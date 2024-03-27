@@ -61,7 +61,10 @@ def run(settings: SettingsTraining):
 
     input_channels, dataloaders = init_data(settings)
     # model
-    model = UNetHalfPad(in_channels=input_channels).float()
+    if settings.problem == "2stages":
+        model = UNet(in_channels=input_channels).float()
+    elif settings.problem in ["extend1", "extend2"]:
+        model = UNetHalfPad(in_channels=input_channels).float()
     # model = Encoder(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
@@ -109,7 +112,10 @@ def run(settings: SettingsTraining):
 
 def save_inference(model_name:str, in_channels: int, settings: SettingsTraining):
     # push all datapoints through and save all outputs
-    model = UNet(in_channels=in_channels).float()
+    if settings.problem == "2stages":
+        model = UNet(in_channels=in_channels).float()
+    elif settings.problem in ["extend1", "extend2"]:
+        model = UNetHalfPad(in_channels=in_channels).float()
     model.load(model_name, settings.device)
     model.eval()
 
@@ -119,10 +125,13 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
     for datapoint in (data_dir / "Inputs").iterdir():
         data = torch.load(datapoint)
         data = torch.unsqueeze(data, 0)
+        time_start = time.perf_counter()
         y_out = model(data.to(settings.device)).to(settings.device)
+        time_end = time.perf_counter()
         y_out = y_out.detach().cpu()
         y_out = torch.squeeze(y_out, 0)
         torch.save(y_out, data_dir / "Outputs" / datapoint.name)
+        print(f"Inference of {datapoint.name} took {time_end-time_start} seconds")
     
     print(f"Inference finished, outputs saved in {data_dir / 'Outputs'}")
 
