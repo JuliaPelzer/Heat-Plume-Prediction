@@ -91,22 +91,16 @@ class Solver(object):
                         "parameters": self.model.parameters(),
                         "training time in sec": (time.perf_counter() - start_time),
                     }
+
+                    if True:
+                        self.model.save(settings.destination, model_name=f"best_model_e{epoch}.pt")
+
                 if log_val_epoch:
-                    if epoch in [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 15000, 20000, 24999]:
+                    if epoch in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 15000, 20000, 24999]:
                         csv_writer.writerow([epoch, val_epoch_loss, train_epoch_loss])
                         csv_writer_best.writerow([epoch, self.best_model_params["loss"], self.best_model_params["train loss"]])
                         # for name, param in self.model.named_parameters():
                         #     writer.add_histogram(name, param, epoch)
-
-                        model_tmp = UNetHalfPad(in_channels=len(settings.inputs), out_channels=1) # UNetHalfPad
-                        model_tmp.load_state_dict(self.best_model_params["state_dict"])
-                        model_tmp.to(settings.device)
-                        model_tmp.save(settings.destination, model_name=f"interim_model_e{epoch}.pt")
-                        visualizations(model_tmp, self.val_dataloader, settings.device, plot_path=settings.destination / f"plot_val_interim_e{epoch}", amount_datapoints_to_visu=2, pic_format="png")
-
-                    if epoch == 1:
-                        for name, param in self.model.named_parameters():
-                            print(name, param.shape)
 
             except KeyboardInterrupt:
                 model_tmp = UNetHalfPad(in_channels=len(settings.inputs), out_channels=1) # UNet
@@ -169,7 +163,7 @@ class Solver(object):
         if not path.exists():
             logging.warning(f"Could not find lr-schedule at {path}. Using default lr-schedule instead.")
             path = pathlib.Path.cwd() / "processing" / "lr_schedules"
-            lr_schedule_file = "default_lr_schedule_extend.csv" if not case_2hp else "default_lr_schedule_2hp.csv"
+            lr_schedule_file = "default_lr_schedule.csv" if not case_2hp else "default_lr_schedule_2hp.csv"
             path = path / lr_schedule_file
 
         with open(path, "r") as f:
