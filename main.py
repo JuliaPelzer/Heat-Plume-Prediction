@@ -35,13 +35,10 @@ def init_data(settings: SettingsTraining, seed=1):
     generator = torch.Generator().manual_seed(seed)
 
     split_ratios = [0.7, 0.2, 0.1]
-    # if settings.case == "test": # TODO change back
+    # if settings.case == "test":
     #     split_ratios = [0.0, 0.0, 1.0] 
-    if not settings.problem == "extend2":
-        datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
-    else:
-        datasets = random_split_extend(dataset, get_splits(len(dataset.input_names), split_ratios), generator=generator)
 
+    datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     dataloaders = {}
     try:
         dataloaders["train"] = DataLoader(datasets[0], batch_size=50, shuffle=True, num_workers=0)
@@ -65,7 +62,6 @@ def run(settings: SettingsTraining):
         model = UNet(in_channels=input_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         model = UNetHalfPad(in_channels=input_channels).float()
-    # model = Encoder(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)
