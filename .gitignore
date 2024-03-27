@@ -3,6 +3,7 @@ paths_sdf.yaml
 
 datasets_prepared/
 nerf/
+WIP_rnn/
 
 # exclude for now
 runs/
