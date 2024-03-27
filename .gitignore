@@ -14,6 +14,7 @@ runs/
 old/
 OLD/
 postprocessing/paper23/plots_paper_old?/
+WIP_rnn/
 
 # interim files
 events.out.*
