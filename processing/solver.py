@@ -92,9 +92,6 @@ class Solver(object):
                         "training time in sec": (time.perf_counter() - start_time),
                     }
 
-                    if True:
-                        self.model.save(settings.destination, model_name=f"best_model_e{epoch}.pt")
-
                 if log_val_epoch:
                     if epoch in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 15000, 20000, 24999]:
                         csv_writer.writerow([epoch, val_epoch_loss, train_epoch_loss])

@@ -6,22 +6,16 @@ import time
 import torch
 import yaml
 from torch.utils.data import DataLoader, random_split
-# tensorboard --logdir=runs/ --host localhost --port 8088
 from torch.nn import MSELoss
 
-from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, DatasetEncoder, get_splits, random_split_extend
+from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits
 from data_stuff.utils import SettingsTraining
 from networks.unet import UNet, UNetBC
 from networks.unetHalfPad import UNetHalfPad
-from networks.encoder import Encoder
 from processing.solver import Solver
 from preprocessing.prepare import prepare_data_and_paths
 from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
 from postprocessing.measurements import measure_loss, save_all_measurements
-
-# import os
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-# torch.cuda.empty_cache()
 
 def init_data(settings: SettingsTraining, seed=1):
     if settings.problem == "2stages":
@@ -137,7 +131,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_raw", type=str, default="dataset_2d_small_1000dp", help="Name of the raw dataset (without inputs)")
     parser.add_argument("--dataset_prep", type=str, default="")
-    parser.add_argument("--device", type=str, default="cuda:3")
+    parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--epochs", type=int, default=10000)
     parser.add_argument("--case", type=str, choices=["train", "test", "finetune"], default="train")
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
