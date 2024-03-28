@@ -113,4 +113,4 @@
 # important commits
 - directly after paper submission (Oct. '23): cdc41426184756b9b1870e5c0f52d399bee0fae0
 - after clean up, one month after paper submission (Oct. '23): c8da3da
-- release for students to extend_plumes: (Mar. '24)3c4f97d62378d137970632
+- release for students to extend_plumes (Mar. '24): ed884f9fb3b8af9808f7abcfee9a0810e8c0fe03, branch release_24_extend_plumes
