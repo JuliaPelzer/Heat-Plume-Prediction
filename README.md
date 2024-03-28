@@ -8,12 +8,12 @@
 
     ```
     default_raw_dir: /scratch/sgs/pelzerja/datasets # where the raw 1st stage data is stored
-    datasets_prepared_dir: /home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN # where the prepared 1st stage data is stored
+    datasets_prepared_dir: /home/pelzerja/pelzerja/test_nn/datasets_prepared # where the prepared 1st stage data is stored
     datasets_raw_domain_dir: /scratch/sgs/pelzerja/datasets/2hps_demonstrator_copy_of_local
     datasets_prepared_domain_dir: /home/pelzerja/pelzerja/test_nn/datasets_prepared/2HP_domain
     prepared_1hp_best_models_and_data_dir: /home/pelzerja/pelzerja/test_nn/1HP_NN_preparation_BEST_models_and_data
     models_2hp_dir: /home/pelzerja/pelzerja/test_nn/1HP_NN/runs
-    datasets_prepared_dir_2hp: /home/pelzerja/pelzerja/test_nn/datasets_prepared/2HP_NN
+    datasets_prepared_dir_2hp: /home/pelzerja/pelzerja/test_nn/datasets_prepared/2HP_boxes
     ```
 
 ## Training a 1st stage model (1HP-NN):
@@ -113,4 +113,4 @@
 # important commits
 - directly after paper submission (Oct. '23): cdc41426184756b9b1870e5c0f52d399bee0fae0
 - after clean up, one month after paper submission (Oct. '23): c8da3da
-- release for students to extend_plumes: (Mar. '24)3c4f97d62378d137970632
+- release for students to extend_plumes (Mar. '24): ed884f9fb3b8af9808f7abcfee9a0810e8c0fe03 (branch release_24)
