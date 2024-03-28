@@ -115,4 +115,4 @@
 - directly after paper submission (Oct. '23): cdc41426184756b9b1870e5c0f52d399bee0fae0
 - after clean up, one month after paper submission (Oct. '23): c8da3da
 - release for students to extend_plumes (Mar. '24): ed884f9fb3b8af9808f7abcfee9a0810e8c0fe03, branch release_24
-- release for students to work on first stage (e.g. rotational equivariance) (Mar. '24): 
+- release for students to work on first stage (e.g. rotational equivariance) (Mar. '24): 946a2ce519743f60e4440b, branch release_24
