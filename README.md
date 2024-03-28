@@ -25,6 +25,7 @@
     optional arguments:
     --inputs: make sure, they are the same as in the model (default `gksi`)
     --visualize: visualize the results (default `False`)
+    --len_box: length in y-direction that the datapoints should be cut off (default `256`). Make sure, this number is less or equal to the length of the simulation run.
 
 ## Infer a 1st stage model:
 - run main.py:
@@ -57,7 +58,7 @@
 
 -- case: `test`
 
-## Training an extend plumes model:
+## Training an extend plumes model: !excluded in this commit!
 - train a model for the first box (e.g. 1HPNN) or via `problem extend1`, e.g.
 
     ```
@@ -113,4 +114,5 @@
 # important commits
 - directly after paper submission (Oct. '23): cdc41426184756b9b1870e5c0f52d399bee0fae0
 - after clean up, one month after paper submission (Oct. '23): c8da3da
-- release for students to extend_plumes (Mar. '24): ed884f9fb3b8af9808f7abcfee9a0810e8c0fe03, branch release_24_extend_plumes
+- release for students to extend_plumes (Mar. '24): ed884f9fb3b8af9808f7abcfee9a0810e8c0fe03, branch release_24
+- release for students to work on first stage (e.g. rotational equivariance) (Mar. '24): 
