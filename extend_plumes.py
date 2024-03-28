@@ -149,7 +149,7 @@ def visu_rescaled_dp(output_all, labels, params, plot_name=None):
 
     plt.tight_layout()
     if plot_name:
-        plt.savefig(f"runs/extend_plumes2/results/{plot_name}.png", dpi=500)
+        plt.savefig(f"{plot_name}.png", dpi=500)
     plt.show()
 
 def produce_front_comparison_pic():
@@ -215,3 +215,36 @@ def produce_front_comparison_pic():
     plt.tight_layout()
     plt.savefig(f"extend_plumes/model_2ndRound_run{run_id}_frontComparison.png", dpi=500)
     plt.show()
+
+def pipeline_infer_extend_plumes(dataset_front_path:Path, dataset_extend_path:Path, model_front_path:Path, model_extend_path:Path, run_id:int, params:dict):
+    # inputs: paths of prepared datasets, paths of trained models
+    # front_bool: determines whether the first box is the original (label) or predicted by a model (e.g. extend1)
+    for front_bool in [False, True]:
+        print("run id", run_id, "front", front_bool)
+        model, model_front, inputs, labels, inputs_front, params = load_model_and_data(model_extend_path, model_front_path, dataset_extend_path, dataset_front_path, params, run_id=run_id, visu=False)
+
+        if front_bool:
+            front=[model_front, inputs_front]
+        else:
+            front=None
+        output_all = infer(model, inputs, labels, params, first_box=False, visu=False, front=front)
+        visu_rescaled_dp(output_all, labels, params, plot_name=model_extend_path.parent.parent / "extend_both_infer" / f"{model_front_path.name}_{model_extend_path.name}_RUN_{run_id}_front{front_bool}")
+
+
+if __name__=="__main__":
+    dataset_front = Path("/home/pelzerja/Development/datasets_prepared/extend_plumes/dataset_medium_10dp inputs_gksi extend1")
+    dataset_extend = Path("/home/pelzerja/Development/datasets_prepared/extend_plumes/dataset_medium_10dp inputs_gk")
+    model_front = Path("/home/pelzerja/Development/code_NN/runs/extend_plumes1/extend1_test")
+    model_extend = Path("/home/pelzerja/Development/code_NN/runs/extend_plumes2/extend2_test")
+
+    run_id = 1
+    params = {  "colorargs" : {"cmap": "RdBu_r"}, #"vmin":0,"vmax":1, 
+            "start_visu" : 0,
+            "end_visu" : 1000,
+            "start_input_box" : 0, #64,
+            "skip_in_field" : 256, #32,
+            "rm_boundary_l" : 0, #16,
+            "rm_boundary_r" : 1, #int(16/2),
+            }
+
+    pipeline_infer_extend_plumes(dataset_front, dataset_extend, model_front, model_extend, run_id, params)
