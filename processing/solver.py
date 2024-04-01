@@ -14,7 +14,7 @@ from postprocessing.visualization import visualizations
 
 from data_stuff.utils import SettingsTraining
 from networks.unet import weights_init, UNet
-from networks.unetHalfPad import UNetHalfPad
+from networks.unetVariants import *
 
 @dataclass
 class Solver(object):

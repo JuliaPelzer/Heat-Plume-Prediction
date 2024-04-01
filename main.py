@@ -11,8 +11,8 @@ from torch.nn import MSELoss
 
 from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, DatasetEncoder, get_splits, random_split_extend
 from data_stuff.utils import SettingsTraining
-from networks.unet import UNet, UNetBC
-from networks.unetHalfPad import UNetHalfPad
+from networks.unet import UNet
+from networks.unetVariants import UNetHalfPad, UNetHalfPad2
 from networks.encoder import Encoder
 from processing.solver import Solver
 from preprocessing.prepare import prepare_data_and_paths
