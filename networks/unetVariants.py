@@ -126,16 +126,22 @@ class UNetHalfPad2(UNet):
     def forward(self, x: tensor) -> tensor:
         encodings = []
         for encoder, pool in zip(self.encoders, self.pools):
+            # print("forward0", x.shape)
             x = encoder(x)
+            # print("forward1", x.shape)
             encodings.append(x)
             x = pool(x)
-            print("forward", x.shape)
+            # print("forward2", x.shape)
         x = self.encoders[-1](x)
 
-        reduce_size_per_dir = 1
         for upconv, decoder, encoding in zip(self.upconvs, self.decoders, reversed(encodings)):
+            # print("backward1", x.shape)
             x = upconv(x)
-            print("backward", encoding.shape, x.shape)
+            required_size = x.shape[2]
+            start_pos = (encoding.shape[2] - required_size)//2
+            # print("backward2", encoding.shape, x.shape, required_size, start_pos)
+            encoding = encoding[:, :, start_pos:start_pos+required_size, :]
+            # print("backward3", encoding.shape)
             x = cat((x, encoding), dim=1)
             x = decoder(x)
 
@@ -143,7 +149,7 @@ class UNetHalfPad2(UNet):
 
     @staticmethod
     def _block(in_channels, features, kernel_size=5):
-        direction = "vertical"
+        direction = "horizontal"
         return nn.Sequential(
             OneSidePadding(kernel_size, direction),
             nn.Conv2d(
@@ -152,23 +158,23 @@ class UNetHalfPad2(UNet):
                 kernel_size=kernel_size,
                 bias=True,
             ),
-            nn.ReLU(inplace=True),      
-            OneSidePadding(kernel_size, direction),
-            nn.Conv2d(
-                in_channels=features,
-                out_channels=features,
-                kernel_size=kernel_size,
-                bias=True,
-            ),
+            # nn.ReLU(inplace=True),      
+            # OneSidePadding(kernel_size, direction),
+            # nn.Conv2d(
+            #     in_channels=features,
+            #     out_channels=features,
+            #     kernel_size=kernel_size,
+            #     bias=True,
+            # ),
             nn.BatchNorm2d(num_features=features),
-            nn.ReLU(inplace=True),      
-            OneSidePadding(kernel_size, direction),
-            nn.Conv2d(
-                in_channels=features,
-                out_channels=features,
-                kernel_size=kernel_size,
-                bias=True,
-            ),        
+            # nn.ReLU(inplace=True),      
+            # OneSidePadding(kernel_size, direction),
+            # nn.Conv2d(
+            #     in_channels=features,
+            #     out_channels=features,
+            #     kernel_size=kernel_size,
+            #     bias=True,
+            # ),        
             nn.ReLU(inplace=True),
         )
     
@@ -182,6 +188,9 @@ class OneSidePadding(nn.Module):
         if self.direction == "vertical":
             padding_vector = (0,)*2 + (self.pad_len,)*2  
             result = nn.functional.pad(x, padding_vector, mode='constant')     # or 'reflect'?
+        elif self.direction == "horizontal":
+            padding_vector = (self.pad_len,)*2 + (0,)*2
+            result = nn.functional.pad(x, padding_vector, mode='constant')
         return result
 
     

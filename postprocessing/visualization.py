@@ -99,10 +99,14 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     temp_min = min(y.min(), y_out.min())
     extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
 
+    required_size = y_out.shape[0]
+    start_pos = (y.shape[0] - required_size)//2
+    y_red = y[start_pos:start_pos+required_size, :]
+
     dict_to_plot = {
-        "t_true": DataToVisualize(y, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+        "t_true": DataToVisualize(y_red, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
         "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-        "error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]", extent_highs),
+        "error": DataToVisualize(torch.abs(y_red-y_out), "Absolute error in [°C]", extent_highs),
     }
     inputs = info["Inputs"].keys()
     for input in inputs:

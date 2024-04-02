@@ -64,7 +64,7 @@ def run(settings: SettingsTraining):
     if settings.problem == "2stages":
         model = UNet(in_channels=input_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
-        model = UNetHalfPad(in_channels=input_channels).float()
+        model = UNetHalfPad2(in_channels=input_channels).float()
     # model = Encoder(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
@@ -101,9 +101,10 @@ def run(settings: SettingsTraining):
         # errors = measure_loss(model, dataloaders[which_dataset], settings.device)
     save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver) #, errors)
     if settings.visualize:
+        
         visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
-        times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
-        plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
+        # times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
+        # plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         print("Visualizations finished")
         
     print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
