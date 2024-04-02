@@ -10,6 +10,7 @@ from networks.unetVariants import *
 from postprocessing.visualization import _aligned_colorbar
 
 def load_front(model_front_path, dataset_front, run_id, model_name="model.pt"):
+    # load and init first box stuff (extend1: data+model)
     inputs_front = torch.load(dataset_front / "Inputs" / f"RUN_{run_id}.pt")
     labels_front = torch.load(dataset_front / "Labels" / f"RUN_{run_id}.pt")
     model_front = UNetHalfPad(in_channels=4).float()
@@ -17,11 +18,8 @@ def load_front(model_front_path, dataset_front, run_id, model_name="model.pt"):
     model_front.eval()
     return model_front, inputs_front, labels_front
 
-def load_model_and_data(model_path, model_front_path, dataset_prep, dataset_front, params, run_id, visu=False, model_name:str = "model.pt", model_name_front:str = "model.pt"):
-    # first box stuff (extend1)
-    model_front, inputs_front, _ = load_front(model_front_path, dataset_front, run_id, model_name=model_name_front)
- 
-    # other boxes stuff (extend2)
+def load_extend(model_path, dataset_prep, run_id, visu=False, model_name:str = "model.pt"):
+    # load and init extend boxes stuff (extend2: data+model)
     inputs = torch.load(dataset_prep / "Inputs" / f"RUN_{run_id}.pt")
     labels = torch.load(dataset_prep / "Labels" / f"RUN_{run_id}.pt")
     info = yaml.safe_load((model_path / "info.yaml").open("r"))
@@ -32,17 +30,29 @@ def load_model_and_data(model_path, model_front_path, dataset_prep, dataset_fron
         _aligned_colorbar()
         plt.show()
 
-    model = UNetHalfPad(in_channels=3).float() ## VERSION for only T - WIP: in_channels=1
+    model = UNetHalfPad2(in_channels=3).float() ## VERSION for only T - WIP: in_channels=1
     model.load(model_path, model_name=model_name)
     model.eval()
+    return model, inputs, labels, temp_norm
 
-    # params
+def update_params(params, model_path, temp_norm):
+    # params according to model_extend
     params["temp_norm"] = temp_norm
     with open(model_path / "command_line_arguments.yaml", "r") as file:
         data = yaml.load(file, Loader=yaml.Loader)
         params["box_size"] = data["len_box"]
         params["skip_per_dir"] = data["skip_per_dir"]
         params["inputs"] = data["inputs"]
+    return params
+
+def load_models_and_data(model_path, model_front_path, dataset_prep, dataset_front, params, run_id, visu=False, model_name:str = "model.pt", model_name_front:str = "model.pt", case:str="both"):
+    model_front, inputs_front, model, inputs, labels = None, None, None, None, None
+
+    if case in ["front", "both"]:
+        model_front, inputs_front, _ = load_front(model_front_path, dataset_front, run_id, model_name=model_name_front)
+    if case in ["extend", "both"]:
+        model, inputs, labels, temp_norm = load_extend(model_path, dataset_prep, run_id, visu=visu, model_name=model_name)
+        params = update_params(params, model_path, temp_norm)
 
     return model, model_front, inputs, labels, inputs_front, params
 
@@ -82,9 +92,9 @@ def infer(model, inputs, labels, params, first_box:bool=True, visu:bool=True, fr
         start_input_box = skip_per_dir
 
     # assert rm_boundary * 2 < skip_in_field
-    assert skip_in_field + rm_boundary_l + rm_boundary_r <= box_size, "not ensured that neetless predictions"
-    assert (skip_in_field%skip_per_dir) == 0, "should be familiar with this part of a field"
-    assert (start_input_box%skip_per_dir) == 0, "should be familiar with this part of a field"
+    # assert skip_in_field + rm_boundary_l + rm_boundary_r <= box_size, f"not ensured that neetless predictions {skip_in_field} {rm_boundary_l} {rm_boundary_r} {box_size}"
+    assert (skip_in_field%skip_per_dir) == 0, f"should be familiar with this part of a field {skip_in_field} {skip_per_dir}"
+    assert (start_input_box%skip_per_dir) == 0, f"should be familiar with this part of a field {start_input_box} {skip_per_dir}"
     assert rm_boundary_r >= 1, "right boundary value should be at least 1 (that would be that nothing is removed on that side)"
     counter = 0
 
@@ -92,7 +102,11 @@ def infer(model, inputs, labels, params, first_box:bool=True, visu:bool=True, fr
         # print(start_input_box, output_all.shape[2])
         input_tmp = deepcopy(output_all[:, :, start_input_box : start_input_box+box_size].detach())
         output_tmp = model(input_tmp)
-        output_all[:,2,start_input_box+box_size+rm_boundary_l : start_input_box+2*box_size-rm_boundary_r] = output_tmp[:,:,rm_boundary_l:-rm_boundary_r]
+        actual_len = output_tmp.shape[2]
+        if actual_len < box_size: # HOTFIX
+            output_tmp = torch.cat((output_tmp, torch.zeros(output_tmp.shape[0], output_tmp.shape[1], (box_size-actual_len)//2, output_tmp.shape[3])), dim=2)
+            output_tmp = torch.cat((torch.zeros(output_tmp.shape[0], output_tmp.shape[1], (box_size-actual_len)//2, output_tmp.shape[3]), output_tmp), dim=2)
+        output_all[0,2,start_input_box+box_size+rm_boundary_l : start_input_box+2*box_size-rm_boundary_r] = output_tmp[:,:,rm_boundary_l:-rm_boundary_r]
 
         if visu and counter < 6:
             _, axes = plt.subplots(1,5, sharex=True, figsize=(15,5))
@@ -168,7 +182,7 @@ def produce_front_comparison_pic():
     dataset_front = Path("/scratch/sgs/pelzerja/datasets_prepared/extend_plumes/dataset_long_k_3e-10_1dp inputs_gksi extend1")
     run_id = 11
     
-    model, model_front, inputs, labels, inputs_front, params = load_model_and_data(model_path_nfb, model_front_path, dataset_prep, dataset_front, params, run_id=run_id, visu=False)
+    model, model_front, inputs, labels, inputs_front, params = load_models_and_data(model_path_nfb, model_front_path, dataset_prep, dataset_front, params, run_id=run_id, visu=False)
 
     front=[model_front, inputs_front]
     output_front = infer(model, inputs, labels, params, first_box=False, visu=False, front=front)
