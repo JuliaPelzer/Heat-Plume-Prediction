@@ -53,8 +53,7 @@ def animate(rescale_temp:Callable, run_id:int, epochs:List[int], models, dataset
     ax0.imshow(label_rescaled.squeeze().T, **params["colorargs"])
     plt.colorbar(ax0.imshow(label_rescaled.squeeze().T, **params["colorargs"]), cax=cax0)
 
-    def update(frame):
-        epoch = epochs[frame]
+    def update(epoch):
         _, output = update_extend(models, datasets, case, run_id, epoch, params)
         ax1.set_title(f"Output: Temperature [°C] at epoch {epoch}")
         ax1.imshow(output.squeeze().T, **params["colorargs"])
