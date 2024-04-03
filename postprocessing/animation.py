@@ -1,3 +1,4 @@
+import argparse
 from copy import deepcopy
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
@@ -11,8 +12,8 @@ import yaml
 import sys
 sys.path.append("/home/pelzerja/Development/code_NN/")
 
-from extend_plumes import rescale_temp, load_front, load_extend, load_models_and_data, infer
-
+from extend_plumes import rescale_temp, load_front, load_extend, load_models_and_data, infer, infer_nopad
+FINAL_EPOCH_ID = 9999999
 def animate(rescale_temp:Callable, run_id:int, epochs:List[int], models, datasets, case:str="front", anim_name:str="model_evolution", params:dict={}):
     _, _, _, labels, _, params = load_models_and_data(models[1], models[0], datasets[1], datasets[0], params, run_id=run_id, visu=False, model_name="best_model_e0.pt", model_name_front="model.pt", case=case)
     if case == "extend":
@@ -28,7 +29,7 @@ def animate(rescale_temp:Callable, run_id:int, epochs:List[int], models, dataset
         params["len_box1"] = len_box
         print("v2", params["len_box1"], params["temp_norm"])
         assert params["len_box1"] == params["box_size"], "just wanted to see if this case actually appears"
-    params["colorargs_error"] = {"cmap": "RdBu_r", "vmin":-1,"vmax":1} # -0.5 0.5
+    params["colorargs_error"] = {"cmap": "RdBu_r", "vmin":-0.5,"vmax": 0.5}
 
     if case=="front":
         labels = labels[:,:params["len_box1"]]
@@ -63,12 +64,15 @@ def animate(rescale_temp:Callable, run_id:int, epochs:List[int], models, dataset
         plt.colorbar(ax2.imshow((output - label_rescaled).squeeze().T, **params["colorargs_error"]), cax=cax2)
 
     ani = animation.FuncAnimation(fig, update, frames=tqdm(epochs, desc="epochs"), interval=1000, repeat=True)
-    ani.save(ref_model.parent / f"{anim_name}.gif", writer="pillow", fps=3)
-    print(f"Animation saved as {anim_name}.gif")
+    ani.save(ref_model / f"run{run_id}_{anim_name}.gif", writer="pillow", fps=3)
+    print(f"Animation saved as run{run_id}_{anim_name}.gif")
 
 def update_extend(models_paths, datasets_paths, case, run_id, epoch, params):
-    model_name = f"best_model_e{epoch}.pt"
-    # model_name = f"interim_model_e{epoch}.pt"
+    if epoch == FINAL_EPOCH_ID:
+        model_name = "model.pt"
+    else:
+        model_name = f"best_model_e{epoch}.pt"
+        # model_name = f"interim_model_e{epoch}.pt"
 
     if case == "front":
         model_front = models_paths[0]
@@ -80,7 +84,7 @@ def update_extend(models_paths, datasets_paths, case, run_id, epoch, params):
         model = models_paths[1]
         dataset = datasets_paths[1]
         model, model_front, inputs, labels, inputs_front, params = load_models_and_data(model, models_paths[1], dataset, datasets_paths[1], params, run_id=run_id, visu=False, model_name=model_name, case=case)
-        output = infer(model, inputs, labels, params, first_box=False, visu=False, front=None)
+        output = infer_nopad(model, inputs, labels, params, first_box=False, visu=False, front=None)
         output = output[:params["end_visu"]]
     elif case == "both":
         model_front_path, model_back_path = models_paths
@@ -89,7 +93,6 @@ def update_extend(models_paths, datasets_paths, case, run_id, epoch, params):
         model, model_front, inputs, labels, inputs_front, params = load_models_and_data(model_back_path, model_front_path, dataset_back_path, dataset_front_path, params, run_id=run_id, visu=False, model_name=model_name, model_name_front="model.pt") # not varying first box model but using the best
         output = infer(model, inputs, labels, params, first_box=False, visu=False, front=None) #[model_front, inputs_front]) # TODO include front
         output = output[:params["end_visu"]]
-
 
     output_rescaled = rescale_temp(deepcopy(output), params["temp_norm"])
 
@@ -112,9 +115,9 @@ def animate_extend_both(run_id:int, case:str="both", epochs:List[int]=None, data
 
     params = {"colorargs" : {"cmap": "RdBu_r"},
                 "start_visu" : 0,
-                "end_visu" : 1000,
+                "end_visu" : 2000,
                 "start_input_box" : 128, #64, # TODO error in handling this??
-                "skip_in_field" : 256, #64, #32,
+                "skip_in_field" : 32, #64,
                 "rm_boundary_l" : 0, #16,
                 "rm_boundary_r" : 1, #int(16/2),
                 }
@@ -131,7 +134,10 @@ def animate_extend_both(run_id:int, case:str="both", epochs:List[int]=None, data
     animate(rescale_temp=rescale_temp, run_id=run_id, epochs=epochs, datasets=[dataset_front, dataset_extend], models=[model_front, model_extend], case=case, anim_name="anim_extend2", params=params)
 
 def get_epoch(model_name):
-    return int(model_name.split("_")[2][1:].split(".")[0])
+    if "best_model_e" in model_name:
+        return int(model_name.split("_")[2][1:].split(".")[0])
+    else:
+        return FINAL_EPOCH_ID
 
 def get_all_epochs(dir:Path):
     pathlist = dir.glob('**/*.pt')
@@ -160,10 +166,21 @@ def dummy_animate(model_path, data_path, run_id, epochs):
                
 
 if __name__ == "__main__":
-    # animate_extend_front()
-    model_extend_path = Path("/home/pelzerja/Development/code_NN/runs/extend_plumes2/dataset_medium_10dp inputs_gk case_train box256 skip256") #testex1") 
-    dataset_extend_path = Path("/home/pelzerja/Development/datasets_prepared/extend_plumes/dataset_medium_10dp inputs_gk")
-    run_id = 3
+    model_extend_path = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes2")
+    dataset_extend_path = Path("/scratch/sgs/pelzerja/datasets_prepared/extend_plumes")
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset_extend_prep", type=str, default="dataset_medium_k_3e-10_1000dp inputs_gk")
+    parser.add_argument("--model_extend_prep", type=str, default="dataset_medium-10dp inputs_gk case_train box256 skip2")
+    parser.add_argument("--run_id", type=int, default=5)
+    parser.add_argument("--case", type=str, choices=["both", "front", "extend"], default="extend")
+    args = parser.parse_args()
+
+    dataset_extend_path = dataset_extend_path / args.dataset_extend_prep
+    model_extend_path = model_extend_path / args.model_extend_prep
+    assert args.case in ["extend"], f"Invalid case / not tested case: {args.case}"
+
     epochs = get_all_epochs(model_extend_path)
     epochs.sort()
-    animate_extend_both(run_id, epochs=epochs, case="extend", model_extend=model_extend_path, dataset_extend=dataset_extend_path)
+
+    animate_extend_both(args.run_id, epochs=epochs, case=args.case, model_extend=model_extend_path, dataset_extend=dataset_extend_path)
