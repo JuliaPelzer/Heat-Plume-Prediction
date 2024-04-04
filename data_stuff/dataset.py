@@ -132,7 +132,8 @@ class DatasetExtend2(Dataset):
 
     def __getitem__(self, idx):
         run_id, box_id = self.idx_to_pos(idx)
-        overlap = 46 # TODO HOTFIX for len_box=256, current UNet architecture
+        overlap = 46 # TODO HOTFIX for len_box=256, current UNetHalfPad2 architecture (3 blocks, 1 conv per block, 5x5 kernel, ...)
+        assert self.box_size == 256, "HOTFIX for len_box=256, current UNetHalfPad2 architecture (3 blocks, 1 conv per block, 5x5 kernel, ...)"
         start_prior_box = box_id*self.skip_per_dir
         start_curr_box = start_prior_box + self.box_size -overlap
         
