@@ -30,6 +30,7 @@ def init_data(settings: SettingsTraining, seed=1):
         dataset = DatasetExtend1(settings.dataset_prep, box_size=settings.len_box)
     elif settings.problem == "extend2":
         dataset = DatasetExtend2(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
+        # dataset = DatasetEncoder(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
         settings.inputs += "T"
     print(f"Length of dataset: {len(dataset)}")
     generator = torch.Generator().manual_seed(seed)
@@ -65,7 +66,7 @@ def run(settings: SettingsTraining):
         model = UNet(in_channels=input_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         model = UNetHalfPad2(in_channels=input_channels).float()
-    # model = Encoder(in_channels=input_channels).float()
+        # model = Encoder(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)
