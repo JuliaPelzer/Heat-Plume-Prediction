@@ -135,11 +135,11 @@ class Solver(object):
 
             y_pred = self.model(x)
 
-            loss = None
             required_size = y_pred.shape[2]
             start_pos = (y.shape[2] - required_size)//2
-            y_red = y[:, :, start_pos:start_pos+required_size, :]
-            loss = self.loss_func(y_pred, y_red)
+            y_reduced = y[:, :, start_pos:start_pos+required_size, :]
+
+            loss = self.loss_func(y_pred, y_reduced)
 
             if self.model.training:
                 loss.backward()

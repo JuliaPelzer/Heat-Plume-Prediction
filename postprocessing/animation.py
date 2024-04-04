@@ -8,12 +8,14 @@ from pathlib import Path
 from tqdm.auto import tqdm
 from typing import Callable, List
 import yaml
-# extend sys path by /home/pelzerja/Development/code_NN/
+
 import sys
 sys.path.append("/home/pelzerja/Development/code_NN/")
 
 from extend_plumes import rescale_temp, load_front, load_extend, load_models_and_data, infer, infer_nopad
+
 FINAL_EPOCH_ID = 9999999
+
 def animate(rescale_temp:Callable, run_id:int, epochs:List[int], models, datasets, case:str="front", anim_name:str="model_evolution", params:dict={}):
     _, _, _, labels, _, params = load_models_and_data(models[1], models[0], datasets[1], datasets[0], params, run_id=run_id, visu=False, model_name="best_model_e0.pt", model_name_front="model.pt", case=case)
     if case == "extend":
@@ -65,7 +67,8 @@ def animate(rescale_temp:Callable, run_id:int, epochs:List[int], models, dataset
 
     ani = animation.FuncAnimation(fig, update, frames=tqdm(epochs, desc="epochs"), interval=1000, repeat=True)
     ani.save(ref_model / f"run{run_id}_{anim_name}.gif", writer="pillow", fps=3)
-    print(f"Animation saved as run{run_id}_{anim_name}.gif")
+    fig.savefig(ref_model / f"run{run_id}_{anim_name}.png")
+    print(f"Animation saved as {ref_model}/run{run_id}_{anim_name}.gif")
 
 def update_extend(models_paths, datasets_paths, case, run_id, epoch, params):
     if epoch == FINAL_EPOCH_ID:
@@ -83,8 +86,11 @@ def update_extend(models_paths, datasets_paths, case, run_id, epoch, params):
     elif case == "extend":
         model = models_paths[1]
         dataset = datasets_paths[1]
-        model, model_front, inputs, labels, inputs_front, params = load_models_and_data(model, models_paths[1], dataset, datasets_paths[1], params, run_id=run_id, visu=False, model_name=model_name, case=case)
-        output = infer_nopad(model, inputs, labels, params, first_box=False, visu=False, front=None)
+        model, model_front, inputs, labels, _, params = load_models_and_data(model, models_paths[1], dataset, datasets_paths[1], params, run_id=run_id, visu=False, model_name=model_name, case=case)
+        output = infer_nopad(model, inputs, labels, params, first_box=False, visu=False, front=None, overlap=True, const_T_in=False)
+        # no padding, no overlap, no constant T_in: infer_no_pad: overlap:bool=False, const_T_in:bool=False
+        # no padding, overlap, constant T_in: infer_no_pad: overlap:bool=True, const_T_in:bool=True
+
         output = output[:params["end_visu"]]
     elif case == "both":
         model_front_path, model_back_path = models_paths

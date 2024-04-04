@@ -132,17 +132,23 @@ class DatasetExtend2(Dataset):
 
     def __getitem__(self, idx):
         run_id, box_id = self.idx_to_pos(idx)
-        input = torch.load(self.path / "Inputs" / self.input_names[run_id])[:, box_id*self.skip_per_dir + self.box_size : box_id*self.skip_per_dir + 2*self.box_size, :]
-        # if "Material ID" in self.info["Inputs"]:
-        #     # if material id in inputs, then take it from the prior box
-        #     mat_id = self.info["Inputs"]["Material ID"]["index"]
-        #     input_id = torch.load(self.path / "Inputs" / self.input_names[run_id])[mat_id, box_id*self.skip_per_dir : box_id*self.skip_per_dir  + self.box_size, :]
-        #     input[mat_id] = input_id
-        input_T = torch.load(self.path / "Labels" / self.input_names[run_id])[:, box_id*self.skip_per_dir : box_id*self.skip_per_dir  + self.box_size, :]
-        assert input.shape[1:] == input_T.shape[1:], f"Shapes of input and input_T do not match  {input.shape}, {input_T.shape}"
-        input = torch.cat((input, input_T), dim=0)
-        label = torch.load(self.path / "Labels" / self.label_names[run_id])[:, box_id*self.skip_per_dir + self.box_size : box_id*self.skip_per_dir + 2*self.box_size, :]
-        return input, label
+        overlap = 46 # TODO HOTFIX for len_box=256, current UNet architecture
+        start_prior_box = box_id*self.skip_per_dir
+        start_curr_box = start_prior_box + self.box_size -overlap
+        
+        input_curr = torch.load(self.path / "Inputs" / self.input_names[run_id])[:, start_curr_box : start_curr_box + self.box_size, :]
+        input_prior_T = torch.load(self.path / "Labels" / self.input_names[run_id])[:, start_prior_box : start_prior_box + self.box_size, :]
+
+        const_T_in = False
+        if const_T_in:  # input_T := repeating last row of input-T-field
+            input_prior_T = torch.load(self.path / "Labels" / self.input_names[run_id])[:, start_prior_box+self.box_size-1:start_prior_box+self.box_size, :]
+            input_prior_T = input_prior_T.repeat(1, input_curr.shape[1], 1)
+
+        assert input_curr.shape[1:] == input_prior_T.shape[1:], f"Shapes of input and input_T do not match  {input_curr.shape}, {input_prior_T.shape}"
+        input_all = torch.cat((input_curr, input_prior_T), dim=0)
+
+        label = torch.load(self.path / "Labels" / self.label_names[run_id])[:, start_curr_box : start_curr_box+self.box_size, :]
+        return input_all, label
 
     def idx_to_pos(self, idx):
         return idx // self.dp_per_run, idx % self.dp_per_run + 1 #TODO!!!! depends on which box is taken (front or last)
