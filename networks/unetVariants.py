@@ -126,22 +126,16 @@ class UNetHalfPad2(UNet):
     def forward(self, x: tensor) -> tensor:
         encodings = []
         for encoder, pool in zip(self.encoders, self.pools):
-            # print("forward0", x.shape)
             x = encoder(x)
-            # print("forward1", x.shape)
             encodings.append(x)
             x = pool(x)
-            # print("forward2", x.shape)
         x = self.encoders[-1](x)
 
         for upconv, decoder, encoding in zip(self.upconvs, self.decoders, reversed(encodings)):
-            # print("backward1", x.shape)
             x = upconv(x)
             required_size = x.shape[2]
             start_pos = (encoding.shape[2] - required_size)//2
-            # print("backward2", encoding.shape, x.shape, required_size, start_pos)
             encoding = encoding[:, :, start_pos:start_pos+required_size, :]
-            # print("backward3", encoding.shape)
             x = cat((x, encoding), dim=1)
             x = decoder(x)
 
@@ -158,23 +152,7 @@ class UNetHalfPad2(UNet):
                 kernel_size=kernel_size,
                 bias=True,
             ),
-            # nn.ReLU(inplace=True),      
-            # OneSidePadding(kernel_size, direction),
-            # nn.Conv2d(
-            #     in_channels=features,
-            #     out_channels=features,
-            #     kernel_size=kernel_size,
-            #     bias=True,
-            # ),
             nn.BatchNorm2d(num_features=features),
-            # nn.ReLU(inplace=True),      
-            # OneSidePadding(kernel_size, direction),
-            # nn.Conv2d(
-            #     in_channels=features,
-            #     out_channels=features,
-            #     kernel_size=kernel_size,
-            #     bias=True,
-            # ),        
             nn.ReLU(inplace=True),
         )
     
