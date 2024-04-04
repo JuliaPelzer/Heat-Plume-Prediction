@@ -17,7 +17,7 @@ from networks.encoder import Encoder
 from processing.solver import Solver
 from preprocessing.prepare import prepare_data_and_paths
 from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
-from postprocessing.measurements import measure_loss, save_all_measurements
+from postprocessing.measurements import measure_loss, save_all_measurements, measure_additional_losses
 
 # import os
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -107,6 +107,7 @@ def run(settings: SettingsTraining):
         # times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
         # plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         print("Visualizations finished")
+    # measure_additional_losses(model, dataloaders, settings.device, summed_error_pic, settings)
         
     print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
 

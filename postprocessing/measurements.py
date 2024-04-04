@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from networks.unet import UNet
 from processing.solver import Solver
 from data_stuff.utils import SettingsTraining
+from preprocessing.prepare_1ststage import WelfordStatistics
 
 def measure_len_width_1K_isoline(data: Dict[str, "DataToVisualize"]):
     ''' 
@@ -78,7 +79,37 @@ def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: mo
     mae_closs /= len(dataloader)
 
     return {"mean squared error": mse_loss, "mean squared error in [°C^2]": mse_closs, 
-            "mean absolute error": mae_loss, "mean absolute error in [°C]": mae_closs}
+            "mean absolute error": mae_loss, "mean absolute error in [°C]": mae_closs,
+            }
+
+def measure_additional_losses(model: UNet, dataloaders: Dict[str, DataLoader], device: str, summed_error_pic: torch.Tensor = None, settings: SettingsTraining = None):
+    
+    norm = dataloaders["train"].dataset.dataset.norm
+    model.eval()
+    results = {}
+    for case, dataloader in dataloaders.items():
+        vars = 0.0
+
+        for x, y in dataloader: # batchwise
+            x = x.to(device)
+            y = y.to(device)
+            y_pred = model(x).to(device)
+            y = torch.swapaxes(y, 0, 1)
+            y_pred = torch.swapaxes(y_pred, 0, 1)
+            y = norm.reverse(y.detach().cpu(),"Labels")
+            y_pred = norm.reverse(y_pred.detach().cpu(),"Labels")
+            vars += torch.mean(torch.pow(abs((y_pred - y) - summed_error_pic),2)).detach()
+            
+        vars /= len(dataloader)
+        stds = torch.sqrt(vars)
+        print("stds", stds, "vars", vars)
+
+        results[case] = {"variance in [°C]": vars, "standard deviation in [°C]": stds,}
+
+    if settings is not None:
+        with open(settings.destination/"2ndreview_measurements_additional.yaml", "w") as f:
+            for key, value in results.items():
+                f.write(f"{key}: {value}\n")
 
 def save_all_measurements(settings:SettingsTraining, len_dataset, times, solver:Solver=None, errors:Dict={}):
     with open(Path.cwd() / "runs" / settings.destination / f"measurements_{settings.case}.yaml", "w") as f:
