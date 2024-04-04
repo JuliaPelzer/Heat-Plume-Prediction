@@ -1,5 +1,5 @@
 # Begin working
-- clone the repository
+- clone the repository and go to the respective branch
 - install the requirements: `pip install -r requirements.txt`
 - download the raw / prepared data, (optional models and data sets for 2nd stage) 
 - set the paths in paths.yaml (see later)
@@ -90,6 +90,10 @@
 - resulting model (`model.pt`) + normalization parameters (info.yaml) used can be found in `runs/PROBLEM/DESTINATION` with `PROBLEM` in [1hpnn, 2hpnn, allin1, extend_plumes1, extend_plumes2] and `DESTINATION` being the user defined or default name in the call of main.py
 - this folder also contains visualisations if any were made during the training/inference
 - prepared datasets are in datasets_prepared (paths.yaml:`datasets_prepared_dir/PROBLEM`)
+
+## Postprocessing:
+- option 1: set `--visu` to True during training / inference
+- option 2: run `python postprocessing/animation.py --model MODEL_NAME --data DATA_PREPARED_NAME --run RUN_ID` to get an animation of the training process. Works only if several models were saved during training.
 
 # Logging your training progress:
 - use command 
