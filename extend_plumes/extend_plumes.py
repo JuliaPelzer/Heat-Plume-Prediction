@@ -56,87 +56,61 @@ def load_models_and_data(model_path, model_front_path, dataset_prep, dataset_fro
 
     return model, model_front, inputs, labels, inputs_front, params
 
-def infer(model, inputs, labels, params, first_box:bool=True, visu:bool=True, front:List=None):
-    box_size = params["box_size"]
-    start_input_box = params["start_input_box"]
-    skip_per_dir = params["skip_per_dir"]
-    skip_in_field = params["skip_in_field"]
-    rm_boundary_l = params["rm_boundary_l"]
-    rm_boundary_r = params["rm_boundary_r"]
+def visu_front(box_front, output_front, labels, params):
+    _, axes = plt.subplots(1,3, sharex=True, figsize=(15,5))
+    axes[0].imshow(labels[0,:box_front].detach().numpy().T, **params["colorargs"])
+    axes[0].set_title("Label")
+    plt.sca(axes[0])
+    _aligned_colorbar(axes[0].imshow(labels[0,:box_front].detach().numpy().T))
+    axes[1].imshow(output_front[0, 0].detach().numpy().T, **params["colorargs"])
+    axes[1].set_title("Prediction")
+    axes[2].imshow((labels[0,:box_front]-output_front[0, 0]).detach().numpy().T)
+    axes[2].set_title("Difference")
+    plt.sca(axes[2])
+    _aligned_colorbar(axes[2].imshow((labels[0,:box_front]-output_front[0, 0]).detach().numpy().T))
+    plt.show()
 
-    output_all = torch.cat((inputs, labels), dim=0).unsqueeze(0)
-    # output_all = labels.unsqueeze(0).unsqueeze(0) ## VERSION for only T - WIP
+def assertions_infer(params):
+    # assert rm_boundary * 2 < skip_in_field
+    assert params['skip_in_field'] + params['rm_boundary_l'] + params['rm_boundary_r'] <= params['box_size'], f"not ensured that neetless predictions {params['skip_in_field']} {params['rm_boundary_l']} {params['rm_boundary_r']} {params['box_size']}"
+    assert (params['skip_in_field']%params['skip_per_dir']) == 0, f"should be familiar with this part of a field {params['skip_in_field']} {params['skip_per_dir']}"
+    assert (params['start_prior_box']%params['skip_per_dir']) == 0, f"should be familiar with this part of a field {params['start_prior_box']} {params['skip_per_dir']}"
+    assert params['rm_boundary_r'] >= 1, "right boundary value should be at least 1 (that would be that nothing is removed on that side)"
+
+def infer(model, inputs, labels, params, first_box:bool=True, visu:bool=True, front:List=None):
+    params["overlap"] = 0
+    box_size, start_prior_box, start_curr_box, skip_in_field, inputs, labels = prep_params_and_data(inputs, labels, params, first_box)
 
     if front is not None:
-        box_front = 128
+        box_front = box_size
         model_front, inputs_front = front
         output_front = model_front(inputs_front[:, :box_front].unsqueeze(0).detach())
-        output_all[0,-1,:box_front] = output_front # vs output_all[:,...]
 
-        if visu:
-            fig, axes = plt.subplots(1,3, sharex=True, figsize=(15,5))
-            axes[0].imshow(labels[0,:box_front].detach().numpy().T, **params["colorargs"])
-            axes[0].set_title("Label")
-            plt.sca(axes[0])
-            _aligned_colorbar(axes[0].imshow(labels[0,:box_front].detach().numpy().T))
-            axes[1].imshow(output_front[0, 0].detach().numpy().T, **params["colorargs"])
-            axes[1].set_title("Prediction")
-            axes[2].imshow((labels[0,:box_front]-output_front[0, 0]).detach().numpy().T)
-            axes[2].set_title("Difference")
-            plt.sca(axes[2])
-            _aligned_colorbar(axes[2].imshow((labels[0,:box_front]-output_front[0, 0]).detach().numpy().T))
-            plt.show()
+        if visu: visu_front(box_front, output_front, labels, params)
         
+        labels[0,0,:box_front] = output_front
 
-    if not first_box and start_input_box < skip_per_dir:
-        start_input_box = skip_per_dir
+    assertions_infer(params)
+    
+    while start_curr_box + box_size <= labels.shape[2]:
+        input_all = assemble_inputs(inputs, labels, start_prior_box, start_curr_box, params)
 
-    # assert rm_boundary * 2 < skip_in_field
-    assert skip_in_field + rm_boundary_l + rm_boundary_r <= box_size, f"not ensured that neetless predictions {skip_in_field} {rm_boundary_l} {rm_boundary_r} {box_size}"
-    assert (skip_in_field%skip_per_dir) == 0, f"should be familiar with this part of a field {skip_in_field} {skip_per_dir}"
-    assert (start_input_box%skip_per_dir) == 0, f"should be familiar with this part of a field {start_input_box} {skip_per_dir}"
-    assert rm_boundary_r >= 1, "right boundary value should be at least 1 (that would be that nothing is removed on that side)"
-    counter = 0
+        output = model(input_all)
+        labels[0,0,start_curr_box+params["rm_boundary_l"] : start_curr_box-params["rm_boundary_r"]] = output[:,:,params["rm_boundary_l"]:-params["rm_boundary_r"]]
 
-    while start_input_box + 2*box_size <= output_all.shape[2]:
-        input_tmp = deepcopy(output_all[:, :-1, start_input_box+box_size:start_input_box+2*box_size].detach())
-        input_tmp_T = deepcopy(output_all[:, -1, start_input_box+box_size-1].detach()) # axes of Temp = last
-        input_tmp_T = input_tmp_T.unsqueeze(1).repeat(1, 1, box_size, 1)
-        input_tmp = torch.cat((input_tmp, input_tmp_T), dim=1)
-
-        output_tmp = model(input_tmp)
-
-        output_all[0,2,start_input_box+box_size+rm_boundary_l : start_input_box+2*box_size-rm_boundary_r] = output_tmp[:,:,rm_boundary_l:-rm_boundary_r]
-
-        if visu and counter < 6:
-            _, axes = plt.subplots(1,5, sharex=True, figsize=(15,5))
-            axes[0].imshow(input_tmp[0, 2].detach().numpy().T, **params["colorargs"])
-            axes[0].set_title("Input")
-            axes[1].imshow(output_tmp[0, 0].detach().numpy().T, **params["colorargs"])
-            axes[1].set_title("Prediction")
-            axes[2].imshow(output_tmp[0, 0,rm_boundary_l:-rm_boundary_r].detach().numpy().T, **params["colorargs"])
-            axes[2].set_title("Prediction reduced")
-            axes[3].imshow((output_tmp[0, 0,rm_boundary_l:-rm_boundary_r].detach()-labels[0,start_input_box+box_size+rm_boundary_l : start_input_box+2*box_size-rm_boundary_r]).T)
-            axes[3].set_title("Difference prediction, label")
-            # colorbar
-            plt.sca(axes[3])
-            _aligned_colorbar(axes[3].imshow((output_tmp[0, 0,rm_boundary_l:-rm_boundary_r].detach()-labels[0,start_input_box+box_size+rm_boundary_l : start_input_box+2*box_size-rm_boundary_r]).T))
-            axes[4].imshow(labels[0,start_input_box+box_size : start_input_box+2*box_size].T, **params["colorargs"])
-            axes[4].set_title("Label")
-            plt.tight_layout()
-            plt.show()
-
-        start_input_box += skip_in_field
-        counter += 1
-    output_all = output_all[0,2,:,:].detach().numpy()
-    return output_all
+        start_prior_box += skip_in_field
+        start_curr_box = set_start_curr_box(start_prior_box, params)
+    return labels[0,0,:,:].detach().numpy()
 
 def set_start_curr_box(start_prior_box, params):
     return start_prior_box + params["box_size"] -params["overlap"]
 
-def prep_params_and_data(inputs, labels, params):
+def prep_params_and_data(inputs, labels, params, first_box:bool=False):
     box_size = params["box_size"]
-    start_prior_box = max(params["start_input_box"], params["skip_per_dir"])
+    if not first_box:
+        start_prior_box = max(params["start_input_box"], params["skip_per_dir"])
+    else:
+        start_prior_box = params["start_input_box"]
     start_curr_box = set_start_curr_box(start_prior_box, params)
     skip_in_field = params["skip_in_field"]
     inputs = inputs.unsqueeze(0)
@@ -159,28 +133,10 @@ def calc_actual_len_and_gap(output, params):
     assert actual_len < params["box_size"], f"actual_len {actual_len} should be smaller than box_size {params['box_size']}"
 
     return actual_len, gap
-        
-def visualize(input_all, labels, output, start_curr_box, params, gap, actual_len):
-    _, axes = plt.subplots(1,5, sharex=True, figsize=(15,5))
-    axes[0].imshow(input_all[0, 2].detach().numpy().T, **params["colorargs"])
-    axes[0].set_title("Input")
-    axes[1].imshow(output[0, 0].detach().numpy().T, **params["colorargs"])
-    axes[1].set_title("Prediction")
-    axes[2].imshow(output[0, 0].detach().numpy().T, **params["colorargs"])
-    axes[2].set_title("Prediction reduced")
-    axes[3].imshow((output[0, 0].detach()-labels[0,start_curr_box+gap : start_curr_box+gap+actual_len]).T)
-    axes[3].set_title("Difference prediction, label")
-    # colorbars
-    plt.sca(axes[3])
-    _aligned_colorbar(axes[3].imshow((output[0, 0].detach()-labels[0,start_curr_box+gap : start_curr_box+gap+actual_len]).T))
-    axes[4].imshow(labels[0,start_curr_box : start_curr_box+params["box_size"]].T, **params["colorargs"])
-    axes[4].set_title("Label")
-    plt.tight_layout()
-    plt.savefig("test.png")
-    plt.show()
 
-def infer_nopad(model, inputs, labels, params, first_box:bool=True, visu:bool=True, front:List=None, overlap:bool=False):
+def infer_nopad(model, inputs, labels, params, overlap:bool=False):
     # no padding, option for overlap
+    # TODO add front model
     params["overlap"] = 46 if overlap else 0 # TODO automate
     box_size, start_prior_box, start_curr_box, skip_in_field, inputs, labels = prep_params_and_data(inputs, labels, params)
 
@@ -195,8 +151,6 @@ def infer_nopad(model, inputs, labels, params, first_box:bool=True, visu:bool=Tr
         actual_len, gap = calc_actual_len_and_gap(output, params)
         labels[0,0,start_curr_box+gap : start_curr_box+gap+actual_len] = output
 
-        if visu: visualize(input_all, labels, output, start_curr_box, params, gap, actual_len)
-
         start_prior_box += skip_in_field
         start_curr_box = set_start_curr_box(start_prior_box, params)
     return labels[0,0,:,:].detach().numpy()
@@ -208,34 +162,34 @@ def rescale_temp(data, norm_info):
     delta = norm_info["max"] - norm_info["min"]
     return (data - out_min) / (out_max - out_min) * delta + norm_info["min"]
 
-# def visu_rescaled_dp(output_all, labels, params, plot_name=None):
-#     label_rescaled = rescale_temp(deepcopy(labels[0, :, :].numpy()), params["temp_norm"])
-#     output_lessskip2_rescaled = rescale_temp(deepcopy(output_all), params["temp_norm"])
+def visu_rescaled_dp(output_all, labels, params, plot_name=None):
+    label_rescaled = rescale_temp(deepcopy(labels[0, :, :].numpy()), params["temp_norm"])
+    output_lessskip2_rescaled = rescale_temp(deepcopy(output_all), params["temp_norm"])
 
-#     _, axes = plt.subplots(3,1, sharex=True, figsize=(25, 4))
-#     plt.sca(axes[0])
-#     plt.imshow(label_rescaled[params["start_visu"]:params["end_visu"]].T, **params["colorargs"])
-#     plt.title("Label: Temperature [°C]")
-#     plt.ylabel("y [cells]")
-#     _aligned_colorbar()
+    _, axes = plt.subplots(3,1, sharex=True, figsize=(25, 4))
+    plt.sca(axes[0])
+    plt.imshow(label_rescaled[params["start_visu"]:params["end_visu"]].T, **params["colorargs"])
+    plt.title("Label: Temperature [°C]")
+    plt.ylabel("y [cells]")
+    _aligned_colorbar()
 
-#     plt.sca(axes[1])
-#     plt.imshow(output_lessskip2_rescaled[params["start_visu"]:params["end_visu"]].T, **params["colorargs"])
-#     plt.title("Prediction: Temperature [°C]")
-#     plt.ylabel("y [cells]")
-#     _aligned_colorbar()
+    plt.sca(axes[1])
+    plt.imshow(output_lessskip2_rescaled[params["start_visu"]:params["end_visu"]].T, **params["colorargs"])
+    plt.title("Prediction: Temperature [°C]")
+    plt.ylabel("y [cells]")
+    _aligned_colorbar()
 
-#     plt.sca(axes[2])
-#     plt.imshow((output_lessskip2_rescaled - label_rescaled)[params["start_visu"]:params["end_visu"]].T, **params["colorargs"])
-#     plt.title("Difference: Prediction - Label [°C]")
-#     plt.xlabel("x [cells]")
-#     plt.ylabel("y [cells]")
-#     _aligned_colorbar()
+    plt.sca(axes[2])
+    plt.imshow((output_lessskip2_rescaled - label_rescaled)[params["start_visu"]:params["end_visu"]].T, **params["colorargs"])
+    plt.title("Difference: Prediction - Label [°C]")
+    plt.xlabel("x [cells]")
+    plt.ylabel("y [cells]")
+    _aligned_colorbar()
 
-#     plt.tight_layout()
-#     if plot_name:
-#         plt.savefig(f"runs/extend_plumes2/results/{plot_name}.png", dpi=500)
-#     plt.show()
+    plt.tight_layout()
+    if plot_name:
+        plt.savefig(f"runs/extend_plumes2/results/{plot_name}.png", dpi=500)
+    plt.show()
 
 def produce_front_comparison_pic():
     # Parameters

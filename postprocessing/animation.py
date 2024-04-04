@@ -12,7 +12,7 @@ import yaml
 import sys
 sys.path.append("/home/pelzerja/Development/code_NN/")
 
-from extend_plumes import rescale_temp, load_front, load_extend, load_models_and_data, infer, infer_nopad
+from extend_plumes.extend_plumes import rescale_temp, load_front, load_extend, load_models_and_data, infer, infer_nopad
 
 FINAL_EPOCH_ID = 9999999
 
@@ -87,9 +87,7 @@ def update_extend(models_paths, datasets_paths, case, run_id, epoch, params):
         model = models_paths[1]
         dataset = datasets_paths[1]
         model, model_front, inputs, labels, _, params = load_models_and_data(model, models_paths[1], dataset, datasets_paths[1], params, run_id=run_id, visu=False, model_name=model_name, case=case)
-        output = infer_nopad(model, inputs, labels, params, first_box=False, visu=False, front=None, overlap=True)
-        # no padding, no overlap: infer_no_pad: overlap:bool=False
-        # no padding, overlap: infer_no_pad: overlap:bool=True
+        output = infer_nopad(model, inputs, labels, params, overlap=False)
 
         output = output[:params["end_visu"]]
     elif case == "both":
