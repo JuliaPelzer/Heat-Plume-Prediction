@@ -87,9 +87,9 @@ def update_extend(models_paths, datasets_paths, case, run_id, epoch, params):
         model = models_paths[1]
         dataset = datasets_paths[1]
         model, model_front, inputs, labels, _, params = load_models_and_data(model, models_paths[1], dataset, datasets_paths[1], params, run_id=run_id, visu=False, model_name=model_name, case=case)
-        output = infer_nopad(model, inputs, labels, params, first_box=False, visu=False, front=None, overlap=True, const_T_in=False)
-        # no padding, no overlap, no constant T_in: infer_no_pad: overlap:bool=False, const_T_in:bool=False
-        # no padding, overlap, constant T_in: infer_no_pad: overlap:bool=True, const_T_in:bool=True
+        output = infer_nopad(model, inputs, labels, params, first_box=False, visu=False, front=None, overlap=True)
+        # no padding, no overlap: infer_no_pad: overlap:bool=False
+        # no padding, overlap: infer_no_pad: overlap:bool=True
 
         output = output[:params["end_visu"]]
     elif case == "both":

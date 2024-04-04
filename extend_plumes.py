@@ -144,12 +144,9 @@ def prep_params_and_data(inputs, labels, params):
         
     return box_size, start_prior_box, start_curr_box, skip_in_field, inputs, labels
 
-def assemble_inputs(inputs, labels, start_prior_box: int, start_curr_box:int, params: dict, const_T_in:bool=False):
+def assemble_inputs(inputs, labels, start_prior_box: int, start_curr_box:int, params: dict):
     input_curr = inputs[:, :, start_curr_box:start_curr_box+params["box_size"] ]
-    if not const_T_in:
-        input_prior_T = labels[:, :, start_prior_box:start_prior_box+params["box_size"]] # axes of Temp = last
-    else:
-        input_prior_T = labels[:, :, start_prior_box+params["box_size"]-1:start_prior_box+params["box_size"]].repeat(1, 1, params["box_size"], 1)
+    input_prior_T = labels[:, :, start_prior_box:start_prior_box+params["box_size"]] # axes of Temp = last
     input_all = torch.cat((input_curr, input_prior_T), dim=1)
 
     return input_all
@@ -182,23 +179,20 @@ def visualize(input_all, labels, output, start_curr_box, params, gap, actual_len
     plt.savefig("test.png")
     plt.show()
 
-def infer_nopad(model, inputs, labels, params, first_box:bool=True, visu:bool=True, front:List=None, overlap:bool=False, const_T_in:bool=False):
-    # no padding, overlap, constant T_in
+def infer_nopad(model, inputs, labels, params, first_box:bool=True, visu:bool=True, front:List=None, overlap:bool=False):
+    # no padding, option for overlap
     params["overlap"] = 46 if overlap else 0 # TODO automate
     box_size, start_prior_box, start_curr_box, skip_in_field, inputs, labels = prep_params_and_data(inputs, labels, params)
-    print(f"box_size: {box_size}, start_prior_box: {start_prior_box}, start_curr_box: {start_curr_box}, skip_in_field: {skip_in_field}, overlap: {params['overlap']}")
 
     if overlap:
         if skip_in_field > params["overlap"]: skip_in_field = params["overlap"]
         # TODO STIMMT DAS?
 
     while start_curr_box+box_size <= labels.shape[2]:
-        input_all = assemble_inputs(inputs, labels, start_prior_box, start_curr_box, params, const_T_in)
+        input_all = assemble_inputs(inputs, labels, start_prior_box, start_curr_box, params)
 
         output = model(input_all)
-        
         actual_len, gap = calc_actual_len_and_gap(output, params)
-        # print(f"start_curr_box: {start_curr_box}, gap: {gap}, actual_len: {actual_len}")
         labels[0,0,start_curr_box+gap : start_curr_box+gap+actual_len] = output
 
         if visu: visualize(input_all, labels, output, start_curr_box, params, gap, actual_len)

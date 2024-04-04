@@ -138,12 +138,6 @@ class DatasetExtend2(Dataset):
         
         input_curr = torch.load(self.path / "Inputs" / self.input_names[run_id])[:, start_curr_box : start_curr_box + self.box_size, :]
         input_prior_T = torch.load(self.path / "Labels" / self.input_names[run_id])[:, start_prior_box : start_prior_box + self.box_size, :]
-
-        const_T_in = False
-        if const_T_in:  # input_T := repeating last row of input-T-field
-            input_prior_T = torch.load(self.path / "Labels" / self.input_names[run_id])[:, start_prior_box+self.box_size-1:start_prior_box+self.box_size, :]
-            input_prior_T = input_prior_T.repeat(1, input_curr.shape[1], 1)
-
         assert input_curr.shape[1:] == input_prior_T.shape[1:], f"Shapes of input and input_T do not match  {input_curr.shape}, {input_prior_T.shape}"
         input_all = torch.cat((input_curr, input_prior_T), dim=0)
 
