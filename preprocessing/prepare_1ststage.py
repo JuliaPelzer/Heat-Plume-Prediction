@@ -11,10 +11,11 @@ import yaml
 from typing import Union
 from tqdm.auto import tqdm
 
-from data_stuff.transforms import (ComposeTransform, NormalizeTransform,
+from preprocessing.data_stuff.transforms import (ComposeTransform, NormalizeTransform,
                              PowerOfTwoTransform, ReduceTo2DTransform, CutLengthTransform,
-                             SignedDistanceTransform, PositionalEncodingTransform, ToTensorTransform)
-from data_stuff.utils import SettingsTraining
+                             SignedDistanceTransform, MultiHPDistanceTransform, LinearSmearTransform,
+                             PositionalEncodingTransform, ToTensorTransform)
+from utils.utils_data import SettingsTraining
 from preprocessing.prepare_paths import Paths1HP, Paths2HP
 
 def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, info_file: str = "info.yaml"):
@@ -26,7 +27,7 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
     else:
         cutlengthtrafo=False
 
-    if settings.case == "test" or settings.case_2hp:
+    if settings.case == "test":
         # get info of training
         with open(info_file_path, "r") as file:
             info = yaml.safe_load(file)
@@ -34,7 +35,7 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
         info = None
             
     # TODO unsauber, TODO cutlengthtrafo zu länge die in info.yaml gespeichert ist
-    prepare_dataset(paths, settings.inputs, power2trafo=False, cutlengthtrafo=cutlengthtrafo, box_length=settings.len_box,info=info)
+    prepare_dataset(paths, settings, power2trafo=False, cutlengthtrafo=cutlengthtrafo, info=info)  # power2 in normal case
     
     if settings.case == "train" and not settings.case_2hp:
         # store info of training
@@ -48,7 +49,7 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
                 "duration of whole process in seconds": time_end}, file)
         
 
-def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: bool = True, cutlengthtrafo: bool = False, box_length: int = 256, info:dict = None):
+def prepare_dataset(paths: Union[Paths1HP, Paths2HP], settings: SettingsTraining, power2trafo: bool = True, cutlengthtrafo: bool = False, info:dict = None):
     """
     Create a dataset from the raw pflotran data in raw_data_path.
     The saved dataset is normalized using the mean and standard deviation, which are saved to info.yaml in the new dataset folder.
@@ -72,11 +73,11 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
     dataset_prepared_path.joinpath("Inputs").mkdir(parents=True, exist_ok=True) # TODO
     dataset_prepared_path.joinpath("Labels").mkdir(parents=True, exist_ok=True)
 
-    transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo, cutlengthtrafo=cutlengthtrafo, box_length=box_length)
-    inputs = expand_property_names(inputs)
+    transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo, cutlengthtrafo=cutlengthtrafo, box_length=settings.len_box, problem=settings.problem)
+    inputs = expand_property_names(settings.inputs)
     time_first = "   0 Time  0.00000E+00 y"
-    time_final = "   3 Time  5.00000E+00 y"
-    time_steady_state = "   4 Time  2.75000E+01 y"
+    time_steady_state = "   3 Time  5.00000E+00 y" # time_final
+    # time_steady_state = "   4 Time  2.75000E+01 y"
     pflotran_settings = get_pflotran_settings(paths.raw_path)
     dims = np.array(pflotran_settings["grid"]["ncells"])
     total_size = np.array(pflotran_settings["grid"]["size"])
@@ -200,7 +201,9 @@ def expand_property_names(properties: str):
         "a": "PE x", # positional encoding: signed distance in x direction
         "b": "PE y", # positional encoding: signed distance in y direction
         "g": "Pressure Gradient [-]",
-        "o": "Original Temperature [C]"
+        "o": "Original Temperature [C]",
+        "m": "MDF",
+        "l": "LST",
     }
     possible_vars = ','.join(translation.keys())
     assert all((prop in possible_vars)
@@ -221,6 +224,8 @@ def get_normalization_type(property:str):
         "SDF": None,
         "PE x": None,
         "PE y": None,
+        "MDF": None,
+        "LST": None,
         "Original Temperature [C]": None,
     }
     
@@ -243,12 +248,11 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
     with h5py.File(data_path, "r") as file:
         for key in variables:  # properties
             try:
-                data[key] = torch.tensor(np.array(file[time][key]).reshape(
-                    dimensions_of_datapoint, order='F')).float()
+                data[key] = torch.tensor(np.array(file[time][key]).reshape(dimensions_of_datapoint, order='F')).float()
             except KeyError:
                 if key == "SDF":
                     data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(dimensions_of_datapoint, order='F')).float()
-                elif key in ["PE x", "PE y"]:
+                elif key in ["PE x", "PE y", "MDF", "LST"]:
                     data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(dimensions_of_datapoint, order='F')).float()
                 elif key == "Pressure Gradient [-]":
                     empty_field = torch.ones(list(dimensions_of_datapoint)).float()
@@ -264,13 +268,16 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
     return data
 
 def get_hp_location(data):
-    try:  # TODO problematic with SDF?
+    try:
         ids = data["Material ID"]
     except:
         try:
             ids = data["SDF"]
         except:
-            return None
+            try:
+                ids = data["MDF"]
+            except:
+                return None
     max_id = ids.max()
     loc_hp = np.array(np.where(ids == max_id)).squeeze()
     return loc_hp
@@ -360,7 +367,7 @@ class WelfordStatistics:
             result[key] = self.__maxs[key].item()
         return result
 
-def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool = True, cutlengthtrafo: bool = False, box_length:int=256):
+def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool = True, cutlengthtrafo: bool = False, box_length:int=256, problem:str="2stages"):
     transforms_list = []
 
     if reduce_to_2D:
@@ -371,7 +378,11 @@ def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool 
     if cutlengthtrafo:
         transforms_list.append(CutLengthTransform(box_length))
     transforms_list.append(SignedDistanceTransform())
-    transforms_list.append(PositionalEncodingTransform())
+    if problem in ["extend1", "extend2"]:
+        transforms_list.append(PositionalEncodingTransform())
+    elif problem == "allin1":
+        transforms_list.append(MultiHPDistanceTransform())
+        transforms_list.append(LinearSmearTransform())
 
     transforms = ComposeTransform(transforms_list)
     return transforms

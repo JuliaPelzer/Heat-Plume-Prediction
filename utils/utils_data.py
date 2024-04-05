@@ -18,43 +18,57 @@ def save_yaml(settings: Dict, path: str, name_file: str = "settings"):
 
 @dataclass
 class SettingsTraining:
-    dataset_raw: str
     inputs: str
     device: str
     epochs: int
     destination: pathlib.Path = ""
+    dataset_raw: str = ""
     dataset_prep: str = ""
     case: str = "train"
     finetune: bool = False
     model: str = None
     test: bool = False
-    case_2hp: bool = False
     visualize: bool = False
     save_inference: bool = False
     problem: str = "2stages"
     notes: str = ""
+    dataset_train: str = ""
+    dataset_val: str = ""
+    dataset_test: str = "" 
+    case_2hp: bool = False
     skip_per_dir: int = 4
     len_box: int = 256
     
     def __post_init__(self):
-        if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:
+        if self.case_2hp:
+            assert self.problem == "2stages", "2nd stage is only possible with 2stages problem"
+        if self.case == "finetune":
             self.finetune = True
-            self.case = "finetune"
             assert self.model is not None, "Path to model is not defined"
-        elif self.case in ["test", "testing", "Test", "Testing", "TEST"]:
-            self.case = "test"
+        elif self.case == "test":
             self.test = True
             assert self.finetune is False, "Finetune is not possible in test mode"
-        elif self.case in ["train", "training", "Train", "Training", "TRAIN"]:
-            self.case = "train"
+        elif self.case == "train":
             assert self.finetune is False, "Finetune is not possible in train mode"
             assert self.test is False, "Test is not possible in train mode"
 
         if self.case in ["test", "finetune"]:
             assert self.model != "runs/default", "Please specify model path for testing or finetuning"
 
+        if self.problem == "allin1":
+            self.dataset_raw == ""
+            self.dataset_prep = "" # TODO rm??
+            self.case_2hp = False
+        elif self.problem in ["2stages", "extend1", "extend2"]:
+            self.dataset_train == ""
+            self.dataset_val == ""
+            self.dataset_test == ""
+
         if self.destination == "":
-            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " box"+str(self.len_box) + " skip"+str(self.skip_per_dir)
+            if self.problem == "allin1":
+                self.destination = f"{self.dataset_train} inputs_{self.inputs} case_{self.case} box{self.len_box} skip{self.skip_per_dir}"
+            else:
+                self.destination = f"{self.dataset_raw} inputs_{self.inputs} case_{self.case} box{self.len_box} skip{self.skip_per_dir}"
 
     def save(self):
         save_yaml(self.__dict__, self.destination, "command_line_arguments")

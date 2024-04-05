@@ -6,7 +6,7 @@ import os
 from typing import List
 from pathlib import Path
 
-from networks.unetVariants import *
+from processing.networks.unetVariants import *
 from postprocessing.visualization import _aligned_colorbar
 
 def load_front(model_front_path, dataset_front, run_id, model_name="model.pt"):

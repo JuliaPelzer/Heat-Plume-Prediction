@@ -4,9 +4,13 @@ import os
 import pathlib
 import time
 import yaml
+import sys
 
-from domain_classes.domain import Domain
-from networks.unet import UNet
+sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN") # relevant for remote
+sys.path.append("/home/pelzerja/Development/1HP_NN")  
+
+from preprocessing.domain_classes.domain import Domain
+from processing.networks.unet import UNet
 from utils.prepare_paths import Paths2HP, set_paths_2hpnn
 from preprocessing.prepare_2ndstage import prepare_dataset_for_2nd_stage, load_and_prepare_for_2nd_stage
 

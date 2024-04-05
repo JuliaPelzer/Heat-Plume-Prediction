@@ -1,5 +1,6 @@
 import argparse
 import logging
+from copy import deepcopy
 import multiprocessing
 import numpy as np
 import time
@@ -9,11 +10,11 @@ from torch.utils.data import DataLoader, random_split
 # tensorboard --logdir=runs/ --host localhost --port 8088
 from torch.nn import MSELoss
 
-from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, DatasetEncoder, get_splits, random_split_extend
-from data_stuff.utils import SettingsTraining
-from networks.unet import UNet
-from networks.unetVariants import UNetHalfPad, UNetHalfPad2
-from networks.encoder import Encoder
+from preprocessing.data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, DatasetEncoder, SimulationDatasetCuts, get_splits, random_split_extend
+from utils.utils_data import SettingsTraining
+from processing.networks.unet import UNet
+from processing.networks.unetVariants import UNetHalfPad, UNetHalfPad2
+from processing.networks.encoder import Encoder
 from processing.solver import Solver
 from preprocessing.prepare import prepare_data_and_paths
 from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
@@ -32,6 +33,11 @@ def init_data(settings: SettingsTraining, seed=1):
         dataset = DatasetExtend2(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
         # dataset = DatasetEncoder(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
         settings.inputs += "T"
+    elif settings.problem == "allin1":
+        if settings.case == "test":
+            dataset = SimulationDataset(settings.dataset_prep)
+        else:
+            dataset = SimulationDatasetCuts(settings.dataset_prep, skip_per_dir=64)
     print(f"Length of dataset: {len(dataset)}")
     generator = torch.Generator().manual_seed(seed)
 
@@ -45,28 +51,55 @@ def init_data(settings: SettingsTraining, seed=1):
 
     dataloaders = {}
     try:
-        dataloaders["train"] = DataLoader(datasets[0], batch_size=50, shuffle=True, num_workers=0)
-        dataloaders["val"] = DataLoader(datasets[1], batch_size=50, shuffle=True, num_workers=0)
+        dataloaders["train"] = DataLoader(datasets[0], batch_size=100, shuffle=True, num_workers=0)
+        dataloaders["val"] = DataLoader(datasets[1], batch_size=100, shuffle=True, num_workers=0)
     except: pass
-    dataloaders["test"] = DataLoader(datasets[2], batch_size=50, shuffle=True, num_workers=0)
+    dataloaders["test"] = DataLoader(datasets[2], batch_size=100, shuffle=True, num_workers=0)
+    print(len(datasets[0]), len(datasets[1]), len(datasets[2]))
 
     return dataset.input_channels, dataloaders
 
+def init_data_different_datasets(settings: SettingsTraining, settings_val: SettingsTraining = None, settings_test: SettingsTraining = None):
+    dataloaders = {}
 
-def run(settings: SettingsTraining):
+    if settings.case == "test":
+        dataset = SimulationDataset(settings.dataset_prep)
+        dataloaders["test"] = DataLoader(dataset, batch_size=100, shuffle=True, num_workers=0)
+    else:
+        dataset = SimulationDatasetCuts(settings.dataset_prep, skip_per_dir=settings.skip_per_dir, box_size=settings.len_box)
+        dataloaders["train"] = DataLoader(dataset, batch_size=100, shuffle=True, num_workers=0)
+        if settings_val:
+            dataset_tmp = SimulationDatasetCuts(settings_val.dataset_prep, skip_per_dir=settings.skip_per_dir, box_size=settings.len_box)
+            dataloaders["val"] = DataLoader(dataset_tmp, batch_size=100, shuffle=True, num_workers=0)
+        if settings_test:
+            dataset_tmp = SimulationDataset(settings_test.dataset_prep)
+            dataloaders["test"] = DataLoader(dataset_tmp, batch_size=100, shuffle=True, num_workers=0)
+
+        print(len(dataset), len(dataloaders["val"].dataset), len(dataloaders["test"].dataset))
+    return dataset.input_channels, dataloaders
+
+
+def run(settings: SettingsTraining, settings_val: SettingsTraining = None, settings_test: SettingsTraining = None, different_datasets: bool = False):
+    np.random.seed(1)
     multiprocessing.set_start_method("spawn", force=True)
+
     
     times = {}
     times["time_begin"] = time.perf_counter()
     times["timestamp_begin"] = time.ctime()
 
-    input_channels, dataloaders = init_data(settings)
+    if different_datasets:
+        input_channels, dataloaders = init_data_different_datasets(settings, settings_val, settings_test)
+    else:
+        input_channels, dataloaders = init_data(settings)
+
     # model
-    if settings.problem == "2stages":
+    if settings.problem in ["2stages", "allin1"]:
         model = UNet(in_channels=input_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         model = UNetHalfPad2(in_channels=input_channels).float()
         # model = Encoder(in_channels=input_channels).float()
+
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)
@@ -78,7 +111,7 @@ def run(settings: SettingsTraining):
         finetune = True if settings.case == "finetune" else False
         solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn, finetune=finetune)
         try:
-            solver.load_lr_schedule(settings.destination / "learning_rate_history.csv", settings.case_2hp)
+            solver.load_lr_schedule(settings.destination / "learning_rate_history.csv")
             times["time_initializations"] = time.perf_counter()
             solver.train(settings)
             times["time_training"] = time.perf_counter()
@@ -102,13 +135,26 @@ def run(settings: SettingsTraining):
         # errors = measure_loss(model, dataloaders[which_dataset], settings.device)
     save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver) #, errors)
     if settings.visualize:
-        
-        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
-        # times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
-        # plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
-        print("Visualizations finished")
+        if not different_datasets:
+            visualizations(model, dataloaders[which_dataset], settings, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format, different_datasets=different_datasets)
+            # times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
+            # plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
+            print("Visualizations finished")
+        else:
+            # settings.device = "cpu"
+            case_tmp = settings.case
+            try:
+                visualizations(model, dataloaders["val"], settings, plot_path=settings.destination / f"val", amount_datapoints_to_visu=1, pic_format=pic_format, different_datasets=different_datasets)
+            except: pass
+            visualizations(model, dataloaders["test"], settings, plot_path=settings.destination / f"test", amount_datapoints_to_visu=1, pic_format=pic_format, different_datasets=different_datasets)
+
+            settings.case = "test"
+            _, dataloaders = init_data(settings)
+            visualizations(model, dataloaders["test"], settings, plot_path=settings.destination / f"train", amount_datapoints_to_visu=1, pic_format=pic_format)
+            settings.case = case_tmp
+            print("Visualizations finished")
     # measure_additional_losses(model, dataloaders, settings.device, summed_error_pic, settings)
-        
+
     print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
 
     return model
@@ -142,27 +188,55 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
         
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_raw", type=str, default="dataset_2d_small_1000dp", help="Name of the raw dataset (without inputs)")
+    parser.add_argument("--dataset_raw", type=str, default="dataset_2d_small_1000dp", help="Name of the raw dataset (without inputs)") # case: 2stages, extend1, extend2
+    parser.add_argument("--dataset_train", type=str, default="dataset_giant_100hp_varyPermLog_p30_kfix_quarter_dp4_4", help="Name of the raw dataset (without inputs)") # case: allin1
+    parser.add_argument("--dataset_val", type=str, default="dataset_giant_100hp_varyPermLog_p30_kfix_quarter_dp5_4", help="Name of the raw dataset (without inputs)") # case: allin1
+    parser.add_argument("--dataset_test", type=str, default="dataset_giant_100hp_varyPermLog_p30_kfix_quarter_dp3_4", help="Name of the raw dataset (without inputs)") #case: allin1
     parser.add_argument("--dataset_prep", type=str, default="")
     parser.add_argument("--device", type=str, default="cuda:3")
-    parser.add_argument("--epochs", type=int, default=10000)
+    parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--case", type=str, choices=["train", "test", "finetune"], default="train")
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
     parser.add_argument("--destination", type=str, default="")
-    parser.add_argument("--inputs", type=str, default="gksi") #choices=["gki", "gksi", "pksi", "gks", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100", "t", "gkiab", "gksiab", "gkt"]
+    parser.add_argument("--inputs", type=str, default="gksi") #e.g. "gki", "gksi100", "ogksi1000_finetune", "t", "lmi", "lmik","lmikp", ...
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
-    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2",], default="extend1")
+    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2",], default="allin1")
     parser.add_argument("--notes", type=str, default="")
-    parser.add_argument("--len_box", type=int, default=256)
-    parser.add_argument("--skip_per_dir", type=int, default=256)
+    parser.add_argument("--len_box", type=int, default=64) # for extend:256
+    parser.add_argument("--skip_per_dir", type=int, default=32)
     args = parser.parse_args()
+
     settings = SettingsTraining(**vars(args))
 
-    settings = prepare_data_and_paths(settings)
+    different_datasets = True
+    if settings.problem == "allin1" and different_datasets:
+        case_tmp = settings.case
+        settings.dataset_raw = settings.dataset_train
+        dataset_tmp = settings.dataset_raw
+        settings = prepare_data_and_paths(settings)
+        prep_tmp = settings.dataset_prep
+        settings.dataset_prep = ""
+        settings.case = "test"
+        settings.model = settings.destination
+        settings.dataset_raw = settings.dataset_val
+        settings_val = prepare_data_and_paths(deepcopy(settings))
+        settings.dataset_raw = settings.dataset_test
+        settings_test = prepare_data_and_paths(deepcopy(settings))
+        settings.case = case_tmp
+        settings.dataset_raw = dataset_tmp
+        settings.dataset_prep = prep_tmp
+        
+        model = run(settings, settings_val, settings_test, different_datasets=different_datasets)
+    elif settings.problem == "allin1":
+        settings.dataset_raw = settings.dataset_train
+        settings = prepare_data_and_paths(settings)
+        model = run(settings)
+    else:    
+        settings = prepare_data_and_paths(settings)
+        model = run(settings)
 
-    model = run(settings)
 
     if args.save_inference:
         save_inference(settings.model, len(args.inputs), settings)

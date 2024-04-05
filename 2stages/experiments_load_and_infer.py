@@ -1,12 +1,11 @@
 import argparse
 import logging
 import os
-import pathlib
 import time
 import torch
-from networks.unet import UNet
+from processing.networks.unet import UNet
 
-from data_stuff.utils import SettingsTraining
+from utils.utils_data import SettingsTraining
 from preprocessing.prepare import prepare_data_and_paths
 
 def run_experiments(settings: SettingsTraining, measure_infer: bool = True, save: bool = True):

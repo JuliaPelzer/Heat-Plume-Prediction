@@ -22,8 +22,8 @@ import torch
 import torch.nn.functional as F
 from scipy.interpolate import interp1d
 
-from diff_conv2d.functional import DiffConv2d
-from diff_conv2d.maths import map_displacement_to_valid
+from processing.diff_conv2d.functional import DiffConv2d
+from processing.diff_conv2d.maths import map_displacement_to_valid
 
 
 class DiffConv2dLayer(torch.nn.Module):

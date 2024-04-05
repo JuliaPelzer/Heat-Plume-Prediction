@@ -7,8 +7,8 @@ import shutil
 import matplotlib.pyplot as plt
 
 from postprocessing.visualization import _aligned_colorbar
-from networks.unet import UNet, UNetBC
-from data_stuff.utils import SettingsTraining
+from processing.networks.unet import UNet, UNetBC
+from utils.utils_data import SettingsTraining
 from preprocessing.prepare import prepare_data_and_paths
 
 def cut_dataset_in_pieces(number_boxes: int, prepared1_dir, prepared_pieces_dir):

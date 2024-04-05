@@ -8,16 +8,15 @@ from typing import Dict
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from torch.nn import Module, MSELoss, modules
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from torch.utils.data import DataLoader
 
-from data_stuff.transforms import NormalizeTransform
-from networks.unet import UNet
+from preprocessing.data_stuff.transforms import NormalizeTransform
+from processing.networks.unet import UNet
+from utils.utils_data import SettingsTraining
 
-# mpl.rcParams.update({'figure.max_open_warning': 0})
 # plt.rcParams['figure.figsize'] = [16, 5]
-
-# TODO: look at vispy library for plotting 3D data
 
 @dataclass
 class DataToVisualize:
@@ -53,14 +52,18 @@ class DataToVisualize:
         elif self.name == "SDF":
             self.name = "SDF-transformed position in [-]"
     
-def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png"):
+def visualizations(model: UNet, dataloader: DataLoader, settings: SettingsTraining, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png", different_datasets: bool = False):
     print("Visualizing...", end="\r")
 
     if amount_datapoints_to_visu > len(dataloader.dataset):
         amount_datapoints_to_visu = len(dataloader.dataset)
 
-    norm = dataloader.dataset.dataset.norm
-    info = dataloader.dataset.dataset.info
+    try:
+        norm = dataloader.dataset.norm
+        info = dataloader.dataset.info
+    except AttributeError:
+        norm = dataloader.dataset.dataset.norm
+        info = dataloader.dataset.dataset.info
     model.eval()
     settings_pic = {"format": pic_format,
                     "dpi": 600,}
@@ -71,14 +74,20 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
         for datapoint_id in range(len_batch):
             name_pic = f"{plot_path}_{current_id}"
 
-            x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
+            x = torch.unsqueeze(inputs[datapoint_id].to(settings.device), 0)
             y = labels[datapoint_id]
-            y_out = model(x).to(device)
+            y_out = model(x).to(settings.device)
 
             x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
             dict_to_plot = prepare_data_to_plot(x, y, y_out, info)
 
-            plot_datafields(dict_to_plot, name_pic, settings_pic)
+            if different_datasets:
+                if settings.case=="test":
+                    plot_datafields(dict_to_plot, name_pic, settings_pic, only_inner=True)
+                plot_datafields(dict_to_plot, name_pic, settings_pic, only_inner=False, plot_all_in_1_pic=False)
+            else:
+                plot_datafields(dict_to_plot, name_pic, settings_pic)
+
             # plot_isolines(dict_to_plot, name_pic, settings_pic)
             # measure_len_width_1K_isoline(dict_to_plot)
 
@@ -115,32 +124,49 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
 
     return dict_to_plot
 
-def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
+def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict, only_inner: bool = False, plot_all_in_1_pic: bool = True):
     # plot datafields (temperature true, temperature out, error, physical variables (inputs))
 
-    num_subplots = len(data)
-    fig, axes = plt.subplots(num_subplots, 1, sharex=True)
-    fig.set_figheight(num_subplots)
-    
-    for index, (name, datapoint) in enumerate(data.items()):
-        plt.sca(axes[index])
-        plt.title(datapoint.name)
-        # if name in ["t_true", "t_out"]:  
-        #     with warnings.catch_warnings():
-        #         warnings.simplefilter("ignore")
+    if plot_all_in_1_pic:
+        num_subplots = len(data)
+        fig, axes = plt.subplots(num_subplots, 1, sharex=True)
+        fig.set_figheight(num_subplots*5)
+        
+        for index, (name, datapoint) in enumerate(data.items()):
+            plt.sca(axes[index])
+            plt.title(datapoint.name)
+            if only_inner:
+                plt.imshow(datapoint.data[100:400,100:400].T, **datapoint.imshowargs)
+            else:  
+                plt.imshow(datapoint.data.T, **datapoint.imshowargs)
+            plt.gca().invert_yaxis()
 
-        #         CS = plt.contour(torch.flip(datapoint.data, dims=[1]).T, **datapoint.contourargs)
-        #     plt.clabel(CS, inline=1, fontsize=10)
-        plt.imshow(datapoint.data.T, **datapoint.imshowargs)
-        plt.gca().invert_yaxis()
+            plt.ylabel("x [m]")
+            _aligned_colorbar()
 
-        plt.ylabel("x [m]")
-        _aligned_colorbar()
+        plt.sca(axes[-1])
+        plt.xlabel("y [m]")
+        plt.tight_layout()
+        ext_inner = "_inner" if only_inner else ""
+        plt.savefig(f"{name_pic}{ext_inner}.{settings_pic['format']}", **settings_pic)
+    else:
+        for (name, datapoint) in data.items():
+            fig, _ = plt.subplots(1, 1, sharex=True)
+            fig.set_figheight(5)
+            plt.title(datapoint.name)
+            if only_inner:
+                plt.imshow(datapoint.data[100:400,100:400].T, **datapoint.imshowargs)
+            else:  
+                plt.imshow(datapoint.data.T, **datapoint.imshowargs)
+            plt.gca().invert_yaxis()
 
-    plt.sca(axes[-1])
-    plt.xlabel("y [m]")
-    plt.tight_layout()
-    plt.savefig(f"{name_pic}.{settings_pic['format']}", **settings_pic)
+            plt.ylabel("x [m]")
+            _aligned_colorbar()
+
+            plt.xlabel("y [m]")
+            plt.tight_layout()
+            ext_inner = "_inner" if only_inner else ""
+            plt.savefig(f"{name_pic}{ext_inner}_{name}.{settings_pic['format']}", **settings_pic)
 
 def plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
     # plot isolines of temperature fields
@@ -206,7 +232,8 @@ def plot_avg_error_cellwise(dataloader, summed_error_pic, settings_pic: dict):
     extent_highs = (np.array(info["CellsSize"][:2]) * dataloader.dataset[0][0][0].shape)
     extent = (0,int(extent_highs[0]),int(extent_highs[1]),0)
 
-    plt.figure()
+    fig = plt.figure()
+    fig.set_figheight(5)
     plt.imshow(summed_error_pic.T, cmap="RdBu_r", extent=extent)
     plt.gca().invert_yaxis()
     plt.ylabel("x [m]")

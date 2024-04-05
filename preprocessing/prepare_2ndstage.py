@@ -9,16 +9,17 @@ import yaml
 from torch import stack, load, unsqueeze, save, Tensor
 from tqdm.auto import tqdm
 
-from networks.unet import UNet
+from processing.networks.unet import UNet
 from preprocessing.prepare_1ststage import prepare_dataset
-from domain_classes.domain import Domain
-from domain_classes.heat_pump import HeatPumpBox
-from domain_classes.utils_2hp import save_config_of_separate_inputs, save_config_of_merged_inputs, save_yaml
-from domain_classes.stitching import Stitching
+from preprocessing.domain_classes.domain import Domain
+from preprocessing.domain_classes.heat_pump import HeatPumpBox
+from preprocessing.domain_classes.utils_2hp import save_config_of_separate_inputs, save_config_of_merged_inputs, save_yaml
+from preprocessing.domain_classes.stitching import Stitching
 from preprocessing.prepare_paths import Paths2HP
+from utils.utils_data import SettingsTraining
 
 
-def prepare_dataset_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, device: str = "cuda:0"):
+def prepare_dataset_for_2nd_stage(paths: Paths2HP, settings:SettingsTraining):
     """
     assumptions:
     - 1hp-boxes are generated already
@@ -34,15 +35,15 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, device: str 
 # prepare domain dataset if not yet done
     ## load model from 1st stage
     time_start_prep_domain = time.perf_counter()
-    model_1HP = UNet(in_channels=len(inputs_1hp)).float()
-    model_1HP.load(paths.model_1hp_path, device)
+    model_1HP = UNet(in_channels=len(settings.inputs)).float()
+    model_1HP.load(paths.model_1hp_path, settings.device)
     
     ## prepare 2hp dataset for 1st stage
     if not os.path.exists(paths.dataset_1st_prep_path):        
         # norm with data from dataset that NN was trained with!!
         with open(paths.dataset_model_trained_with_prep_path / "info.yaml", "r") as file:
             info = yaml.safe_load(file)
-        prepare_dataset(paths, inputs_1hp, info=info, power2trafo=False) # for using unet on whole domain required: power2trafo=True
+        prepare_dataset(paths, settings.inputs, info=info, power2trafo=False) # for using unet on whole domain required: power2trafo=True
     print(f"Domain prepared ({paths.dataset_1st_prep_path})")
 
 # prepare dataset for 2nd stage
@@ -58,7 +59,7 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, device: str 
             logging.warning(f"Skipping {run_id}")
             continue
 
-        single_hps = domain.extract_hp_boxes(device)
+        single_hps = domain.extract_hp_boxes(settings.device)
         # for hp in single_hps:
         #     # save hp
         #     hp.save(run_id=run_id, dir=paths.datasets_boxes_prep_path, inputs_all=None,)
@@ -76,14 +77,14 @@ def prepare_dataset_for_2nd_stage(paths: Paths2HP, inputs_1hp: str, device: str 
         f.write(f"timestamp of beginning: {timestamp_begin}\n")
         f.write(f"timestamp of end: {time.ctime()}\n")
         f.write(f"model 1HP: {paths.model_1hp_path}\n")
-        f.write(f"input params: {inputs_1hp}\n")
+        f.write(f"input params: {settings.inputs}\n")
         f.write(f"separate inputs: {True}\n")
         f.write(f"location of prepared domain dataset: {paths.dataset_1st_prep_path}\n")
         f.write(f"name of dataset prepared with: {paths.dataset_model_trained_with_prep_path}\n")
         f.write(f"name of dataset domain: {paths.raw_path.name}\n")
         f.write(f"name_destination_folder: {paths.datasets_boxes_prep_path}\n")
         f.write(f"avg inference times for 1HP-NN in seconds: {avg_inference_times}\n")
-        f.write(f"device: {device}\n")
+        f.write(f"device: {settings.device}\n")
         f.write(f"duration of preparing domain in seconds: {(time_start_prep_2hp-time_start_prep_domain)}\n")
         f.write(f"duration of preparing 2HP in seconds: {(time_end-time_start_prep_2hp)}\n")
         f.write(f"duration of preparing 2HP /run in seconds: {(time_end-time_start_prep_2hp)/len(list_runs)}\n")

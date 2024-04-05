@@ -8,6 +8,7 @@ from typing import Tuple
 import numpy as np
 import torch
 from torch import linalg, nonzero, unsqueeze
+from scipy.spatial import cKDTree
 
 
 class NormalizeTransform:
@@ -168,6 +169,75 @@ class PositionalEncodingTransform:
         # data[data < 0] = 0
         assert data.shape == data_shape, f"PE y has wrong shape: {data.shape} instead of {data_shape}"
         return data
+
+class MultiHPDistanceTransform:
+    """
+    Transform class to calculate distance transform for multiple heat pumps for material id.  
+    This transform takes a dict of tensors as input and returns a dict of tensors.
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, data: dict):
+        logging.info("Start MultiHPDistanceTransform")
+
+        # check if MDF is in data (inputs vs. labels)
+        if "MDF" not in data.keys():
+            logging.info("No material ID in data, no MultiHPDistanceTransform")
+            return data
+
+        positions = torch.tensor(np.array(np.where(data["MDF"] == torch.max(data["MDF"])))).T
+        assert positions.dim() == 2, "MDF + just 1 HP? u sure?"
+        data["MDF"] = self.mdf(data["MDF"], positions)
+
+        logging.info("MultiHPDistanceTransform done")
+        return data
+    
+    def mdf(self, data: torch.tensor, positions: torch.tensor):
+        max_dist = 100 # max_dist between 2 points / manual influence distance : also for scaling - TODO: optimize value
+        kdtree = cKDTree(positions[:,:2])
+        data_shape = data.shape
+        X, Y = np.meshgrid(np.arange(data.shape[0]), np.arange(data.shape[1]))
+        data_tmp, _ = kdtree.query(np.array([X, Y]).T.reshape(-1, 2), k=1)
+        data = np.minimum(data_tmp, max_dist)
+        data = data.reshape(data_shape)
+        data = 1 - data / np.max(data)
+        data = torch.tensor(data, dtype=torch.float32)
+        return data
+    
+
+class LinearSmearTransform:
+    """
+    Transform class to calculate distance transform for multiple heat pumps for material id - just depending on the next hp upstream.
+    This transform takes a dict of tensors as input and returns a dict of tensors.
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, data: dict):
+        logging.info("Start LinSmearTrafo")
+
+        # check if LST is in data (inputs vs. labels)
+        if "LST" not in data.keys():
+            logging.info("No material ID in data, no LinSmearTrafo")
+            return data
+
+        assert len(data["LST"].size()) == 3, "wrong number of dimensions for LinSmearTrafo, expect 4"
+        data["LST"] = self.lin_smear(data["LST"])
+        logging.info("LinSmearTrafo done")
+
+        return data
+    
+    def lin_smear(self, data: torch.tensor):
+        max_dist = int(data.shape[0] * 1.1)
+        
+        for idx in range(1, data.shape[0]):
+            data[idx] = np.maximum(data[idx-1]*(1-1/max_dist), data[idx])
+        
+        return data
+
 
 class PowerOfTwoTransform:
     """

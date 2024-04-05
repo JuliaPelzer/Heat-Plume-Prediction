@@ -12,9 +12,10 @@ from torch import manual_seed
 from tqdm.auto import tqdm
 from postprocessing.visualization import visualizations
 
-from data_stuff.utils import SettingsTraining
-from networks.unet import weights_init, UNet
-from networks.unetVariants import *
+from utils.utils_data import SettingsTraining
+from processing.networks.unet import weights_init, UNet
+from postprocessing.visualization import visualizations
+
 
 @dataclass
 class Solver(object):
@@ -52,7 +53,7 @@ class Solver(object):
         writer = SummaryWriter(settings.destination)
         device = settings.device
         self.model = self.model.to(device)
-        writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
+        # writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
 
         epochs = tqdm(range(settings.epochs), desc="epochs", disable=False)
         for epoch in epochs:
@@ -67,8 +68,9 @@ class Solver(object):
                     self.train_dataloader, device)
 
                 # Validation
-                self.model.eval()
-                val_epoch_loss = self.run_epoch(self.val_dataloader, device)
+                if epoch % 10 == 0:
+                    self.model.eval()
+                    val_epoch_loss = self.run_epoch(self.val_dataloader, device)
 
                 # Logging
                 writer.add_scalar("train_loss", train_epoch_loss, epoch)

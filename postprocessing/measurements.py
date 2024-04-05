@@ -8,10 +8,9 @@ from pathlib import Path
 from typing import Dict
 import matplotlib.pyplot as plt
 
-from networks.unet import UNet
+from processing.networks.unet import UNet
 from processing.solver import Solver
-from data_stuff.utils import SettingsTraining
-from preprocessing.prepare_1ststage import WelfordStatistics
+from utils.utils_data import SettingsTraining
 
 def measure_len_width_1K_isoline(data: Dict[str, "DataToVisualize"]):
     ''' 
@@ -52,7 +51,10 @@ def measure_len_width_1K_isoline(data: Dict[str, "DataToVisualize"]):
 
 def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: modules.loss._Loss = MSELoss()):
 
-    norm = dataloader.dataset.dataset.norm
+    try:
+        norm = dataloader.dataset.norm
+    except AttributeError:
+        norm = dataloader.dataset.dataset.norm
     model.eval()
     mse_loss = 0.0
     mse_closs = 0.0
@@ -123,7 +125,9 @@ def save_all_measurements(settings:SettingsTraining, len_dataset, times, solver:
 
         f.write(f"input params: {settings.inputs}\n")
         f.write(f"dataset location: {settings.dataset_prep.parent}\n")
-        f.write(f"dataset name: {settings.dataset_raw}\n")
+        f.write(f"dataset name: {settings.dataset_train}\n")
+        f.write(f"dataset val: {settings.dataset_val}\n")
+        f.write(f"dataset test: {settings.dataset_test}\n")
         f.write(f"case: {settings.case}\n")
         f.write(f"number of test datapoints: {len_dataset}\n")
         f.write(f"name_destination_folder: {settings.destination}\n")

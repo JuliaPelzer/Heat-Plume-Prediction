@@ -2,8 +2,8 @@ import torch.nn as nn
 from torch import save, tensor, cat, load
 import pathlib
 
-from networks.unet import UNet
-from diff_conv2d.layers import *
+from processing.networks.unet import UNet
+from processing.diff_conv2d.layers import *
 
 class UNetHalfPad(UNet):
     def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
