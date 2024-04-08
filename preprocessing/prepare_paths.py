@@ -68,7 +68,7 @@ def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name: str = 
     dataset_raw_path = datasets_raw_domain_dir / dataset_name
     inputs = re_split_number_text(str(preparation_case))[0]
     dataset_1st_prep_path = datasets_prepared_domain_dir / f"{dataset_name} inputs_{inputs}"
-    if dataset_prep == "":
+    if dataset_prep is None:
         dataset_prep_2hp_path = f"{dataset_name} inputs_{preparation_case} boxes"
     else:
         dataset_prep_2hp_path = dataset_prep
