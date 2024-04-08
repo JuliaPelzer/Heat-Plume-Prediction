@@ -11,7 +11,7 @@ sys.path.append("/home/pelzerja/Development/1HP_NN")
 
 from preprocessing.domain_classes.domain import Domain
 from processing.networks.unet import UNet
-from utils.prepare_paths import Paths2HP, set_paths_2hpnn
+from preprocessing.prepare_paths import Paths2HP, set_paths_2hpnn
 from preprocessing.prepare_2ndstage import prepare_dataset_for_2nd_stage, load_and_prepare_for_2nd_stage
 
 def demonstrator(dataset_large_name: str, preparation_case: str, model_name_2HP: str = None, device: str = "cuda:0", destination_demo: str = "", visualize: bool = False):
