@@ -94,9 +94,9 @@ def run(settings: SettingsTraining, settings_val: SettingsTraining = None, setti
         input_channels, dataloaders = init_data(settings)
 
     # model
-    if settings.problem in ["2stages", "allin1"]:
+    if settings.problem in ["2stages", "allin1", "extend1"]:
         model = UNet(in_channels=input_channels).float()
-    elif settings.problem in ["extend1", "extend2"]:
+    elif settings.problem in ["extend2"]:
         model = UNetHalfPad2(in_channels=input_channels).float()
         # model = Encoder(in_channels=input_channels).float()
 
