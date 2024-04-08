@@ -25,9 +25,7 @@ class SettingsTraining:
     dataset_raw: str = ""
     dataset_prep: str = ""
     case: str = "train"
-    finetune: bool = False
     model: str = None
-    test: bool = False
     visualize: bool = False
     save_inference: bool = False
     problem: str = "2stages"
@@ -42,17 +40,8 @@ class SettingsTraining:
     def __post_init__(self):
         if self.case_2hp:
             assert self.problem == "2stages", "2nd stage is only possible with 2stages problem"
-        if self.case == "finetune":
-            self.finetune = True
+        if self.case in ["finetune", "test"]:
             assert self.model is not None, "Path to model is not defined"
-        elif self.case == "test":
-            self.test = True
-            assert self.finetune is False, "Finetune is not possible in test mode"
-        elif self.case == "train":
-            assert self.finetune is False, "Finetune is not possible in train mode"
-            assert self.test is False, "Test is not possible in train mode"
-
-        if self.case in ["test", "finetune"]:
             assert self.model != "runs/default", "Please specify model path for testing or finetuning"
 
         if self.problem == "allin1":
