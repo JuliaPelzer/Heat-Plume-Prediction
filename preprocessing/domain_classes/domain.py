@@ -6,25 +6,26 @@ import sys
 from math import cos, sin
 
 import matplotlib.pyplot as plt
-from torch import load, save, tensor, ones, where, max, squeeze, stack
+import yaml
+from torch import load
 from torch import long as torch_long
+from torch import max, ones, save, squeeze, stack, tensor, where
 
 sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN")  # relevant for remote
 sys.path.append("/home/pelzerja/Development/1HP_NN")  # relevant for local
-from utils.utils_data import load_yaml
-from preprocessing.prepare_1ststage import expand_property_names
-from utils.utils import beep
 from postprocessing.visualization import _aligned_colorbar
-
 from preprocessing.domain_classes.heat_pump import HeatPumpBox
 from preprocessing.domain_classes.stitching import Stitching
+from preprocessing.prepare_1ststage import expand_property_names
+from utils.utils import beep
+from utils.utils_data import load_yaml
 
 
 class Domain:
     def __init__(
         self, info_path: str, stitching_method: str = "max", file_name: str = "RUN_0.pt", device = "cpu"):
         self.skip_datapoint = False
-        self.info = load_yaml(info_path, "info")
+        self.info = load_yaml(info_path, "info", Loader=yaml.FullLoader)
         self.size: tuple[int, int] = [
             self.info["CellsNumber"][0],
             self.info["CellsNumber"][1],

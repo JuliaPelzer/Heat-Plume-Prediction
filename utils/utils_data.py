@@ -2,12 +2,16 @@ import os
 import pathlib
 from dataclasses import dataclass
 from typing import Dict
+
 import yaml
 
 
-def load_yaml(path: pathlib.Path, file_name="settings") -> Dict:
+def load_yaml(path: pathlib.Path, file_name="settings", **kwargs) -> Dict:
     with open(path / f"{file_name}.yaml", "r") as file:
-        settings = yaml.safe_load(file)
+        try:
+            settings = yaml.safe_load(file, **kwargs)
+        except:
+            settings = yaml.load(file, **kwargs)
     return settings
 
 

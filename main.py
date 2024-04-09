@@ -1,24 +1,33 @@
 import argparse
 import logging
-from copy import deepcopy
 import multiprocessing
-import numpy as np
 import time
+from copy import deepcopy
+
+import numpy as np
 import torch
 import yaml
-from torch.utils.data import DataLoader, random_split
 # tensorboard --logdir=runs/ --host localhost --port 8088
 from torch.nn import MSELoss
+from torch.utils.data import DataLoader, random_split
 
-from preprocessing.data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, DatasetEncoder, SimulationDatasetCuts, get_splits, random_split_extend
-from utils.utils_data import SettingsTraining
+from postprocessing.measurements import (measure_additional_losses,
+                                         measure_loss, save_all_measurements)
+from postprocessing.visualization import (infer_all_and_summed_pic,
+                                          plot_avg_error_cellwise,
+                                          visualizations)
+from preprocessing.data_stuff.dataset import (DatasetEncoder, DatasetExtend1,
+                                              DatasetExtend2,
+                                              SimulationDataset,
+                                              SimulationDatasetCuts,
+                                              get_splits, random_split_extend)
+from preprocessing.prepare import prepare_data_and_paths
+from preprocessing.prepare_allin1 import preprocessing_allin1
+from processing.networks.encoder import Encoder
 from processing.networks.unet import UNet
 from processing.networks.unetVariants import UNetHalfPad, UNetHalfPad2
-from processing.networks.encoder import Encoder
 from processing.solver import Solver
-from preprocessing.prepare import prepare_data_and_paths
-from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
-from postprocessing.measurements import measure_loss, save_all_measurements, measure_additional_losses
+from utils.utils_data import SettingsTraining
 
 # import os
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -104,7 +113,6 @@ def run(settings: SettingsTraining, settings_val: SettingsTraining = None, setti
         model.load(settings.model, settings.device)
     model.to(settings.device)
 
-    solver = None
     if settings.case in ["train", "finetune"]:
         loss_fn = MSELoss()
         # training
@@ -121,6 +129,8 @@ def run(settings: SettingsTraining, settings_val: SettingsTraining = None, setti
         finally:
             solver.save_lr_schedule(settings.destination / "learning_rate_history.csv")
             print("Training finished")
+    else:
+        solver = None
 
     # save model
     model.save(settings.destination)
@@ -215,15 +225,18 @@ if __name__ == "__main__":
         case_tmp = settings.case
         settings.dataset_raw = settings.dataset_train
         dataset_tmp = settings.dataset_raw
-        settings = prepare_data_and_paths(settings)
+        # settings = prepare_data_and_paths(settings)
+        settings = preprocessing_allin1(settings)
         prep_tmp = settings.dataset_prep
         settings.dataset_prep = ""
         settings.case = "test"
         settings.model = settings.destination
         settings.dataset_raw = settings.dataset_val
-        settings_val = prepare_data_and_paths(deepcopy(settings))
+        # settings_val = prepare_data_and_paths(deepcopy(settings))
+        settings_val = preprocessing_allin1(deepcopy(settings))
         settings.dataset_raw = settings.dataset_test
-        settings_test = prepare_data_and_paths(deepcopy(settings))
+        # settings_test = prepare_data_and_paths(deepcopy(settings))
+        settings_test = preprocessing_allin1(deepcopy(settings))
         settings.case = case_tmp
         settings.dataset_raw = dataset_tmp
         settings.dataset_prep = prep_tmp

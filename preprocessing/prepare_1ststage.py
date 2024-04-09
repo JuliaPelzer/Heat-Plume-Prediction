@@ -3,22 +3,29 @@ import logging
 import os
 import pathlib
 import time
+from typing import Union
 
 import h5py
 import numpy as np
 import torch
 import yaml
-from typing import Union
 from tqdm.auto import tqdm
 
-from preprocessing.data_stuff.transforms import (ComposeTransform, NormalizeTransform,
-                             PowerOfTwoTransform, ReduceTo2DTransform, CutLengthTransform,
-                             SignedDistanceTransform, MultiHPDistanceTransform, LinearSmearTransform,
-                             PositionalEncodingTransform, ToTensorTransform)
-from utils.utils_data import SettingsTraining
+from preprocessing.data_stuff.transforms import (ComposeTransform,
+                                                 CutLengthTransform,
+                                                 LinearSmearTransform,
+                                                 MultiHPDistanceTransform,
+                                                 NormalizeTransform,
+                                                 PositionalEncodingTransform,
+                                                 PowerOfTwoTransform,
+                                                 ReduceTo2DTransform,
+                                                 SignedDistanceTransform,
+                                                 ToTensorTransform)
 from preprocessing.prepare_paths import Paths1HP, Paths2HP
+from utils.utils_data import SettingsTraining
 
-def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, info_file: str = "info.yaml"):
+
+def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, info_file: str = "info.yaml", additional_input: torch.Tensor = None):
     time_begin = time.perf_counter()
     info_file_path = settings.model / info_file
 
@@ -35,7 +42,7 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
         info = None
             
     # TODO unsauber, TODO cutlengthtrafo zu länge die in info.yaml gespeichert ist
-    prepare_dataset(paths, settings, power2trafo=False, cutlengthtrafo=cutlengthtrafo, info=info)  # power2 in normal case
+    prepare_dataset(paths, settings, power2trafo=False, cutlengthtrafo=cutlengthtrafo, info=info, additional_input=additional_input)  # power2 in normal case
     
     if settings.case == "train" and not settings.case_2hp:
         # store info of training
@@ -49,7 +56,7 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
                 "duration of whole process in seconds": time_end}, file)
         
 
-def prepare_dataset(paths: Union[Paths1HP, Paths2HP], settings: SettingsTraining, power2trafo: bool = True, cutlengthtrafo: bool = False, info:dict = None):
+def prepare_dataset(paths: Union[Paths1HP, Paths2HP], settings: SettingsTraining, power2trafo: bool = True, cutlengthtrafo: bool = False, info:dict = None, additional_input: torch.Tensor = None):
     """
     Create a dataset from the raw pflotran data in raw_data_path.
     The saved dataset is normalized using the mean and standard deviation, which are saved to info.yaml in the new dataset folder.
@@ -70,14 +77,13 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], settings: SettingsTraining
     check_for_dataset(paths.raw_path)
     dataset_prepared_path = pathlib.Path(paths.dataset_1st_prep_path)
     dataset_prepared_path.mkdir(parents=True, exist_ok=True)
-    dataset_prepared_path.joinpath("Inputs").mkdir(parents=True, exist_ok=True) # TODO
-    dataset_prepared_path.joinpath("Labels").mkdir(parents=True, exist_ok=True)
+    (dataset_prepared_path / "Inputs").mkdir(parents=True, exist_ok=True)
+    (dataset_prepared_path / "Labels").mkdir(parents=True, exist_ok=True)
 
     transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo, cutlengthtrafo=cutlengthtrafo, box_length=settings.len_box, problem=settings.problem)
     inputs = expand_property_names(settings.inputs)
-    time_first = "   0 Time  0.00000E+00 y"
-    time_steady_state = "   3 Time  5.00000E+00 y" # time_final
-    # time_steady_state = "   4 Time  2.75000E+01 y"
+    time_init = "   0 Time  0.00000E+00 y"
+    time_prediction = "   3 Time  5.00000E+00 y"  # "   4 Time  2.75000E+01 y"
     pflotran_settings = get_pflotran_settings(paths.raw_path)
     dims = np.array(pflotran_settings["grid"]["ncells"])
     total_size = np.array(pflotran_settings["grid"]["size"])
@@ -89,8 +95,8 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], settings: SettingsTraining
     data_paths, runs = detect_datapoints(paths.raw_path)
     total = len(data_paths)
     for data_path, run in tqdm(zip(data_paths, runs), desc="Converting", total=total):
-        x = load_data(data_path, time_first, inputs, dims)
-        y = load_data(data_path, time_steady_state, output_variables, dims)
+        x = load_data(data_path, time_init, inputs, dims, additional_input=additional_input)
+        y = load_data(data_path, time_prediction, output_variables, dims)
         loc_hp = get_hp_location(x)
         x = transforms(x, loc_hp=loc_hp)
         if info is None: calc.add_data(x) 
@@ -204,6 +210,7 @@ def expand_property_names(properties: str):
         "o": "Original Temperature [C]",
         "m": "MDF",
         "l": "LST",
+        "n": "Preprocessed Temperature [C]",
     }
     possible_vars = ','.join(translation.keys())
     assert all((prop in possible_vars)
@@ -239,7 +246,7 @@ def get_pflotran_settings(dataset_path_raw: str):
         pflotran_settings = yaml.safe_load(f)
     return pflotran_settings
 
-def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoint: tuple):
+def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoint: tuple, additional_input: torch.Tensor = None):
     """
     Load data from h5 file on data_path, but only the variables named in variables.get_ids() at time stamp variables.time
     Sets the values of each PhysicalVariable in variables to the loaded data.
@@ -262,9 +269,13 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
                     empty_field = torch.ones(list(dimensions_of_datapoint)).float()
                     data[key] = empty_field * 0 #10.6
                     # TODO use torch.zeros instead
+                elif key == "Preprocessed Temperature [C]":
+                    data[key] = additional_input.float()
                 else:
                     raise KeyError(
                         f"Key '{key}' not found in {data_path} at time {time}")
+            print(f"Loaded {key} at time {time} with shape {data[key].shape}")
+
     return data
 
 def get_hp_location(data):
