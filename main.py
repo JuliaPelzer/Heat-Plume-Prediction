@@ -60,6 +60,10 @@ def run(settings: SettingsTraining):
     # model
     # model = UNet().float()
     number_iterations = (dataset[0][1].shape[1] // dataset[0][0].shape[1]) - 1
+    if settings.number_it != 0:
+        if number_iterations != settings.number_it:
+            settings.visualize = False
+        number_iterations = settings.number_it
     model = SVDPINN_one_extension(dataset = dataset, device = settings.device, number_iterations=number_iterations).float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
@@ -117,6 +121,7 @@ if __name__ == "__main__":
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=True)
     parser.add_argument("--loss", type=str, default="data")
+    parser.add_argument("--number_it", type=int, default=0)
     settings = SettingsTraining(**vars(parser.parse_args()))
 
     settings = prepare_data_and_paths(settings)

@@ -4,7 +4,7 @@ import pathlib
 import torch
 
 class SVDPINN(nn.Module):
-    def __init__(self, dataset, device, in_channels=4, out_channels=2, neurons_per_layer=80, hidden_layers=3, num_sing_values=80):
+    def __init__(self, dataset, device, in_channels=4, out_channels=2, neurons_per_layer=50, hidden_layers=2, num_sing_values=50):
         super().__init__()    
         self.layers = nn.ModuleList()
         self.layers.append(nn.Linear(num_sing_values+2, neurons_per_layer))
@@ -64,7 +64,7 @@ class SVDPINN(nn.Module):
         if models_differ == 0:  print('Models match perfectly! :)')
 
 class SVDPINN_one_extension(nn.Module):
-    def __init__(self, dataset, device, number_iterations = 1, neurons_per_layer=80, hidden_layers=2, num_sing_values=50):
+    def __init__(self, dataset, device, number_iterations = 1, neurons_per_layer=50, hidden_layers=2, num_sing_values=50):
         super().__init__()    
         self.layers = nn.ModuleList()
         self.layers.append(nn.Linear(num_sing_values+2, neurons_per_layer))
@@ -85,7 +85,7 @@ class SVDPINN_one_extension(nn.Module):
         permeability = x_in[:, 2, 0, 0].unsqueeze(1)
         gradient = x_in[:, 1, 0, 0].unsqueeze(1)
         output = [x]
-        for i in range(self.number_iterations): #61
+        for i in range(self.number_iterations):
             x = torch.cat((temp_in, permeability, gradient), dim=1)
             for layer in self.layers:
                 x = layer(x)
@@ -93,7 +93,7 @@ class SVDPINN_one_extension(nn.Module):
             x = torch.matmul(x.unsqueeze(1), torch.t(self.U)).reshape((batch, 1, N, M))
             output.append(x)
         #x = self.sigmoid(x)
-        return torch.cat(output, dim=2)
+        return torch.cat(output, dim=2).repeat(1, 2, 1, 1)
 
     def load(self, model_path:pathlib.Path, device:str = "cpu", model_name: str = "model.pt"):
         state_dict, self.U = load(model_path/model_name)

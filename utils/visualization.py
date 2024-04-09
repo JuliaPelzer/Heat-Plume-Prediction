@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 from data_stuff.transforms import NormalizeTransform
 from networks.unet import UNet
-from networks.losses import PhysicalLossV2
+from networks.losses import PhysicalLossV1, PhysicalLossV2
 from utils.measurements import measure_len_width_1K_isoline
 
 # mpl.rcParams.update({'figure.max_open_warning': 0})
@@ -102,8 +102,9 @@ def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, no
 def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, info: dict):
     # prepare data of temperature true, temperature out, error, physical variables (inputs)
     temp = y[0]
+    pressure_true = y[1]
     temp_out = y_out[0]
-    pressure = torch.tensor(848673.4375)
+    pressure_const = torch.tensor(848673.4375)
     repeats = temp_out.shape[0] // x[1].shape[0]
     gradient = x[1].repeat(repeats, 1)
     perm = x[2].repeat(repeats, 1)
@@ -114,21 +115,45 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     extent_highs = (np.array(info["CellsSize"][:2]) * y.shape[-2:])
 
     PhysicalLoss = PhysicalLossV2("cpu")
-    energy_residual_true = PhysicalLoss.get_energy_error(temp.unsqueeze(0), gradient.unsqueeze(0), pressure, perm.unsqueeze(0), 5).squeeze()
-    energy_residual_out = PhysicalLoss.get_energy_error(temp_out.unsqueeze(0), gradient.unsqueeze(0), pressure, perm.unsqueeze(0), 5).squeeze()
-    cont_residual_true = PhysicalLoss.get_continuity_error(temp.unsqueeze(0), gradient.unsqueeze(0), pressure, perm.unsqueeze(0), 5).squeeze()
-    cont_residual_out = PhysicalLoss.get_continuity_error(temp_out.unsqueeze(0), gradient.unsqueeze(0), pressure, perm.unsqueeze(0), 5).squeeze()
+    energy_residual_true = PhysicalLoss.get_energy_error(temp.unsqueeze(0), gradient.unsqueeze(0), pressure_const, perm.unsqueeze(0), 5).squeeze()
+    energy_residual_out = PhysicalLoss.get_energy_error(temp_out.unsqueeze(0), gradient.unsqueeze(0), pressure_const, perm.unsqueeze(0), 5).squeeze()
+    cont_residual_true = PhysicalLoss.get_continuity_error(temp.unsqueeze(0), gradient.unsqueeze(0), pressure_const, perm.unsqueeze(0), 5).squeeze()
+    cont_residual_out = PhysicalLoss.get_continuity_error(temp_out.unsqueeze(0), gradient.unsqueeze(0), pressure_const, perm.unsqueeze(0), 5).squeeze()
+    
+
+    PhysicalLoss = PhysicalLossV1("cpu")
+    energy_residual_true_orig = PhysicalLoss.get_energy_error(temp.unsqueeze(0), pressure_true.unsqueeze(0), perm.unsqueeze(0), 5).squeeze()
+    energy_residual_out_orig = PhysicalLoss.get_energy_error(temp_out.unsqueeze(0), pressure_true.unsqueeze(0), perm.unsqueeze(0), 5).squeeze()
+    cont_residual_true_orig = PhysicalLoss.get_continuity_error(temp.unsqueeze(0), pressure_true.unsqueeze(0), perm.unsqueeze(0), 5).squeeze()
+    cont_residual_out_orig = PhysicalLoss.get_continuity_error(temp_out.unsqueeze(0), pressure_true.unsqueeze(0), perm.unsqueeze(0), 5).squeeze()
     
 
     dict_to_plot = {
         "t_true": DataToVisualize(temp, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
         "t_out": DataToVisualize(temp_out, "Prediction: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
         "t_error": DataToVisualize(temp-temp_out, "Error in [°C]", extent_highs),
-        "energy_residual_true": DataToVisualize(energy_residual_true, "Label: Energy residual   {:.5e}".format(torch.mean(torch.pow(energy_residual_true, 2))), extent_highs),
-        "energy_residual_out": DataToVisualize(energy_residual_out, "Prediction: Energy residual   {:.5e}".format(torch.mean(torch.pow(energy_residual_out, 2))), extent_highs),
-        "cont_residual_true": DataToVisualize(cont_residual_true, "Label: Continuity residual   {:.5e}".format(torch.mean(torch.pow(cont_residual_true, 2))), extent_highs),
-        "cont_residual_out": DataToVisualize(cont_residual_out, "Prediction: Continuity residual   {:.5e}".format(torch.mean(torch.pow(cont_residual_out, 2))), extent_highs),
+        "energy_residual_true": DataToVisualize(energy_residual_true, "Label: Energy residual simplified      ", extent_highs),
+        "energy_residual_out": DataToVisualize(energy_residual_out, "Prediction: Energy residual simplified      ", extent_highs),
+        "cont_residual_true": DataToVisualize(cont_residual_true, "Label: Continuity residual simplified      ", extent_highs),
+        "cont_residual_out": DataToVisualize(cont_residual_out, "Prediction: Continuity residual simplified      ", extent_highs),
+        "energy_residual_true_orig": DataToVisualize(energy_residual_true_orig, "Label: Energy residual      ", extent_highs),
+        "energy_residual_out_orig": DataToVisualize(energy_residual_out_orig, "Prediction: Energy residual      ", extent_highs),
+        "cont_residual_true_orig": DataToVisualize(cont_residual_true_orig, "Label: Continuity residual      ", extent_highs),
+        "cont_residual_out_orig": DataToVisualize(cont_residual_out_orig, "Prediction: Continuity residual      ", extent_highs),
     }
+    # dict_to_plot = {
+    #     "t_true": DataToVisualize(temp, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+    #     "t_out": DataToVisualize(temp_out, "Prediction: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+    #     "t_error": DataToVisualize(temp-temp_out, "Error in [°C]", extent_highs),
+    #     "energy_residual_true": DataToVisualize(energy_residual_true, "Label: Energy residual   {:.5e}".format(torch.mean(torch.pow(energy_residual_true, 2))), extent_highs),
+    #     "energy_residual_out": DataToVisualize(energy_residual_out, "Prediction: Energy residual   {:.5e}".format(torch.mean(torch.pow(energy_residual_out, 2))), extent_highs),
+    #     "cont_residual_true": DataToVisualize(cont_residual_true, "Label: Continuity residual   {:.5e}".format(torch.mean(torch.pow(cont_residual_true, 2))), extent_highs),
+    #     "cont_residual_out": DataToVisualize(cont_residual_out, "Prediction: Continuity residual   {:.5e}".format(torch.mean(torch.pow(cont_residual_out, 2))), extent_highs),
+    #     "energy_residual_true_orig": DataToVisualize(energy_residual_true_orig, "Label: Energy residual original  {:.5e}".format(torch.mean(torch.pow(energy_residual_true_orig, 2))), extent_highs),
+    #     "energy_residual_out_orig": DataToVisualize(energy_residual_out_orig, "Prediction: Energy residual original   {:.5e}".format(torch.mean(torch.pow(energy_residual_out_orig, 2))), extent_highs),
+    #     "cont_residual_true_orig": DataToVisualize(cont_residual_true_orig, "Label: Continuity residual original   {:.5e}".format(torch.mean(torch.pow(cont_residual_true_orig, 2))), extent_highs),
+    #     "cont_residual_out_orig": DataToVisualize(cont_residual_out_orig, "Prediction: Continuity residual original   {:.5e}".format(torch.mean(torch.pow(cont_residual_out_orig, 2))), extent_highs),
+    # }
     inputs = info["Inputs"].keys()
     for input in inputs:
         index = info["Inputs"][input]["index"]
@@ -140,12 +165,12 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
     # plot datafields (temperature true, temperature out, error, physical variables (inputs))
 
     num_subplots = len(data)
-    fig, axes = plt.subplots(num_subplots, 1, sharex=True)
-    fig.set_figheight(num_subplots)
+    fig, axes = plt.subplots(num_subplots, 1, sharex=False)
+    fig.set_figheight(num_subplots*1.2)
     
     for index, (name, datapoint) in enumerate(data.items()):
         plt.sca(axes[index])
-        plt.title(datapoint.name)
+        plt.title(datapoint.name, pad=13)
         # if name in ["t_true", "t_out"]:  
         #     with warnings.catch_warnings():
         #         warnings.simplefilter("ignore")
@@ -196,6 +221,7 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str):
     current_id = 0
     avg_inference_time = 0
     summed_error_pic = None
+    cutoff_point = 64
 
     for inputs, labels in dataloader:
         len_batch = inputs.shape[0]
@@ -213,9 +239,9 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str):
             y_out = norm.reverse(y_out.cpu().detach()[0],"Labels")[0]
             avg_inference_time += (time.perf_counter() - start_time)
             if summed_error_pic == None:
-                summed_error_pic = abs(y[64:]-y_out[64:])
+                summed_error_pic = abs(y[cutoff_point:]-y_out[cutoff_point:])
             else:
-                summed_error_pic += abs(y[64:]-y_out[64:])
+                summed_error_pic += abs(y[cutoff_point:]-y_out[cutoff_point:])
 
             current_id += 1
 
