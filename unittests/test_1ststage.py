@@ -1,5 +1,4 @@
 import torch
-
 from data_stuff.transforms import ComposeTransform, SignedDistanceTransform
 
 

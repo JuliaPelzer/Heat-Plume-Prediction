@@ -1,9 +1,8 @@
 import torch
-
 from domain_classes.domain import Domain
-from utils.prepare_paths import set_paths_2hpnn
-from preprocessing.prepare_2ndstage import main_merge_inputs
 
+from preprocessing.prepare_2ndstage import main_merge_inputs
+from utils.prepare_paths import set_paths_2hpnn
 
 # def test_norm():
 # TODO methodology is old

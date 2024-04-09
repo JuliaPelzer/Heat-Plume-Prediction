@@ -4,17 +4,16 @@ import pathlib
 import time
 from dataclasses import dataclass
 
+from torch import manual_seed
 from torch.nn import Module, MSELoss, modules
 from torch.optim import Adam, Optimizer
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torch import manual_seed
 from tqdm.auto import tqdm
-from postprocessing.visualization import visualizations
 
-from utils.utils_data import SettingsTraining
-from processing.networks.unet import weights_init, UNet
 from postprocessing.visualization import visualizations
+from processing.networks.unet import UNet, weights_init
+from utils.utils_data import SettingsTraining
 
 
 @dataclass

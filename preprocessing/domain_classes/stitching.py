@@ -1,5 +1,7 @@
 from dataclasses import dataclass
+
 from torch import maximum
+
 
 @dataclass
 class Stitching:

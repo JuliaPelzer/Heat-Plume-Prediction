@@ -6,15 +6,16 @@ import sys
 import time
 
 import yaml
-from tqdm.auto import tqdm
-
 from domain_classes.domain import Domain
 from domain_classes.heat_pump import HeatPumpBox
-from domain_classes.utils_2hp import check_all_datasets_prepared, set_paths_2hpnn
-from utils.utils_data import SettingsPrepare, load_yaml
-from processing.networks.unet import UNet
+from domain_classes.utils_2hp import (check_all_datasets_prepared,
+                                      set_paths_2hpnn)
+from tqdm.auto import tqdm
+
 from preprocessing.prepare import prepare_dataset
+from processing.networks.unet import UNet
 from utils.utils import beep
+from utils.utils_data import SettingsPrepare, load_yaml
 
 
 def pipeline_apply_2HPNN(

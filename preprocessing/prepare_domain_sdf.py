@@ -1,14 +1,15 @@
 import argparse
-import matplotlib.pyplot as plt
-import torch
 import pathlib
-import numpy as np
 import shutil
+
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import tqdm
 import yaml
 
 from postprocessing.visualization import _aligned_colorbar
+
 
 def prepare_domain_sdf(orig_domain_name: str = "domain_1hp_1dp inputs_gksi"):
     inputs = torch.load("/home/pelzerja/pelzerja/test_nn/datasets_prepared/1hp_domain/boxes_dummy_inputs.pt")

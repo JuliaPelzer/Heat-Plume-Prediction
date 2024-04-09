@@ -2,11 +2,13 @@ import argparse
 import logging
 import os
 import time
-import torch
-from processing.networks.unet import UNet
 
-from utils.utils_data import SettingsTraining
+import torch
+
 from preprocessing.prepare import prepare_data_and_paths
+from processing.networks.unet import UNet
+from utils.utils_data import SettingsTraining
+
 
 def run_experiments(settings: SettingsTraining, measure_infer: bool = True, save: bool = True):
     timestamp_begin = time.ctime()

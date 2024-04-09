@@ -1,6 +1,7 @@
-import torch.nn as nn
-from torch import save, tensor, cat, load
 import pathlib
+
+import torch.nn as nn
+from torch import cat, load, save, tensor
 
 
 class Encoder(nn.Module):

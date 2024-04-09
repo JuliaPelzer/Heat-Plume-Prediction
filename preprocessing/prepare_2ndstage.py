@@ -2,20 +2,21 @@ import argparse
 import logging
 import os
 import pathlib
-from typing import List
 import time
-import yaml
+from typing import List
 
-from torch import stack, load, unsqueeze, save, Tensor
+import yaml
+from torch import Tensor, load, save, stack, unsqueeze
 from tqdm.auto import tqdm
 
-from processing.networks.unet import UNet
-from preprocessing.prepare_1ststage import prepare_dataset
 from preprocessing.domain_classes.domain import Domain
 from preprocessing.domain_classes.heat_pump import HeatPumpBox
-from preprocessing.domain_classes.utils_2hp import save_config_of_separate_inputs, save_config_of_merged_inputs, save_yaml
 from preprocessing.domain_classes.stitching import Stitching
+from preprocessing.domain_classes.utils_2hp import (
+    save_config_of_merged_inputs, save_config_of_separate_inputs, save_yaml)
+from preprocessing.prepare_1ststage import prepare_dataset
 from preprocessing.prepare_paths import Paths2HP
+from processing.networks.unet import UNet
 from utils.utils_data import SettingsTraining
 
 

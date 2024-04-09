@@ -1,15 +1,17 @@
-from copy import deepcopy
-import yaml
-from pathlib import Path
-import torch
-import numpy as np
 import shutil
+from copy import deepcopy
+from pathlib import Path
+
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import yaml
 
 from postprocessing.visualization import _aligned_colorbar
+from preprocessing.prepare import prepare_data_and_paths
 from processing.networks.unet import UNet, UNetBC
 from utils.utils_data import SettingsTraining
-from preprocessing.prepare import prepare_data_and_paths
+
 
 def cut_dataset_in_pieces(number_boxes: int, prepared1_dir, prepared_pieces_dir):
     """Cut dataset into x boxes."""

@@ -7,8 +7,8 @@ from typing import Tuple
 
 import numpy as np
 import torch
-from torch import linalg, nonzero, unsqueeze
 from scipy.spatial import cKDTree
+from torch import linalg, nonzero, unsqueeze
 
 
 class NormalizeTransform:

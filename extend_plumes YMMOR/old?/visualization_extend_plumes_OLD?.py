@@ -1,11 +1,13 @@
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
-from pathlib import Path
 import argparse
+from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
 from networks.unet import UNet
+
 from postprocessing.visualization import _aligned_colorbar
+
 
 def load_all(dataset_prep:Path, model_path:Path, run_name: str) -> (UNet, (torch.Tensor, torch.Tensor)):
 

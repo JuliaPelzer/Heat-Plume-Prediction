@@ -1,13 +1,15 @@
-import torch
-import matplotlib.pyplot as plt
-from copy import deepcopy
-import yaml
 import os
-from typing import List
+from copy import deepcopy
 from pathlib import Path
+from typing import List
 
-from processing.networks.unetVariants import *
+import matplotlib.pyplot as plt
+import torch
+import yaml
+
 from postprocessing.visualization import _aligned_colorbar
+from processing.networks.unetVariants import *
+
 
 def load_front(model_front_path, dataset_front, run_id, model_name="model.pt"):
     # load and init first box stuff (extend1: data+model)

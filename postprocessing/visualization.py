@@ -8,8 +8,8 @@ from typing import Dict
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from torch.nn import Module, MSELoss, modules
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from torch.nn import Module, MSELoss, modules
 from torch.utils.data import DataLoader
 
 from preprocessing.data_stuff.transforms import NormalizeTransform

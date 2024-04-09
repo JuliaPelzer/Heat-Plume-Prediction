@@ -1,9 +1,12 @@
-from dataclasses import dataclass
 import os
 import pathlib
 import typing
+from dataclasses import dataclass
+
 import yaml
+
 from utils.utils import re_split_number_text
+
 
 # Data classes for paths
 @dataclass
@@ -32,7 +35,6 @@ def set_paths_1hpnn(dataset_name: str, inputs:str = "", dataset_prep:str = "", p
     destination_dir = pathlib.Path(paths["models_1hp_dir"])
     datasets_prepared_dir = pathlib.Path(paths["datasets_prepared_dir"])
     default_raw_dir, destination_dir, datasets_prepared_dir = extend_paths_for_problem(problem, default_raw_dir, destination_dir, datasets_prepared_dir)
-
     dataset_raw_path = default_raw_dir / dataset_name
     if dataset_prep == "":
         dataset_prep = f"{dataset_name} inputs_{inputs}"

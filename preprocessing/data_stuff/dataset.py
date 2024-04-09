@@ -1,15 +1,16 @@
 import os
 import pathlib
+from typing import List, Optional, Sequence
 
 import numpy as np
 import torch
 import yaml
-from torch import default_generator, randperm, Generator
-from torch.utils.data import Dataset, Subset
+from torch import Generator, default_generator, randperm
 from torch._utils import _accumulate
-from typing import List,Optional,Sequence
+from torch.utils.data import Dataset, Subset
 
 from preprocessing.data_stuff.transforms import NormalizeTransform
+
 
 class SimulationDataset(Dataset):
     def __init__(self, path):

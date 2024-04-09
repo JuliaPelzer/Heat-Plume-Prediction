@@ -1,16 +1,18 @@
-import torch
-from torch.nn import MSELoss, modules
-from torch.utils.data import DataLoader
 import os
 import time
-import yaml
 from pathlib import Path
 from typing import Dict
+
 import matplotlib.pyplot as plt
+import torch
+import yaml
+from torch.nn import MSELoss, modules
+from torch.utils.data import DataLoader
 
 from processing.networks.unet import UNet
 from processing.solver import Solver
 from utils.utils_data import SettingsTraining
+
 
 def measure_len_width_1K_isoline(data: Dict[str, "DataToVisualize"]):
     ''' 

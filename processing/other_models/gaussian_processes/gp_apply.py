@@ -1,9 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from data.utils import SettingsTraining
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF
 
-from data.utils import SettingsTraining
 from main import init_data
 
 print("Loading data...")

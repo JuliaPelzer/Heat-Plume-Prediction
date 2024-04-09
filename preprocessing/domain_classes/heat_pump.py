@@ -5,11 +5,12 @@ from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
-from torch import tensor, zeros_like, save, load, unsqueeze, ones, cat, maximum, is_tensor
+from torch import cat, is_tensor, load
 from torch import long as torch_long
+from torch import maximum, ones, save, tensor, unsqueeze, zeros_like
 
-from preprocessing.data_stuff.transforms import SignedDistanceTransform
 from postprocessing.visualization import _aligned_colorbar
+from preprocessing.data_stuff.transforms import SignedDistanceTransform
 from processing.networks.unet import UNet
 
 

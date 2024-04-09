@@ -1,18 +1,21 @@
 import argparse
+import sys
 from copy import deepcopy
+from pathlib import Path
+from typing import Callable, List
+
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
-from pathlib import Path
-from tqdm.auto import tqdm
-from typing import Callable, List
 import yaml
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from tqdm.auto import tqdm
 
-import sys
 sys.path.append("/home/pelzerja/Development/code_NN/")
 
-from extend_plumes.extend_plumes import rescale_temp, load_front, load_extend, load_models_and_data, infer, infer_nopad
+from extend_plumes.extend_plumes import (infer, infer_nopad, load_extend,
+                                         load_front, load_models_and_data,
+                                         rescale_temp)
 
 FINAL_EPOCH_ID = 9999999
 
