@@ -23,7 +23,7 @@ from utils.utils_data import load_yaml
 
 class Domain:
     def __init__(
-        self, info_path: str, stitching_method: str = "max", file_name: str = "RUN_0.pt", device = "cpu"):
+        self, info_path: str, stitching_method: str = "max", file_name: str = "RUN_0.pt", device = "cpu", problem: str = "2stages"):
         self.skip_datapoint = False
         self.info = load_yaml(info_path, "info", Loader=yaml.FullLoader)
         self.size: tuple[int, int] = [
@@ -38,53 +38,54 @@ class Domain:
         self.stitching: Stitching = Stitching(stitching_method, self.background_temperature)
         self.normed_label: bool = True
         self.file_name: str = file_name
-        if (self.get_input_field_from_name("Permeability X [m^2]").max() > 1
-            or self.get_input_field_from_name("Permeability X [m^2]").min() < 0):
-            print(f"Permeability X [m^2] not in range (0,1) for {file_name} but at ({self.get_input_field_from_name('Permeability X [m^2]').max()}, {self.get_input_field_from_name('Permeability X [m^2]').min()})")
-            origin_2hp_prep = info_path
-            pathlib.Path(origin_2hp_prep, "unusable/Inputs").mkdir(parents=True, exist_ok=True)
-            pathlib.Path(origin_2hp_prep, "unusable/Labels").mkdir(parents=True, exist_ok=True)
-            shutil.move(
-                pathlib.Path(origin_2hp_prep, "Inputs", file_name),
-                pathlib.Path(origin_2hp_prep, "unusable", "Inputs", f"{file_name.split('.')[0]}_k_outside_0_1.pt",),)
-            shutil.move(
-                pathlib.Path(origin_2hp_prep, "Labels", file_name),
-                pathlib.Path(origin_2hp_prep, "unusable", "Labels", file_name),)
-            self.skip_datapoint=True
-        # assert (
-        #     self.get_input_field_from_name("Permeability X [m^2]").max() <= 1
-        # ), f"Max of permeability X [m^2] not < 1 but {self.get_input_field_from_name('Permeability X [m^2]').max()} for {file_name}"
-        # assert (
-        #     self.get_input_field_from_name("Permeability X [m^2]").min() >= 0
-        # ), f"Min of permeability X [m^2] not > 0 but {self.get_input_field_from_name('Permeability X [m^2]').min()} for {file_name}"
-        # TODO : wenn perm/pressure nicht mehr konstant sind, muss dies zu den HP-Boxen verschoben werden
-        else:
-            try:
-                p_related_name = "Pressure Gradient [-]"
-                p_related_field = self.get_input_field_from_name(p_related_name)
-            except:
-                p_related_name = "Liquid Pressure [Pa]"
-                p_related_field = self.get_input_field_from_name(p_related_name)
-            logging.info(
-                f"{p_related_name} in range ({p_related_field.max()}, {p_related_field.min()})")
-
-            if p_related_field.max() > 1 or p_related_field.min() < 0:
-                print(f"{p_related_name} not in range (0,1) for {file_name} but at ({p_related_field.max()}, {p_related_field.min()})")
+        if problem == "2stages": 
+            if (self.get_input_field_from_name("Permeability X [m^2]").max() > 1
+                or self.get_input_field_from_name("Permeability X [m^2]").min() < 0):
+                print(f"Permeability X [m^2] not in range (0,1) for {file_name} but at ({self.get_input_field_from_name('Permeability X [m^2]').max()}, {self.get_input_field_from_name('Permeability X [m^2]').min()})")
                 origin_2hp_prep = info_path
                 pathlib.Path(origin_2hp_prep, "unusable/Inputs").mkdir(parents=True, exist_ok=True)
                 pathlib.Path(origin_2hp_prep, "unusable/Labels").mkdir(parents=True, exist_ok=True)
-
                 shutil.move(
                     pathlib.Path(origin_2hp_prep, "Inputs", file_name),
-                    pathlib.Path(origin_2hp_prep, "unusable", "Inputs", f"{file_name.split('.')[0]}_p_outside_0_1.pt",),)
+                    pathlib.Path(origin_2hp_prep, "unusable", "Inputs", f"{file_name.split('.')[0]}_k_outside_0_1.pt",),)
                 shutil.move(
                     pathlib.Path(origin_2hp_prep, "Labels", file_name),
                     pathlib.Path(origin_2hp_prep, "unusable", "Labels", file_name),)
-                beep()
                 self.skip_datapoint=True
             # assert (
-            #     p_related_field.max() <= 1 and p_related_field.min() >= 0
-            # ), f"{p_related_name} not in range (0,1) but {p_related_field.max(), p_related_field.min()}"
+            #     self.get_input_field_from_name("Permeability X [m^2]").max() <= 1
+            # ), f"Max of permeability X [m^2] not < 1 but {self.get_input_field_from_name('Permeability X [m^2]').max()} for {file_name}"
+            # assert (
+            #     self.get_input_field_from_name("Permeability X [m^2]").min() >= 0
+            # ), f"Min of permeability X [m^2] not > 0 but {self.get_input_field_from_name('Permeability X [m^2]').min()} for {file_name}"
+            # TODO : wenn perm/pressure nicht mehr konstant sind, muss dies zu den HP-Boxen verschoben werden
+            else:
+                try:
+                    p_related_name = "Pressure Gradient [-]"
+                    p_related_field = self.get_input_field_from_name(p_related_name)
+                except:
+                    p_related_name = "Liquid Pressure [Pa]"
+                    p_related_field = self.get_input_field_from_name(p_related_name)
+                logging.info(
+                    f"{p_related_name} in range ({p_related_field.max()}, {p_related_field.min()})")
+
+                if p_related_field.max() > 1 or p_related_field.min() < 0:
+                    print(f"{p_related_name} not in range (0,1) for {file_name} but at ({p_related_field.max()}, {p_related_field.min()})")
+                    origin_2hp_prep = info_path
+                    pathlib.Path(origin_2hp_prep, "unusable/Inputs").mkdir(parents=True, exist_ok=True)
+                    pathlib.Path(origin_2hp_prep, "unusable/Labels").mkdir(parents=True, exist_ok=True)
+
+                    shutil.move(
+                        pathlib.Path(origin_2hp_prep, "Inputs", file_name),
+                        pathlib.Path(origin_2hp_prep, "unusable", "Inputs", f"{file_name.split('.')[0]}_p_outside_0_1.pt",),)
+                    shutil.move(
+                        pathlib.Path(origin_2hp_prep, "Labels", file_name),
+                        pathlib.Path(origin_2hp_prep, "unusable", "Labels", file_name),)
+                    beep()
+                    self.skip_datapoint=True
+                # assert (
+                #     p_related_field.max() <= 1 and p_related_field.min() >= 0
+                # ), f"{p_related_name} not in range (0,1) but {p_related_field.max(), p_related_field.min()}"
 
     def save(self, folder: pathlib.Path = "", name: str = "test"):
         save(self.prediction, folder / f"domain_prediction_{name}.pt")

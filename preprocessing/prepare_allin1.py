@@ -52,10 +52,6 @@ def preprocessing_allin1(settings: SettingsTraining):
                 model_1hp.load(args_1hpnn["model"], map_location=torch.device(settings.device))
                 model_1hp.eval()
 
-                # data_raw = h5py.File("/home/pelzerja/Development/datasets/giant_manyhps/dataset_giant_100hp_varyPermLog_p30_kfix_quarter_dp4_4/RUN_0/pflotran.h5")
-                # data_raw = h5py.File(f"{allin1_paths.raw_path}/RUN_{run_id}/pflotran.h5")[timestep]
-                # print(data_raw.keys())
-
                 # define domain (allin1)
                 print("Preparing domain for allin1")
                 domain = Domain(settings.dataset_prep, stitching_method="max", file_name=f"RUN_{run_id}.pt")
@@ -68,7 +64,6 @@ def preprocessing_allin1(settings: SettingsTraining):
                     hp.primary_temp_field = hp.apply_nn(model_1hp)
                     # TODO apply extend-plumes
                     domain.add_hp(hp, hp.primary_temp_field) # includes does reverse_norm acc. to domain
-                    break
 
                 # save domain,
                 # TODO where / how to save
