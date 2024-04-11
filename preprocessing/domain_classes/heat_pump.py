@@ -37,14 +37,15 @@ class HeatPumpBox:
         self.inputs[index_sdf] = SignedDistanceTransform().sdf(self.inputs[index_id].detach().clone(), self.dist_corner_hp)
         assert (self.inputs[index_sdf].max() == 1 and self.inputs[index_sdf].min() == 0), "SDF not in [0,1]"
 
-    def apply_nn(self, model: UNet, inputs:str="inputs"):
+    def apply_nn(self, model: UNet, inputs:str="inputs", device:str="cpu"):
         if inputs == "inputs":
             input = unsqueeze(self.inputs, 0)
         elif inputs == "interim_outputs":
             input_tmp1 = self.primary_temp_field.unsqueeze(0)
             input_tmp2 = self.other_temp_field.unsqueeze(0)
             input = cat([input_tmp1, input_tmp2], dim=0).unsqueeze(0)
-        output = model(input).squeeze() #.detach()
+        input = input.to(device)
+        output = model(input).squeeze().detach()
         return output
 
     def get_other_temp_field(self, single_hps):

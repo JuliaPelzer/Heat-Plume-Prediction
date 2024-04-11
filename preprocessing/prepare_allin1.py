@@ -26,9 +26,8 @@ def preprocessing_allin1(settings: SettingsTraining):
             # preprocessing with neural network: 1hpnn(+extend_plumes)
             run_id:int = 0
             prediction_destination = f"1hpnn_RUN_{run_id}"
-            # timestep = "   3 Time  5.00000E+00 y" # '   4 Time  2.75000E+01 y'
             args_1hpnn = {
-                "model": Path("/home/pelzerja/Development/DaRUS_DATA_MODELS_extend_plumes/MODELS/extend1/dataset_medium_100dp_vary_perm inputs_gksi case_train box256 skip256 UNet"),
+                "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes1/vary_k/dataset_medium_100dp_vary_perm inputs_gksi case_train box256 skip256 UNet"),
                 "inputs": "gksi",
             }
 
@@ -49,24 +48,24 @@ def preprocessing_allin1(settings: SettingsTraining):
             else:
 
                 model_1hp = UNet(len(args_1hpnn["inputs"]))
-                model_1hp.load(args_1hpnn["model"], map_location=torch.device(settings.device))
+                model_1hp.load(args_1hpnn["model"], map_location=torch.device(settings.device)) # TODO tut das auch für CPU? unnötig? torch.device weg?
+                model_1hp.to(settings.device)
                 model_1hp.eval()
 
                 # define domain (allin1)
                 print("Preparing domain for allin1")
-                domain = Domain(settings.dataset_prep, stitching_method="max", file_name=f"RUN_{run_id}.pt")
+                domain = Domain(settings.dataset_prep, stitching_method="max", file_name=f"RUN_{run_id}.pt", problem=settings.problem)
                 # extract hp-boxes and apply 1hp-NN
                 print("Extracting hp-boxes and applying 1hp-NN")
                 single_hps = domain.extract_hp_boxes(settings.device)
                 hp: HeatPumpBox
                 for hp in tqdm(single_hps, desc="Applying NN and adding boxes to domain"):
                     # start timer
-                    hp.primary_temp_field = hp.apply_nn(model_1hp)
+                    hp.primary_temp_field = hp.apply_nn(model_1hp, device=settings.device)
                     # TODO apply extend-plumes
                     domain.add_hp(hp, hp.primary_temp_field) # includes does reverse_norm acc. to domain
 
-                # save domain,
-                # TODO where / how to save
+                # save domain, # TODO where / how to save
                 if len(domain.prediction.shape) == 2:
                     domain.prediction = domain.prediction.unsqueeze(0)
                 print(f"Saving domain of size {domain.prediction.shape} to {settings.dataset_prep / 'Inputs' / f'RUN_{run_id}_prediction_1hpnn.pt'}")
