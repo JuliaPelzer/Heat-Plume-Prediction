@@ -1,37 +1,33 @@
 from copy import deepcopy
 from pathlib import Path
 
-import h5py
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
 from tqdm.auto import tqdm
-import yaml
 
-import extend_plumes.extend_plumes as ep
 from preprocessing.domain_classes.domain import Domain
 from preprocessing.domain_classes.heat_pump import HeatPumpBox
-from preprocessing.prepare import (prepare_data_and_paths,
+from preprocessing.prepare_overview import (prepare_data_and_paths,
                                    prepare_paths_and_settings, prepare_data)
 from processing.networks.unet import UNet
 from processing.networks.unetVariants import UNetHalfPad2
+import processing.pipelines.extend_plumes as ep
 from utils.utils_data import SettingsTraining, get_run_ids
 
 
 def preprocessing_allin1(settings: SettingsTraining):
     allin1_paths, settings, _ = prepare_paths_and_settings(settings)
+    allin1_settings = deepcopy(settings)
     print("Paths for allin1 prepared")
 
     if not allin1_paths.dataset_1st_prep_path.exists() or settings.case == "test":
         if "n" in settings.inputs:
             # preprocessing with neural network: 1hpnn(+extend_plumes)
             args_1hpnn = {
-                "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes1/vary_k/dataset_medium_100dp_vary_perm inputs_gksi case_train box256 skip256 UNet"),
+                "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hpnn/vary_k/dataset_medium_100dp_vary_perm inputs_gksi case_train box256 skip256 UNet"),
                 "inputs": "gksi",
             }
 
             # prepare allin1 data with 1hp boxes
-            allin1_settings = deepcopy(settings)
             settings.case = "test"
             settings.inputs = args_1hpnn["inputs"]
             settings.model = args_1hpnn["model"]
@@ -40,7 +36,7 @@ def preprocessing_allin1(settings: SettingsTraining):
             settings = prepare_data_and_paths(settings)
 
             args_extend2 = {
-                "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes2/vary_k/dataset_medium_100dp_vary_perm inputs_gk case_train box128 skip2"), #test_overlap_input_T"),
+                "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes/vary_k/dataset_medium_100dp_vary_perm inputs_gk case_train box128 skip2"), #test_overlap_input_T"),
                 "inputs": "gk",
                 "box_size": 128,
                 "start_prior_box": 64, # box_size // 2
@@ -105,7 +101,7 @@ def preprocessing_allin1(settings: SettingsTraining):
 
                             # increase counter
                             args_extend2["start_prior_box"] += args_extend2["skip_in_field"]
-                            args_extend2["start_curr_box"] = ep.set_start_curr_box(args_extend2["start_prior_box"], args_extend2)
+                            args_extend2["start_curr_box"] = ep.set_start_curr_box(args_extend2["start_prior_box"], args_extend2) # TODO Fehleranfällig
                         except:
                             print("Error in extension, e.g. box extending outside of domain")
                             break

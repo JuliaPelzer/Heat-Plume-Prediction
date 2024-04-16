@@ -7,8 +7,8 @@ import time
 
 import yaml
 
-sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN") # relevant for remote
-sys.path.append("/home/pelzerja/Development/1HP_NN")  
+# sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN") # relevant for remote
+# sys.path.append("/home/pelzerja/Development/1HP_NN")  
 
 from preprocessing.domain_classes.domain import Domain
 from preprocessing.prepare_2ndstage import (load_and_prepare_for_2nd_stage,

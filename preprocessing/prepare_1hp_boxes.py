@@ -11,16 +11,7 @@ import torch
 import yaml
 from tqdm.auto import tqdm
 
-from preprocessing.data_stuff.transforms import (ComposeTransform,
-                                                 CutLengthTransform,
-                                                 LinearSmearTransform,
-                                                 MultiHPDistanceTransform,
-                                                 NormalizeTransform,
-                                                 PositionalEncodingTransform,
-                                                 PowerOfTwoTransform,
-                                                 ReduceTo2DTransform,
-                                                 SignedDistanceTransform,
-                                                 ToTensorTransform)
+from preprocessing.transforms import (ComposeTransform, LinearSmearTransform, MultiHPDistanceTransform, NormalizeTransform, PositionalEncodingTransform, PowerOfTwoTransform, ReduceTo2DTransform, SignedDistanceTransform, ToTensorTransform)
 from preprocessing.prepare_paths import Paths1HP, Paths2HP
 from utils.utils_data import SettingsTraining
 
@@ -29,11 +20,6 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
     time_begin = time.perf_counter()
     info_file_path = settings.model / info_file
 
-    if settings.problem == "extend1":
-        cutlengthtrafo=True
-    else:
-        cutlengthtrafo=False
-
     if settings.case == "test":
         # get info of training
         with open(info_file_path, "r") as file:
@@ -41,8 +27,7 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
     else:
         info = None
             
-    # TODO unsauber, TODO cutlengthtrafo zu länge die in info.yaml gespeichert ist
-    prepare_dataset(paths, settings, power2trafo=False, cutlengthtrafo=cutlengthtrafo, info=info, additional_input=additional_input)  # power2 in normal case
+    prepare_dataset(paths, settings, power2trafo=False, info=info, additional_input=additional_input)  # power2 in normal case
     
     if settings.case == "train" and not settings.case_2hp:
         # store info of training
@@ -56,7 +41,7 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
                 "duration of whole process in seconds": time_end}, file)
         
 
-def prepare_dataset(paths: Union[Paths1HP, Paths2HP], settings: SettingsTraining, power2trafo: bool = True, cutlengthtrafo: bool = False, info:dict = None, additional_input: torch.Tensor = None):
+def prepare_dataset(paths: Union[Paths1HP, Paths2HP], settings: SettingsTraining, power2trafo: bool = True, info:dict = None, additional_input: torch.Tensor = None):
     """
     Create a dataset from the raw pflotran data in raw_data_path.
     The saved dataset is normalized using the mean and standard deviation, which are saved to info.yaml in the new dataset folder.
@@ -80,7 +65,7 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], settings: SettingsTraining
     (dataset_prepared_path / "Inputs").mkdir(parents=True, exist_ok=True)
     (dataset_prepared_path / "Labels").mkdir(parents=True, exist_ok=True)
 
-    transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo, cutlengthtrafo=cutlengthtrafo, box_length=settings.len_box, problem=settings.problem)
+    transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo, problem=settings.problem)
     inputs = expand_property_names(settings.inputs)
     time_init = "   0 Time  0.00000E+00 y"
     time_prediction = "   4 Time  2.75000E+01 y" #  "   3 Time  5.00000E+00 y"  # 
@@ -222,20 +207,21 @@ def get_normalization_type(property:str):
     Returns the normalization type for a given property
     Types can be:
         Rescale: Rescale the data to be between 0 and 1
+        LogRescale: Rescale the data to be between 0 and 1 after taking the log
         Standardize: Standardize the data to have mean 0 and standard deviation 1
         None: Do not normalize the data
     """
     types = {
         "default": "Rescale", #Standardize
-        # "Material ID": "Rescale",
         "SDF": None,
         "PE x": None,
         "PE y": None,
         "MDF": None,
         "LST": None,
         "Original Temperature [C]": None,
+        "Permeability X [m^2]": "LogRescale",
     }
-    
+
     if property in types:
         return types[property]
     else:
@@ -378,7 +364,7 @@ class WelfordStatistics:
             result[key] = self.__maxs[key].item()
         return result
 
-def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool = True, cutlengthtrafo: bool = False, box_length:int=256, problem:str="2stages"):
+def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool = True, problem:str="2stages"):
     transforms_list = []
 
     if reduce_to_2D:
@@ -386,10 +372,8 @@ def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool 
             reduce_to_2D_xy=reduce_to_2D_xy))
     if power2trafo:
         transforms_list.append(PowerOfTwoTransform())
-    if cutlengthtrafo:
-        transforms_list.append(CutLengthTransform(box_length))
     transforms_list.append(SignedDistanceTransform())
-    if problem in ["extend1", "extend2"]:
+    if problem == "extend":
         transforms_list.append(PositionalEncodingTransform())
     elif problem == "allin1":
         transforms_list.append(MultiHPDistanceTransform())

@@ -3,7 +3,7 @@ from typing import Union
 
 from torch import Tensor
 
-from preprocessing.prepare_1ststage import prepare_dataset_for_1st_stage
+from preprocessing.prepare_1hp_boxes import prepare_dataset_for_1st_stage
 from preprocessing.prepare_2ndstage import prepare_dataset_for_2nd_stage
 from preprocessing.prepare_paths import (Paths1HP, Paths2HP, set_paths_1hpnn,
                                          set_paths_2hpnn)

@@ -192,7 +192,7 @@ def visu_rescaled_dp(output_all, labels, params, plot_name=None):
 
     plt.tight_layout()
     if plot_name:
-        plt.savefig(f"runs/extend_plumes2/results/{plot_name}.png", dpi=500)
+        plt.savefig(f"runs/extend_plumes/results/{plot_name}.png", dpi=500)
     plt.show()
 
 def produce_front_comparison_pic():
@@ -206,8 +206,8 @@ def produce_front_comparison_pic():
                 "rm_boundary_r" : int(16/2),}
 
     dataset_prep = Path("/scratch/sgs/pelzerja/datasets_prepared/extend_plumes/dataset_long_k_3e-10_1dp inputs_gk extend2")
-    model_path_nfb = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes2/TESTS_inputs box128 skip64/dataset_medium_k_3e-10_1000dp inputs_gk case_train box128 skip64 noFirstBox e500 2ndRound")
-    model_front_path = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes1/dataset_medium_64_256_gksi_1000dp_for_lukas")
+    model_path_nfb = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes/TESTS_inputs box128 skip64/dataset_medium_k_3e-10_1000dp inputs_gk case_train box128 skip64 noFirstBox e500 2ndRound")
+    model_front_path = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hpnn/dataset_medium_64_256_gksi_1000dp_for_lukas")
     dataset_front = Path("/scratch/sgs/pelzerja/datasets_prepared/extend_plumes/dataset_long_k_3e-10_1dp inputs_gksi extend1")
     run_id = 11
     

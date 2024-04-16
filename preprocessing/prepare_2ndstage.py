@@ -14,7 +14,7 @@ from preprocessing.domain_classes.heat_pump import HeatPumpBox
 from preprocessing.domain_classes.stitching import Stitching
 from preprocessing.domain_classes.utils_2hp import (
     save_config_of_merged_inputs, save_config_of_separate_inputs, save_yaml)
-from preprocessing.prepare_1ststage import prepare_dataset
+from preprocessing.prepare_1hp_boxes import prepare_dataset
 from preprocessing.prepare_paths import Paths2HP
 from processing.networks.unet import UNet
 from utils.utils_data import SettingsTraining

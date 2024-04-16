@@ -3,8 +3,6 @@ import pathlib
 import torch.nn as nn
 from torch import cat, equal, load, save, tensor
 
-from processing.diff_conv2d.layers import DiffConv2dLayer
-
 
 class UNet(nn.Module):
     def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
