@@ -2,7 +2,7 @@ paths.yaml
 paths_sdf.yaml
 
 datasets_prepared/
-nerf/
+CdMLP/
 
 # exclude for now
 runs/
