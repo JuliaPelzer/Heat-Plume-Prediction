@@ -4,12 +4,12 @@ import pathlib
 import shutil
 import sys
 from math import cos, sin
+from tqdm.auto import tqdm
 
 import matplotlib.pyplot as plt
 import yaml
-from torch import load
 from torch import long as torch_long
-from torch import max, ones, save, squeeze, stack, tensor, where
+from torch import max, ones, save, squeeze, stack, tensor, where, cat, load
 
 sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN")  # relevant for remote
 sys.path.append("/home/pelzerja/Development/1HP_NN")  # relevant for local
@@ -17,7 +17,6 @@ from postprocessing.visualization import _aligned_colorbar
 from preprocessing.domain_classes.heat_pump import HeatPumpBox
 from preprocessing.domain_classes.stitching import Stitching
 from preprocessing.prepare_1ststage import expand_property_names
-from utils.utils import beep
 from utils.utils_data import load_yaml
 
 
@@ -26,17 +25,13 @@ class Domain:
         self, info_path: str, stitching_method: str = "max", file_name: str = "RUN_0.pt", device = "cpu", problem: str = "2stages"):
         self.skip_datapoint = False
         self.info = load_yaml(info_path, "info", Loader=yaml.FullLoader)
-        self.size: tuple[int, int] = [
-            self.info["CellsNumber"][0],
-            self.info["CellsNumber"][1],
-        ]  # (x, y), cell-ids
+        self.size: tuple[int, int] = [self.info["CellsNumber"][0], self.info["CellsNumber"][1], ]  # (x, y), cell-ids
         self.background_temperature: float = 10.6
         self.inputs: tensor = self.load_datapoint(info_path, case="Inputs", file_name=file_name)
         self.label: tensor = self.load_datapoint(info_path, case="Labels", file_name=file_name)
         self.prediction: tensor = (ones(self.size) * self.background_temperature).to(device)
-        # self.prediction_1HPNN: tensor = (ones(self.size) * self.background_temperature).to(device)
         self.stitching: Stitching = Stitching(stitching_method, self.background_temperature)
-        self.normed_label: bool = True
+        self.label_normed_bool: bool = True
         self.file_name: str = file_name
         if problem == "2stages": 
             if (self.get_input_field_from_name("Permeability X [m^2]").max() > 1
@@ -81,7 +76,6 @@ class Domain:
                     shutil.move(
                         pathlib.Path(origin_2hp_prep, "Labels", file_name),
                         pathlib.Path(origin_2hp_prep, "unusable", "Labels", file_name),)
-                    beep()
                     self.skip_datapoint=True
                 # assert (
                 #     p_related_field.max() <= 1 and p_related_field.min() >= 0
@@ -172,7 +166,7 @@ class Domain:
         pos_hps = stack(list(where(material_ids == max(material_ids))), dim=0).T
         names_inputs = [self.get_name_from_index(i) for i in range(self.inputs.shape[0])]
 
-        for idx in range(len(pos_hps)):
+        for idx in tqdm(range(len(pos_hps))):
             try:
                 pos_hp = pos_hps[idx]
                 corner_ll, corner_ur = get_box_corners(pos_hp, size_hp_box, distance_hp_corner, self.inputs.shape[1:], run_name=self.file_name,)
@@ -198,6 +192,27 @@ class Domain:
                 logging.warning(f"BOX of HP {idx} at {pos_hp} is not in domain")
                 
         return hp_boxes
+
+    def extract_ep_box(self, hp: "HeatPumpBox", params: dict, device:str = "cpu"):
+        # inspired by ep.assemble_inputs + extract_hp_boxes
+
+        # TODO check achtung orientierung hp.primary_temp_field.shape for hp-size
+        corner_ll, corner_ur = get_box_corners(hp.pos, tensor(hp.primary_temp_field.shape), hp.dist_corner_hp, self.inputs.shape[1:], run_name=self.file_name,)
+        # get "inputs" there from domain (only g,k (?) not s, i)
+        start_curr = params["start_curr_box"] + corner_ll[0]
+        # TODO inputs HARDCODED to "gk" from "gksi"
+        input_curr = self.inputs[:2, start_curr : start_curr + params["box_size"], corner_ll[1] : corner_ur[1]].to(device)
+
+        # combine with second half of hp.primary_temp_field as inputs for extend plumes
+        start_prior = params["start_prior_box"]
+        input_prior_T = hp.primary_temp_field[start_prior : start_prior + params["box_size"],:].detach() # before: only 2D
+        # print(start_prior, params["box_size"], hp.primary_temp_field.shape, corner_ll[0])
+        if len(input_prior_T.shape) == 2:
+            input_prior_T = input_prior_T.unsqueeze(0)
+        # print(input_curr.shape, input_prior_T.shape)
+        input_all = cat((input_curr, input_prior_T), dim=0).unsqueeze(0)
+
+        return input_all, corner_ll, corner_ur
 
     def add_hp(self, hp: "HeatPumpBox", prediction_field: tensor):
         prediction_field = self.reverse_norm(prediction_field, property="Temperature [C]") # for adding to domain
@@ -241,9 +256,9 @@ class Domain:
                 _aligned_colorbar(label=f"Predicted {property}")
                 idx += 1
                 plt.subplot(n_subplots, 1, idx)
-                if self.normed_label:
+                if self.label_normed_bool:
                     self.label = self.reverse_norm(self.label, property)
-                    self.normed_label = False
+                    self.label_normed_bool = False
                 plt.imshow(abs(self.prediction.T - squeeze(self.label).T).detach().numpy())
                 plt.gca().invert_yaxis()
                 plt.xlabel("x [cells]")

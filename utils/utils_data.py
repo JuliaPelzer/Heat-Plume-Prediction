@@ -1,7 +1,7 @@
 import os
 import pathlib
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, List
 
 import yaml
 
@@ -19,6 +19,14 @@ def save_yaml(settings: Dict, path: str, name_file: str = "settings"):
     path = pathlib.Path(path)
     with open(path / f"{name_file}.yaml", "w") as file:
         yaml.dump(settings, file)
+
+def get_run_ids(dir: pathlib.Path) -> List[int]:
+    run_ids = []
+    for file in dir.iterdir():
+        if file.suffix == ".pt":
+            run_ids.append(int(file.stem.split("_")[-1]))
+            # print(f"Found run_id {run_ids[-1]}")
+    return run_ids
 
 @dataclass
 class SettingsTraining:

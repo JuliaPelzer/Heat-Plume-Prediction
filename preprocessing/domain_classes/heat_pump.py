@@ -5,9 +5,8 @@ from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
-from torch import cat, is_tensor, load
 from torch import long as torch_long
-from torch import maximum, ones, save, tensor, unsqueeze, zeros_like
+from torch import maximum, ones, save, tensor, unsqueeze, zeros_like, zeros, is_tensor, load, cat
 
 from postprocessing.visualization import _aligned_colorbar
 from preprocessing.data_stuff.transforms import SignedDistanceTransform
@@ -47,6 +46,11 @@ class HeatPumpBox:
         input = input.to(device)
         output = model(input).squeeze().detach()
         return output
+    
+    def insert_extended_plume(self, output:tensor, insert_at:int, actual_len:int, device:str = "cpu"):
+        if self.primary_temp_field.shape[0] < insert_at + actual_len:
+            self.primary_temp_field = cat([self.primary_temp_field, zeros(insert_at + actual_len - self.primary_temp_field.shape[0], *self.primary_temp_field.shape[1:], device=device)])
+        self.primary_temp_field[insert_at : insert_at+actual_len] = output[0, 0]
 
     def get_other_temp_field(self, single_hps):
         hp: HeatPumpBox

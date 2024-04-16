@@ -105,7 +105,7 @@ def infer(model, inputs, labels, params, first_box:bool=True, visu:bool=True, fr
     return labels[0,0,:,:].detach().numpy()
 
 def set_start_curr_box(start_prior_box, params):
-    return start_prior_box + params["box_size"] -params["overlap"]
+    return start_prior_box + params["box_size"] - params["overlap"]
 
 def prep_params_and_data(inputs, labels, params, first_box:bool=False):
     box_size = params["box_size"]
@@ -133,6 +133,8 @@ def calc_actual_len_and_gap(output, params):
     gap = (params["box_size"] - actual_len)//2
     assert params["skip_in_field"] < actual_len+gap, f"skip_in_field {params['skip_in_field']} should be smaller than actual_len+gap {actual_len+gap}"
     assert actual_len < params["box_size"], f"actual_len {actual_len} should be smaller than box_size {params['box_size']}"
+    assert gap == params["overlap"], "in theory overlap==gap"
+    # assert params["overlap"] < actual_len, "overlap must be smaller than actual_len"
 
     return actual_len, gap
 

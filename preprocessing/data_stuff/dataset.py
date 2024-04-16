@@ -10,6 +10,7 @@ from torch._utils import _accumulate
 from torch.utils.data import Dataset, Subset
 
 from preprocessing.data_stuff.transforms import NormalizeTransform
+from utils.utils_data import get_run_ids
 
 
 class SimulationDataset(Dataset):
@@ -204,8 +205,9 @@ class SimulationDatasetCuts(Dataset):
         self.path = pathlib.Path(path)
         self.info = self.__load_info()
         self.norm = NormalizeTransform(self.info)
-        self.inputs = torch.load(self.path / "Inputs" / "RUN_0.pt")
-        self.labels = torch.load(self.path / "Labels" / "RUN_0.pt")
+        run_id = get_run_ids(self.path / "Inputs")[0]
+        self.inputs = torch.load(self.path / "Inputs" / f"RUN_{run_id}.pt")
+        self.labels = torch.load(self.path / "Labels" / f"RUN_{run_id}.pt")
         assert len(self.inputs.shape) == 3, "inputs should be 3D (C,H,W)"
         assert self.inputs.shape[1:] == self.labels.shape[1:], "inputs and labels have different shapes"
         self.spatial_size = self.inputs.shape[1:]
