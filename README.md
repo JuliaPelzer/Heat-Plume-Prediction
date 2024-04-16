@@ -36,7 +36,7 @@
     --inputs: make sure, they are the same as in the model (default `gksi`)
     --visualize: visualize the results (default `False`)
     ```
-## Training a 2nd stage model (2HP-NN): !excluded on this branch!
+## Training a 2nd stage model (2HP-NN):
 - for running a 2HP-NN you need the prepared 2HP-dataset in datasets_prepared_dir_2hp (paths.yaml)
 - for preparing 2HP-NN: expects that 1HP-NN exists and trained on; for 2HP-NN (including preparation) run main.py with the following arguments:
 
@@ -51,7 +51,15 @@
     --case: `test`, `train` or `finetune` (default `train`)
     ```
 
-## Infer a 2nd stage model: !excluded on this branch!
+## Preparing a merged 2nd stage model:
+datasets are e.g. dataset_2hps_1fixed_100dp_2hp_gksi_1000dp, dataset_2hps_1fixed_10dp_2hp_gksi_1000dp, dataset_2hps_1fixed_1000dp_2hp_gksi_1000dp
+
+```
+python prepare_2ndstage.py --dataset "dataset_2hps_1fixed_10dp inputs_gki100 boxes" --merge True
+```
+
+
+## Infer a 2nd stage model:
 
 - as inferring a 1st stage model but with model name from trained 2nd stage model
 
@@ -119,3 +127,6 @@
 - after clean up, one month after paper submission (Oct. '23): c8da3da
 - release fosr students to extend_plumes (Mar. '24): ed884f9fb3b8af9808f7abcfee9a0810e8c0fe03, branch release_24
 - release for students to work on first stage (e.g. rotational equivariance) (Mar. '24): 083bb976dfccc52d1, branch release_24
+- cleaned up merge of extend_plumes and allin1 (Apr. '24): ab1e389973c59, branch allin1_preprocessing
+- functioning allin1 + preprocessing 1st stage + extend plumes (Apr. '24): 9a72b9a8b003e5, branch allin1_preprocessing & 
+- removed "other_models"

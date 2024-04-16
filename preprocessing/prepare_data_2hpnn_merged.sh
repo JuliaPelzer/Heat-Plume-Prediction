@@ -1,2 +1,0 @@
-# datasets dataset_2hps_1fixed_100dp_2hp_gksi_1000dp, dataset_2hps_1fixed_10dp_2hp_gksi_1000dp, dataset_2hps_1fixed_1000dp_2hp_gksi_1000dp
-python prepare_2ndstage.py --dataset "dataset_2hps_1fixed_10dp inputs_gki100 boxes" --merge True
