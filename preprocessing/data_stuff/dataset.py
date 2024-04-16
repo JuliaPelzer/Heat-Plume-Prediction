@@ -135,10 +135,11 @@ class DatasetExtend2(Dataset):
 
     def __getitem__(self, idx):
         run_id, box_id = self.idx_to_pos(idx)
-        overlap = 46 # TODO HOTFIX for len_box=256, current UNetHalfPad2 architecture (3 blocks, 1 conv per block, 5x5 kernel, ...)
-        assert self.box_size == 256, "HOTFIX for len_box=256, current UNetHalfPad2 architecture (3 blocks, 1 conv per block, 5x5 kernel, ...)"
-        start_prior_box = box_id*self.skip_per_dir
-        start_curr_box = start_prior_box + self.box_size -overlap
+        overlap = 46 # TODO HOTFIX
+        start_first = 32
+        assert self.box_size in [256, 128], "HOTFIX for current UNetHalfPad2 architecture (3 blocks, 1 conv per block, 5x5 kernel, ...)" # TODO only depends on architecture, not box_length??
+        start_prior_box = box_id*self.skip_per_dir + start_first # to not learn from data around heat pump?
+        start_curr_box = start_prior_box + self.box_size - overlap # 146
         
         input_curr = torch.load(self.path / "Inputs" / self.input_names[run_id])[:, start_curr_box : start_curr_box + self.box_size, :]
         input_prior_T = torch.load(self.path / "Labels" / self.input_names[run_id])[:, start_prior_box : start_prior_box + self.box_size, :]
