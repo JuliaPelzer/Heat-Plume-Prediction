@@ -83,7 +83,7 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], settings: SettingsTraining
     transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo, cutlengthtrafo=cutlengthtrafo, box_length=settings.len_box, problem=settings.problem)
     inputs = expand_property_names(settings.inputs)
     time_init = "   0 Time  0.00000E+00 y"
-    time_prediction = "   3 Time  5.00000E+00 y"  # "   4 Time  2.75000E+01 y"
+    time_prediction = "   4 Time  2.75000E+01 y" #  "   3 Time  5.00000E+00 y"  # 
     pflotran_settings = get_pflotran_settings(paths.raw_path)
     dims = np.array(pflotran_settings["grid"]["ncells"])
     total_size = np.array(pflotran_settings["grid"]["size"])
