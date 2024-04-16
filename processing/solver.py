@@ -67,9 +67,9 @@ class Solver(object):
                     self.train_dataloader, device)
 
                 # Validation
-                if epoch % 10 == 0:
-                    self.model.eval()
-                    val_epoch_loss = self.run_epoch(self.val_dataloader, device)
+                # if epoch % 10 == 0:
+                self.model.eval()
+                val_epoch_loss = self.run_epoch(self.val_dataloader, device)
 
                 # Logging
                 writer.add_scalar("train_loss", train_epoch_loss, epoch)
