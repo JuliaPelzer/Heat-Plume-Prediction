@@ -105,7 +105,7 @@ def preprocessing_allin1(settings: SettingsTraining):
 
                             # increase counter
                             args_extend2["start_prior_box"] += args_extend2["skip_in_field"]
-                            start_curr_box = ep.set_start_curr_box(args_extend2["start_prior_box"], args_extend2)
+                            args_extend2["start_curr_box"] = ep.set_start_curr_box(args_extend2["start_prior_box"], args_extend2)
                         except:
                             print("Error in extension, e.g. box extending outside of domain")
                             break
