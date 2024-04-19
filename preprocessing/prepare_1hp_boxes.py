@@ -79,9 +79,11 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], settings: SettingsTraining
     output_variables = ["Temperature [C]"]
     data_paths, runs = detect_datapoints(paths.raw_path)
     total = len(data_paths)
+    printing = True
     for data_path, run in tqdm(zip(data_paths, runs), desc="Converting", total=total):
-        x = load_data(data_path, time_init, inputs, dims, additional_input=additional_input)
-        y = load_data(data_path, time_prediction, output_variables, dims)
+        x = load_data(data_path, time_init, inputs, dims, additional_input=additional_input, printing=printing)
+        y = load_data(data_path, time_prediction, output_variables, dims, printing=printing)
+        printing = False
         loc_hp = get_hp_location(x)
         x = transforms(x, loc_hp=loc_hp)
         if info is None: calc.add_data(x) 
@@ -219,7 +221,7 @@ def get_normalization_type(property:str):
         "MDF": None,
         "LST": None,
         "Original Temperature [C]": None,
-        "Permeability X [m^2]": "LogRescale",
+        "Permeability X [m^2]": "Rescale",
     }
 
     if property in types:
@@ -232,7 +234,7 @@ def get_pflotran_settings(dataset_path_raw: str):
         pflotran_settings = yaml.safe_load(f)
     return pflotran_settings
 
-def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoint: tuple, additional_input: torch.Tensor = None):
+def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoint: tuple, additional_input: torch.Tensor = None, printing: bool = False):
     """
     Load data from h5 file on data_path, but only the variables named in variables.get_ids() at time stamp variables.time
     Sets the values of each PhysicalVariable in variables to the loaded data.
@@ -260,7 +262,8 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
                 else:
                     raise KeyError(
                         f"Key '{key}' not found in {data_path} at time {time}")
-            print(f"Loaded {key} at time {time} with shape {data[key].shape}")
+            if printing:
+                print(f"Loaded {key} at time {time} with shape {data[key].shape}")
 
     return data
 
