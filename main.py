@@ -129,7 +129,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
         
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_raw", type=str, default="dataset_2d_small_1000dp", help="Name of the raw dataset (without inputs)")
+    parser.add_argument("--dataset_raw", type=str, default="dataset_medium_100dp_vary_perm", help="Name of the raw dataset (without inputs)")
     parser.add_argument("--dataset_prep", type=str, default="")
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--epochs", type=int, default=10000)
