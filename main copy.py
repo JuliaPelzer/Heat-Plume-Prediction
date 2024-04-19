@@ -28,7 +28,7 @@ if __name__ == "__main__":
     ut.save_cla(args)
 
     # prepare data
-    prep.preprocessing(args)
+    prep.preprocessing(args) # and save info.yaml in model folder
 
     model = train(args)
 

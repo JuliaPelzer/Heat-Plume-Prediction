@@ -91,7 +91,7 @@ class Solver(object):
                         "training time in sec": (time.perf_counter() - start_time),
                     }
 
-                    if True:
+                    if False:
                         self.model.save(settings.destination, model_name=f"best_model_e{epoch}.pt")
 
                 if log_val_epoch:

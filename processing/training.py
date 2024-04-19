@@ -19,7 +19,7 @@ from processing.solver import Solver
 from utils.utils_data import SettingsTraining
 from preprocessing.data_init import init_data, init_data_different_datasets
 
-def train(args: argparse.Namespace, settings_val: SettingsTraining = None, settings_test: SettingsTraining = None, different_datasets: bool = False):
+def train(args: argparse.Namespace, settings_val: SettingsTraining = None, settings_test: SettingsTraining = None):
     np.random.seed(1)
     torch.manual_seed(1)
     multiprocessing.set_start_method("spawn", force=True)
@@ -30,7 +30,7 @@ def train(args: argparse.Namespace, settings_val: SettingsTraining = None, setti
         input_channels, dataloaders = init_data(args)
 
     # model
-    if args.problem in ["2stages", "allin1", "extend1"]:
+    if args.problem in ["1hp", "2stages", "allin1", "extend1", "test"]:
         model = UNet(in_channels=input_channels).float()
     elif args.problem in ["extend2"]:
         model = UNetHalfPad2(in_channels=input_channels).float()
@@ -54,13 +54,14 @@ def train(args: argparse.Namespace, settings_val: SettingsTraining = None, setti
         solver = None
 
     # save model
-    model.save(args.destination)
+    if args.case in ["train", "finetune"]:
+        model.save(args.destination)
 
-    # visualization
-    save_all_measurements(args, len(dataloaders["val"].dataset), times={}, solver=solver) #, errors)
+    # postprocessing
+    # save_all_measurements(args, len(dataloaders["val"].dataset), times={}, solver=solver) #, errors)
     try:
-        visualizations(model, dataloaders["val"], args, plot_path=args.destination / f"val", amount_datapoints_to_visu=1, pic_format="png", different_datasets=different_datasets)
+        visualizations(model, dataloaders["val"], args, plot_path=args.destination / f"val", amount_datapoints_to_visu=1, pic_format="png", different_datasets=(args.problem == "allin1"))
     except: pass
-    visualizations(model, dataloaders["test"], args, plot_path=args.destination / f"test", amount_datapoints_to_visu=1, pic_format="png", different_datasets=different_datasets)
+    visualizations(model, dataloaders["test"], args, plot_path=args.destination / f"test", amount_datapoints_to_visu=1, pic_format="png", different_datasets=(args.problem == "allin1"))
 
     return model

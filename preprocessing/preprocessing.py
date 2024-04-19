@@ -9,49 +9,61 @@ from preprocessing.transforms import (get_transforms, normalize, ToTensorTransfo
 from utils.utils_args import is_empty, load_yaml, save_yaml
 from preprocessing.statistics import WelfordStatistics
 import preprocessing.load_data as load
+import utils.utils_args as ut
+from preprocessing.prepare_allin1_copy import preprocessing_allin1
 
 def preprocessing(args):
-    if is_unprepared(args.data_prep): # or args.case == "test":
-        print("Preparing dataset")
+    print("Preparing dataset")
         
-        if args.problem in ["test", "1hp", "extend"]:
+    if args.problem in ["test", "1hp", "extend"]:
+        if is_unprepared(args.data_prep): # or args.case == "test":
             info = load_yaml(args.model / "info.yaml") if args.case != "train" else None
-            prepare_dataset(args, info=info)
+            info = prepare_dataset(args, info=info)
+        else:
+            info = load_yaml(args.data_prep / "info.yaml")
 
-        elif args.problem == "2stages":
-            exit("2stages not implemented yet, use other branch")
+    elif args.problem == "2stages":
+        exit("2stages not implemented yet, use other branch")
 
-        elif args.problem == "allin1":
-            # only doable if 3 datasets exist (case: different datasets)
-            # todo handling of different datasets and several stages
-            prepare_allin1(args)
+    elif args.problem == "allin1":
+        # only doable if 3 datasets exist (case: different datasets)
+        # todo handling of different datasets and several stages
+        info = prepare_allin1(args)
+
+    if args.case == "train": # TODO also finetune?
+        ut.save_yaml(args.model / "info.yaml", info)
 
     print("Dataset prepared")
 
-def prepare_allin1(args): ...
 
-    # case_tmp = settings.case
-    # settings.dataset_raw = settings.dataset_train
-    # dataset_tmp = settings.dataset_raw
-    # # settings = prepare_data_and_paths(settings)
-    # settings = preprocessing_allin1(settings)
-    # prep_tmp = settings.dataset_prep
-    # settings.dataset_prep = ""
-    # settings.case = "test"
-    # settings.model = settings.destination
-    # settings.dataset_raw = settings.dataset_val
-    # # settings_val = prepare_data_and_paths(deepcopy(settings))
-    # settings_val = preprocessing_allin1(deepcopy(settings))
-    # settings.dataset_raw = settings.dataset_test
-    # # settings_test = prepare_data_and_paths(deepcopy(settings))
-    # settings_test = preprocessing_allin1(deepcopy(settings))
-    # settings.case = case_tmp
-    # settings.dataset_raw = dataset_tmp
-    # settings.dataset_prep = prep_tmp
+def prepare_allin1(args):
+    # achtung mit is_prepared_checks
+    # TODO LOGIK CHECKEN
+    if args.case != "infer":
+        info = prepare_allin1_block(args, args.data_raw + "_train" + " inputs_" + args.inputs)# correct???
+        if args.case == "train": # TODO also finetune?
+            ut.save_yaml(args.model / "info.yaml", info)
+
+        prepare_allin1_block(args, args.data_raw + "_val" + " inputs_" + args.inputs)
+        prepare_allin1_block(args, args.data_raw + "_test" + " inputs_" + args.inputs)
+
+
+def prepare_allin1_block(args, data_prep:Path):
+    if is_unprepared(data_prep):
+        if "n" in args.inputs:
+            additional_input_unnormed = preprocessing_allin1(args, data_prep) # TODO NEXT
+        else:
+            additional_input_unnormed = None
+        info = load_yaml(args.model / "info.yaml") if args.case != "train" else None
+        info = prepare_dataset(args, info=info, additional_input=additional_input_unnormed)
+    else:
+        info = load_yaml(data_prep / "info.yaml")
+    
+    return info
 
 # helper function
 def is_unprepared(path:Path):
-    return is_empty(path / "Inputs") and is_empty(path / "Labels") and not (path / "info.yaml").exists()
+    return is_empty(path / "Inputs") or is_empty(path / "Labels") or not (path / "info.yaml").exists()
 
 def prepare_dataset(args, info:dict = None, additional_input: torch.Tensor = None):
     """
