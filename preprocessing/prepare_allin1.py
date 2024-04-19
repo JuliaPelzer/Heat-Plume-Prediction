@@ -31,8 +31,8 @@ def preprocessing_allin1(settings: SettingsTraining):
             settings.case = "test"
             settings.inputs = args_1hpnn["inputs"]
             settings.model = args_1hpnn["model"]
-            settings.dataset_prep = ""
-            settings.destination = ""
+            settings.dataset_prep = None
+            settings.destination = None
             settings = prepare_data_and_paths(settings)
 
             args_extend2 = {

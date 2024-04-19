@@ -46,8 +46,6 @@ def init_data(settings: SettingsTraining, seed=1):
     generator = torch.Generator().manual_seed(seed)
 
     split_ratios = [0.7, 0.2, 0.1]
-    # if settings.case == "test": # TODO change back
-    #     split_ratios = [0.0, 0.0, 1.0] 
     if not settings.problem == "extend":
         datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     else:
@@ -103,7 +101,7 @@ def run(settings: SettingsTraining, settings_val: SettingsTraining = None, setti
     elif settings.problem == "extend":
         model = UNetHalfPad2(in_channels=input_channels).float()
         # model = Encoder(in_channels=input_channels).float()
-
+    
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)
@@ -197,32 +195,46 @@ def main(args):
 
     different_datasets = True
     if settings.problem == "allin1" and different_datasets:
-        case_tmp = settings.case
-        settings.dataset_raw = settings.dataset_train
-        dataset_tmp = settings.dataset_raw
-        # settings = prepare_data_and_paths(settings)
-        settings = preprocessing_allin1(settings)
-        prep_tmp = settings.dataset_prep
-        settings.dataset_prep = ""
-        settings.case = "test"
-        settings.model = settings.destination
-        settings.dataset_raw = settings.dataset_val
-        # settings_val = prepare_data_and_paths(deepcopy(settings))
-        settings_val = preprocessing_allin1(deepcopy(settings))
-        settings.dataset_raw = settings.dataset_test
-        # settings_test = prepare_data_and_paths(deepcopy(settings))
-        settings_test = preprocessing_allin1(deepcopy(settings))
-        settings.case = case_tmp
-        settings.dataset_raw = dataset_tmp
-        settings.dataset_prep = prep_tmp
-        
-        model = run(settings, settings_val, settings_test, different_datasets=different_datasets)
+        if not settings.dataset_train and not settings.dataset_val and not settings.dataset_test:
+            settings.dataset_train = settings.dataset_raw + "_train"
+            settings.dataset_val = settings.dataset_raw + "_val"
+            settings.dataset_test = settings.dataset_raw + "_test"
+
+        if settings.case in ["train", "finetune"]:
+            case_tmp = settings.case
+            settings.dataset_raw = settings.dataset_train
+            dataset_tmp = settings.dataset_raw
+            settings = preprocessing_allin1(settings)
+            prep_tmp = settings.dataset_prep
+
+            settings.dataset_prep = None
+            settings.case = "test"
+            settings.dataset_raw = settings.dataset_val
+            settings_val = preprocessing_allin1(deepcopy(settings))
+
+            settings.dataset_raw = settings.dataset_test
+            settings_test = preprocessing_allin1(deepcopy(settings))
+            
+            settings.case = case_tmp
+            settings.dataset_raw = dataset_tmp
+            settings.dataset_prep = prep_tmp
+            model = run(settings, settings_val, settings_test, different_datasets=different_datasets)
+
+        else:
+            settings.dataset_raw = settings.dataset_test
+            settings = preprocessing_allin1(settings)
+            settings.destination.mkdir(parents=True, exist_ok=True)
+            model = run(settings, different_datasets=different_datasets)
+
     elif settings.problem == "allin1":
         settings.dataset_raw = settings.dataset_train
         settings = prepare_data_and_paths(settings)
+        settings.destination.mkdir(parents=True, exist_ok=True)
         model = run(settings)
+
     else:    
         settings = prepare_data_and_paths(settings)
+        settings.destination.mkdir(parents=True, exist_ok=True)
         model = run(settings)
 
     if settings.save_inference:
@@ -233,22 +245,22 @@ if __name__ == "__main__":
         
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_raw", type=str, default="dataset_2d_small_1000dp", help="Name of the raw dataset (without inputs)") # for problem: 2stages, extend
-    parser.add_argument("--dataset_train", type=str, default="dataset_giant_100hp_varyPermLog_p30_kfix_quarter_dp4_4", help="Name of the raw dataset (without inputs)") # for problem: allin1
-    parser.add_argument("--dataset_val", type=str, default="dataset_giant_100hp_varyPermLog_p30_kfix_quarter_dp5_4", help="Name of the raw dataset (without inputs)") # for problem: allin1
-    parser.add_argument("--dataset_test", type=str, default="dataset_giant_100hp_varyPermLog_p30_kfix_quarter_dp3_4", help="Name of the raw dataset (without inputs)") #for problem: allin1
-    parser.add_argument("--dataset_prep", type=str, default="")
+    parser.add_argument("--dataset_train", type=str, default=None, help="Name of the raw dataset (without inputs)") # for problem: allin1
+    parser.add_argument("--dataset_val", type=str, default=None, help="Name of the raw dataset (without inputs)") # for problem: allin1
+    parser.add_argument("--dataset_test", type=str, default=None, help="Name of the raw dataset (without inputs)") #for problem: allin1
+    parser.add_argument("--dataset_prep", type=str, default=None)
     parser.add_argument("--device", type=str, default="cuda:3")
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--case", type=str, choices=["train", "test", "finetune"], default="train")
-    parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
-    parser.add_argument("--destination", type=str, default="")
+    parser.add_argument("--model", type=str, default=None) # required for testing or finetuning
+    parser.add_argument("--destination", type=str, default=None) # if train: dir; if test/finetune: subdir of model
     parser.add_argument("--inputs", type=str, default="gksi") #e.g. "gki", "gksi100", "ogksi1000_finetune", "t", "lmi", "lmik","lmikp", ...
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
     parser.add_argument("--problem", type=str, choices=["2stages", "allin1",  "extend",], default="allin1")
-    parser.add_argument("--notes", type=str, default="")
-    parser.add_argument("--len_box", type=int, default=64) # for extend:256, for 2stages=None
+    parser.add_argument("--notes", type=str, default=None)
+    parser.add_argument("--len_box", type=int, default=64) # for extend:128, for 2stages=256
     parser.add_argument("--skip_per_dir", type=int, default=32)
     args = parser.parse_args()
 

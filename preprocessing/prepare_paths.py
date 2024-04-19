@@ -32,15 +32,15 @@ def set_paths_1hpnn(dataset_name: str, inputs:str = "", dataset_prep:str = "", p
         paths = yaml.safe_load(f)
 
     default_raw_dir = pathlib.Path(paths["default_raw_dir"])
-    destination_dir = pathlib.Path(paths["models_1hp_dir"])
+    runs_dir = pathlib.Path(paths["models_1hp_dir"])
     datasets_prepared_dir = pathlib.Path(paths["datasets_prepared_dir"])
-    default_raw_dir, destination_dir, datasets_prepared_dir = extend_paths_for_problem(problem, default_raw_dir, destination_dir, datasets_prepared_dir)
+    default_raw_dir, runs_problem_dir, datasets_prepared_dir = extend_paths_for_problem(problem, default_raw_dir, runs_dir, datasets_prepared_dir)
     dataset_raw_path = default_raw_dir / dataset_name
-    if dataset_prep == "":
+    if dataset_prep is None:
         dataset_prep = f"{dataset_name} inputs_{inputs}"
     dataset_prepared_full_path = datasets_prepared_dir / dataset_prep
 
-    return Paths1HP(dataset_raw_path, dataset_prepared_full_path), destination_dir
+    return Paths1HP(dataset_raw_path, dataset_prepared_full_path), runs_problem_dir
 
 def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name: str = None, dataset_prep:str = None, paths_file:str = "paths.yaml")-> typing.Tuple[Paths2HP, str, pathlib.Path]:
     

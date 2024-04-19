@@ -51,7 +51,7 @@ def load_models_and_data(model_path, model_front_path, dataset_prep, dataset_fro
     model_front, inputs_front, model, inputs, labels = None, None, None, None, None
 
     if case in ["front", "both"]:
-        model_front, inputs_front, _ = load_front(model_front_path, dataset_front, run_id, model_name=model_name_front)
+        model_front, inputs_front, labels = load_front(model_front_path, dataset_front, run_id, model_name=model_name_front)
     if case in ["extend", "both"]:
         model, inputs, labels, temp_norm = load_extend(model_path, dataset_prep, run_id, visu=visu, model_name=model_name)
         params = update_params(params, model_path, temp_norm)
