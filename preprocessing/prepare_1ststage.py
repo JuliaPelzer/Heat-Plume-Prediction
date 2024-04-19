@@ -11,7 +11,7 @@ import torch
 import yaml
 from tqdm.auto import tqdm
 
-from preprocessing.data_stuff.transforms import (ComposeTransform,
+from preprocessing.transforms import (ComposeTransform,
                                                  CutLengthTransform,
                                                  LinearSmearTransform,
                                                  MultiHPDistanceTransform,

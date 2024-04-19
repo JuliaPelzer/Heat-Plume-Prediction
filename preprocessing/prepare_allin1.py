@@ -26,7 +26,8 @@ def preprocessing_allin1(settings: SettingsTraining):
         if "n" in settings.inputs:
             # preprocessing with neural network: 1hpnn(+extend_plumes)
             args_1hpnn = {
-                "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes1/vary_k/dataset_medium_100dp_vary_perm inputs_gksi case_train box256 skip256 UNet"),
+                "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hpnn/dataset_small_1000dp_varyK_v2 inputs_gksi case_train box256 skip32"), 
+                #Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hpnn/vary_k/dataset_medium_100dp_vary_perm inputs_gksi case_train box256 skip256 UNet"),
                 "inputs": "gksi",
             }
 
@@ -40,7 +41,7 @@ def preprocessing_allin1(settings: SettingsTraining):
             settings = prepare_data_and_paths(settings)
 
             args_extend2 = {
-                "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes2/vary_k/dataset_medium_100dp_vary_perm inputs_gk case_train box128 skip2"), #test_overlap_input_T"),
+                "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes/vary_k/dataset_medium_100dp_vary_perm inputs_gk case_train box128 skip2"), #test_overlap_input_T"),
                 "inputs": "gk",
                 "box_size": 128,
                 "start_prior_box": 64, # box_size // 2
@@ -80,28 +81,33 @@ def preprocessing_allin1(settings: SettingsTraining):
                 single_hps = domain.extract_hp_boxes(settings.device)
                 hp: HeatPumpBox
                 for hp in tqdm(single_hps, desc="Applying 1HPNN+extend-plumes and adding arbitrary long boxes to domain"):
-                    hp.primary_temp_field = hp.apply_nn(model_1hp, device=settings.device)
+                    use_1hp_groundtruth = False
+                    if use_1hp_groundtruth:
+                        hp.primary_temp_field = hp.label.squeeze(0)
+                    else:
+                        hp.primary_temp_field = hp.apply_nn(model_1hp, device=settings.device)
                     # assert hp.primary_temp_field.max() <= 1, "primary_temp_field must be smaller than 1 - comes from input[1] (perm) being out of range??"
 
                     args_extend2["start_prior_box"] = max(args_extend2["start_prior_box"], args_extend2["skip_per_dir"])
                     args_extend2["start_curr_box"] = ep.set_start_curr_box(args_extend2["start_prior_box"], args_extend2)
 
                     # extend plumes, adapted from ep.infer_nopad inner part
+                    counter = 0
                     while hp.primary_temp_field[-1].max() > max_temperature_threshold: # check if extension needed
                         # hp.extend_plumes()
-                        try:
-                            input_all, corner_ll, _ = domain.extract_ep_box(hp, args_extend2, device=settings.device)
+                        # try:
+                        input_all, corner_ll, _ = domain.extract_ep_box(hp, args_extend2, device=settings.device)
 
-                            # apply extend plumes model
-                            output = model_ep(input_all)
-                            actual_len, _ = ep.calc_actual_len_and_gap(output, args_extend2)
-                            args_extend2 = correct_skip_in_field(args_extend2, actual_len)
+                        # apply extend plumes model
+                        output = model_ep(input_all)
+                        actual_len, _ = ep.calc_actual_len_and_gap(output, args_extend2)
+                        args_extend2 = correct_skip_in_field(args_extend2, actual_len)
 
-                            insert_at = args_extend2["start_prior_box"] + args_extend2["box_size"] + corner_ll[0]
+                        insert_at = args_extend2["start_prior_box"] + args_extend2["box_size"] + corner_ll[0]
 
-                            # combine output with hp.primary_temp_field
-                            hp.insert_extended_plume(output[0, 0], insert_at, actual_len, device=settings.device)
-                            # TODO MODELLVORHERSAGE IST SHITTY, klar, weil perm-freq. passt ja nicht - trotzdem checken
+                        # combine output with hp.primary_temp_field
+                        hp.insert_extended_plume(output[0, 0], insert_at, actual_len, device=settings.device)
+                        # TODO MODELLVORHERSAGE IST SHITTY, klar, weil perm-freq. passt ja nicht - trotzdem checken
 
                             # increase counter
                             args_extend2["start_prior_box"] += args_extend2["skip_in_field"]

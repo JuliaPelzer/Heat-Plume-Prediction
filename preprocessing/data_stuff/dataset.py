@@ -9,7 +9,7 @@ from torch import Generator, default_generator, randperm
 from torch._utils import _accumulate
 from torch.utils.data import Dataset, Subset
 
-from preprocessing.data_stuff.transforms import NormalizeTransform
+from preprocessing.transforms import NormalizeTransform
 from utils.utils_data import get_run_ids
 
 

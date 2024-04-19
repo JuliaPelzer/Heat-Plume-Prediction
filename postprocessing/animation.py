@@ -28,12 +28,8 @@ def animate(rescale_temp:Callable, run_id:int, epochs:List[int], models, dataset
         ref_model = models[0]
         info = yaml.safe_load((ref_model / "info.yaml").open("r"))
         with open(ref_model / "command_line_arguments.yaml", "r") as file:
-            len_box = yaml.load(file, Loader=yaml.Loader)["len_box"]
-        print("v1", params["box_size"], params["temp_norm"])
+            params["len_box1"] = int(yaml.load(file, Loader=yaml.Loader)["len_box"])
         params["temp_norm"] = info["Labels"]["Temperature [C]"]
-        params["len_box1"] = len_box
-        print("v2", params["len_box1"], params["temp_norm"])
-        assert params["len_box1"] == params["box_size"], "just wanted to see if this case actually appears"
     params["colorargs_error"] = {"cmap": "RdBu_r", "vmin":-0.5,"vmax": 0.5}
 
     if case=="front":
@@ -173,21 +169,31 @@ def dummy_animate(model_path, data_path, run_id, epochs):
                
 
 if __name__ == "__main__":
-    model_extend_path = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes2")
-    dataset_extend_path = Path("/scratch/sgs/pelzerja/datasets_prepared/extend_plumes")
+    datasets_path = Path("/scratch/sgs/pelzerja/datasets_prepared")
+    dataset_extend_path = datasets_path / "extend_plumes"
+    dataset_front_path = datasets_path / "1hp_boxes"
+    models_path = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs")
+    model_extend_path = models_path / "extend_plumes"
+    model_front_path = models_path / "1hpnn"
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_extend_prep", type=str, default="dataset_medium_k_3e-10_1000dp inputs_gk")
+    parser.add_argument("--data_extend_prep", type=str, default="dataset_medium_k_3e-10_1000dp inputs_gk")
     parser.add_argument("--model_extend_prep", type=str, default="dataset_medium-10dp inputs_gk case_train box256 skip2")
     parser.add_argument("--run_id", type=int, default=5)
     parser.add_argument("--case", type=str, choices=["both", "front", "extend"], default="extend")
+    parser.add_argument("--data_front_prep", type=str, default=None)
+    parser.add_argument("--model_front_prep", type=str, default=None)
     args = parser.parse_args()
 
-    dataset_extend_path = dataset_extend_path / args.dataset_extend_prep
+    dataset_extend_path = dataset_extend_path / args.data_extend_prep
     model_extend_path = model_extend_path / args.model_extend_prep
+    if args.data_front_prep is not None:
+        dataset_front = dataset_front_path / args.data_front_prep
+    if args.model_front_prep is not None:
+        model_front = model_front_path / args.model_front_prep
     assert args.case in ["extend"], f"Invalid case / not tested case: {args.case}"
 
     epochs = get_all_epochs(model_extend_path)
     epochs.sort()
 
-    animate_extend_both(args.run_id, epochs=epochs, case=args.case, model_extend=model_extend_path, dataset_extend=dataset_extend_path)
+    animate_extend_both(args.run_id, epochs=epochs, case=args.case, model_extend=model_extend_path, dataset_extend=dataset_extend_path, dataset_front=dataset_front, model_front=model_front)

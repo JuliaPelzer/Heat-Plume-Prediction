@@ -4,6 +4,8 @@ Definition of problem-specific transform classes
 
 import logging
 from typing import Tuple
+from pathlib import Path
+from tqdm.auto import tqdm
 
 import numpy as np
 import torch
@@ -378,6 +380,53 @@ class ToTensorTransform:
                     (result, data[prop].squeeze()[None, ...]), axis=0)
         logging.info("Converted data to torch.Tensor")
         return result
+
+
+def get_transforms(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = True, power2trafo: bool = False, problem:str="2stages"):
+    transforms_list = []
+
+    if reduce_to_2D:
+        transforms_list.append(ReduceTo2DTransform(
+            reduce_to_2D_xy=reduce_to_2D_xy))
+    if power2trafo:
+        transforms_list.append(PowerOfTwoTransform())
+    transforms_list.append(SignedDistanceTransform())
+    if problem in ["extend1", "extend2"]:
+        transforms_list.append(PositionalEncodingTransform())
+    elif problem == "allin1":
+        transforms_list.append(MultiHPDistanceTransform())
+        transforms_list.append(LinearSmearTransform())
+
+    transforms = ComposeTransform(transforms_list)
+    return transforms
+
+def normalize(dataset_path: Path, info: dict, total: int = None):
+    """
+    Apply the normalization using the stats from `info` to the dataset in `dataset_path`.
+
+    Parameters
+    ----------
+        dataset_path : str
+            Path to the dataset to normalize.
+        info : dict
+            Dictionary containing the normalization stats:  
+            {  
+                inputs: {"key": {"mean": float, "std": float, "index": int}},  
+                labels: {"key": {"mean": float, "std": float, "index": int}}  
+            }
+        total : int
+            Total number of files to normalize. Used for tqdm progress bar.
+
+    """
+    norm = NormalizeTransform(info)
+    for input_file in tqdm((dataset_path / "Inputs").iterdir(), desc="Normalizing inputs", total=total):
+        x = torch.load(input_file)
+        x = norm(x,"Inputs")
+        torch.save(x, input_file)
+    for label_file in tqdm((dataset_path / "Labels").iterdir(), desc="Normalizing labels", total=total):
+        y = torch.load(label_file)
+        y = norm(y,"Labels")
+        torch.save(y, label_file)
 
 
 if __name__ == "__main__":

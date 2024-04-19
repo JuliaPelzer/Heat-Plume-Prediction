@@ -12,7 +12,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from torch.nn import Module, MSELoss, modules
 from torch.utils.data import DataLoader
 
-from preprocessing.data_stuff.transforms import NormalizeTransform
+from preprocessing.transforms import NormalizeTransform
 from processing.networks.unet import UNet
 from utils.utils_data import SettingsTraining
 

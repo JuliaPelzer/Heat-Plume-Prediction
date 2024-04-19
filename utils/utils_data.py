@@ -5,7 +5,6 @@ from typing import Dict, List
 
 import yaml
 
-
 def load_yaml(path: pathlib.Path, file_name="settings", **kwargs) -> Dict:
     with open(path / f"{file_name}.yaml", "r") as file:
         try:
@@ -74,13 +73,17 @@ class SettingsTraining:
     def save(self):
         save_yaml(self.__dict__, self.destination, "command_line_arguments")
         
-    def make_destination_path(self, destination_dir: pathlib.Path):
+    def make_destination_path(self, destination_dir: pathlib.Path, case: str = "train", model_path: str = None):
         if self.destination == "":
             self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " box"+str(self.len_box) + " skip"+str(self.skip_per_dir)
-        self.destination = destination_dir / self.destination
+        if case in ["train", "finetune"]:
+            self.destination = destination_dir / self.destination
+        else: # "test"
+            self.destination = self.model / self.destination_dir.stem
         self.destination.mkdir(exist_ok=True)
 
     def make_model_path(self, destination_dir: pathlib.Path):
+        # set path to model in "runs" folder
         self.model = destination_dir / self.model
 
     def save_notes(self):
