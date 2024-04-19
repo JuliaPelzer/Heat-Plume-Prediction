@@ -129,4 +129,4 @@ python prepare_2ndstage.py --dataset "dataset_2hps_1fixed_10dp inputs_gki100 box
 - release for students to work on first stage (e.g. rotational equivariance) (Mar. '24): 083bb976dfccc52d1, branch release_24
 - cleaned up merge of extend_plumes and allin1 (Apr. '24): ab1e389973c59, branch allin1_preprocessing
 - functioning allin1 + preprocessing 1st stage + extend plumes (Apr. '24): 9a72b9a8b003e5, branch allin1_preprocessing & 
-- removed "other_models"
+- removed "other_models" and interim pics etc, restructure dataset.py, include unittests (Apr. '24): 8a03103c94c, branch allin1_preprocessing
