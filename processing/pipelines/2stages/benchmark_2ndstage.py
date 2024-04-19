@@ -4,7 +4,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from domain_classes.domain import get_box_corners
+from preprocessing.domain_classes.domain import get_box_corners
 from torch.nn import MSELoss, modules
 
 from postprocessing.visualization import _aligned_colorbar

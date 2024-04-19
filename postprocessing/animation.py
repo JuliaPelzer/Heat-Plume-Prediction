@@ -11,9 +11,8 @@ import yaml
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from tqdm.auto import tqdm
 
-sys.path.append("/home/pelzerja/Development/code_NN/")
-
-from extend_plumes.extend_plumes import (infer, infer_nopad, load_extend,
+# sys.path.append("/home/pelzerja/Development/code_NN/")
+from processing.pipelines.extend_plumes import (infer, infer_nopad, load_extend,
                                          load_front, load_models_and_data,
                                          rescale_temp)
 
@@ -105,7 +104,7 @@ def animate_extend_front():
     run_id = 0
 
     dataset_front = Path("/scratch/sgs/pelzerja/datasets_prepared/extend_plumes/dataset_long_k_3e-10_1dp inputs_gksi extend1")
-    model_front_path = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes1/extend1_1000dp copy") #dataset_medium_64_256_gksi_1000dp_v2")
+    model_front_path = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hpnn/extend1_1000dp copy") #dataset_medium_64_256_gksi_1000dp_v2")
 
     pathlist = Path(model_front_path).glob('**/*.pt')
     epochs = [get_epoch(elem.name) for elem in pathlist]
@@ -127,11 +126,11 @@ def animate_extend_both(run_id:int, case:str="both", epochs:List[int]=None, data
     if dataset_front is None:
         dataset_front = Path("/scratch/sgs/pelzerja/datasets_prepared/extend_plumes/dataset_long_k_3e-10_1dp inputs_gksi extend1")
     if model_front is None:
-        model_front = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes1/dataset_medium_64_256_gksi_1000dp_v2")
+        model_front = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hpnn/dataset_medium_64_256_gksi_1000dp_v2")
     if dataset_extend is None:
         dataset_extend = Path("/scratch/sgs/pelzerja/datasets_prepared/extend_plumes/dataset_long_k_3e-10_1dp inputs_gk extend2")
     if model_extend is None:
-        model_extend = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes2/extend2_1000dp") #TEST_inputs box128 skip64/dataset_medium_k_3e-10_1000dp inputs_gk case_train box128 skip64 noFirstBox e500 2ndRound")
+        model_extend = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend_plumes/extend2_1000dp") #TEST_inputs box128 skip64/dataset_medium_k_3e-10_1000dp inputs_gk case_train box128 skip64 noFirstBox e500 2ndRound")
 
 
     animate(rescale_temp=rescale_temp, run_id=run_id, epochs=epochs, datasets=[dataset_front, dataset_extend], models=[model_front, model_extend], case=case, anim_name="anim_extend2", params=params)

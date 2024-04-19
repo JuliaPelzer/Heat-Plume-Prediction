@@ -1,11 +1,7 @@
-import pathlib
-
 import torch.nn as nn
-from torch import cat, load, save, tensor
+from torch import cat, tensor
 
-from processing.diff_conv2d.layers import *
 from processing.networks.unet import UNet
-
 
 class UNetHalfPad(UNet):
     def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
@@ -172,28 +168,3 @@ class OneSidePadding(nn.Module):
             padding_vector = (self.pad_len,)*2 + (0,)*2
             result = nn.functional.pad(x, padding_vector, mode='constant')
         return result
-
-    
-class UNetBC(UNet):
-    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
-        super().__init__(in_channels, out_channels, init_features, depth, kernel_size)
-
-        features = init_features
-        for _ in range(depth): features *= 2
-        for _ in range(depth): features = features // 2
-        self.conv = nn.Conv2d(in_channels=features, out_channels=out_channels, kernel_size=1)
-
-    @staticmethod
-    def _block(in_channels, features, kernel_size=5, padding_mode="zeros"):
-        return nn.Sequential(
-            ExplicitConv2dLayer(
-                in_channels, features, kernel_size, bias=True,),
-            nn.ReLU(inplace=True),    
-            ExplicitConv2dLayer(
-                features, features, kernel_size, bias=True,),
-            nn.BatchNorm2d(num_features=features),
-            nn.ReLU(inplace=True),  
-            ExplicitConv2dLayer(
-                features, features, kernel_size, bias=True,),
-            nn.ReLU(inplace=True),
-        )

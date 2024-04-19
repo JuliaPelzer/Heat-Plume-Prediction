@@ -1,5 +1,5 @@
 import torch
-from data_stuff.transforms import ComposeTransform, SignedDistanceTransform
+from preprocessing.transforms import ComposeTransform, SignedDistanceTransform
 
 
 def test_sdf_transform():

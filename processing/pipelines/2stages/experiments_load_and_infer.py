@@ -5,7 +5,7 @@ import time
 
 import torch
 
-from preprocessing.prepare import prepare_data_and_paths
+from preprocessing.prepare_overview import prepare_data_and_paths
 from processing.networks.unet import UNet
 from utils.utils_data import SettingsTraining
 

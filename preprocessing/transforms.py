@@ -16,8 +16,6 @@ from torch import linalg, nonzero, unsqueeze
 class NormalizeTransform:
     def __init__(self,info:dict,out_range = (0,1)):
         self.info = info
-        # self.input_stats = self.info["Inputs"] #NOT USED?
-        # self.label_stats = self.info["Labels"]
         self.out_min, self.out_max = out_range 
 
     def __call__(self,data, type = "Inputs"):
@@ -37,23 +35,37 @@ class NormalizeTransform:
     
     def __apply_norm(self,data,index,stats):
         norm = stats["norm"]
-        if norm == "Rescale":
+        
+        def rescale():
             delta = stats["max"] - stats["min"]
             data[index] = (data[index] - stats["min"]) / delta * (self.out_max - self.out_min) + self.out_min
+        
+        if norm == "LogRescale":
+            data[index] = np.log(data[index] - stats["min"] + 1)
+            rescale()
+        elif norm == "Rescale":
+            rescale()
         elif norm == "Standardize":
             data[index] = (data[index] - stats["mean"]) / stats["std"]
         elif norm is None:
             pass
         else:
-            raise ValueError(f"Normalization type '{stats['Norm']}' not recognized")
+            raise ValueError(f"Normalization type '{stats['norm']}' not recognized")
         
     def __reverse_norm(self,data,index,stats):
         if len(data.shape) == 4:
             assert data.shape[0] <= data.shape[1], "Properties must be in 0th dimension; batches pushed to 1st dimension"
         norm = stats["norm"]
-        if norm == "Rescale":
+
+        def rescale():
             delta = stats["max"] - stats["min"]
             data[index] = (data[index] - self.out_min) / (self.out_max - self.out_min) * delta + stats["min"]
+
+        if norm == "LogRescale":
+            rescale()
+            data[index] = np.exp(data[index]) + stats["min"] - 1
+        elif norm == "Rescale":
+            rescale()
         elif norm == "Standardize":
             data[index] = data[index] * stats["std"] + stats["mean"]
         elif norm is None:
@@ -270,23 +282,6 @@ class PowerOfTwoTransform:
                 data[prop] = po2(data[prop], axis)
 
         logging.info("Data reduced to power of 2")
-        return data
-    
-class CutLengthTransform:
-    """
-    Transform class to cut off the end of all data to a certain length
-    """
-
-    def __init__(self, length):
-        self.length = length
-
-    def __call__(self, data):
-        logging.info("Start CutLengthTransform")
-
-        for prop in data.keys():
-            data[prop] = data[prop][:self.length]
-
-        logging.info("End CutLengthTransform, to length 256")
         return data
 
 class ReduceTo2DTransform:

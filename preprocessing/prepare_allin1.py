@@ -1,25 +1,22 @@
 from copy import deepcopy
 from pathlib import Path
 
-import h5py
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
 from tqdm.auto import tqdm
-import yaml
 
-import extend_plumes.extend_plumes as ep
 from preprocessing.domain_classes.domain import Domain
 from preprocessing.domain_classes.heat_pump import HeatPumpBox
-from preprocessing.prepare import (prepare_data_and_paths,
+from preprocessing.prepare_overview import (prepare_data_and_paths,
                                    prepare_paths_and_settings, prepare_data)
 from processing.networks.unet import UNet
 from processing.networks.unetVariants import UNetHalfPad2
+import processing.pipelines.extend_plumes as ep
 from utils.utils_data import SettingsTraining, get_run_ids
 
 
 def preprocessing_allin1(settings: SettingsTraining):
     allin1_paths, settings, _ = prepare_paths_and_settings(settings)
+    allin1_settings = deepcopy(settings)
     print("Paths for allin1 prepared")
 
     if not allin1_paths.dataset_1st_prep_path.exists() or settings.case == "test":
@@ -32,12 +29,11 @@ def preprocessing_allin1(settings: SettingsTraining):
             }
 
             # prepare allin1 data with 1hp boxes
-            allin1_settings = deepcopy(settings)
             settings.case = "test"
             settings.inputs = args_1hpnn["inputs"]
             settings.model = args_1hpnn["model"]
-            settings.dataset_prep = ""
-            settings.destination = ""
+            settings.dataset_prep = None
+            settings.destination = None
             settings = prepare_data_and_paths(settings)
 
             args_extend2 = {
@@ -51,12 +47,12 @@ def preprocessing_allin1(settings: SettingsTraining):
             }
 
             run_id:int = get_run_ids(settings.dataset_prep / "Inputs")[0]
-            prediction_destination = f"1hpnn_RUN_{run_id}"
+            prediction_destination = f"Preprocessed_T_RUN_{run_id}.pt"
 
-            if (settings.dataset_prep / "Inputs" / f"domain_prediction_{prediction_destination}.pt").exists():
-                print(f"Loading domain prediction from 1hpnn from {settings.dataset_prep / 'Inputs' / f'domain_prediction_{prediction_destination}.pt'}")
-                # load domain prediction from 1hpnn
-                additional_input = torch.load(settings.dataset_prep / "Inputs" / f"domain_prediction_{prediction_destination}.pt")
+            if (settings.dataset_prep / "Inputs" / prediction_destination).exists():
+                print(f"Loading domain prediction from 1hpnn+ep from {settings.dataset_prep / 'Inputs' / prediction_destination}")
+                # load prediction (1hpnn+ep)-file if exists
+                additional_input = torch.load(settings.dataset_prep / "Inputs" / prediction_destination)
                 additional_input = additional_input.detach()
 
             else:
@@ -111,7 +107,7 @@ def preprocessing_allin1(settings: SettingsTraining):
 
                             # increase counter
                             args_extend2["start_prior_box"] += args_extend2["skip_in_field"]
-                            start_curr_box = ep.set_start_curr_box(args_extend2["start_prior_box"], args_extend2)
+                            args_extend2["start_curr_box"] = ep.set_start_curr_box(args_extend2["start_prior_box"], args_extend2) # TODO Fehleranfällig
                         except:
                             print("Error in extension, e.g. box extending outside of domain")
                             break
@@ -123,8 +119,8 @@ def preprocessing_allin1(settings: SettingsTraining):
                 # save domain, # TODO where / how to save
                 if len(domain.prediction.shape) == 2:
                     domain.prediction = domain.prediction.unsqueeze(0)
-                print(f"Saving domain of size {domain.prediction.shape} to {settings.dataset_prep / 'Inputs' / f'RUN_{run_id}_prediction_1hpnn.pt'}")
-                domain.save(folder=settings.dataset_prep / "Inputs", name=prediction_destination)
+                print(f"Saving domain of size {domain.prediction.shape} to {settings.dataset_prep / 'Inputs' / prediction_destination}")
+                torch.save(domain.prediction, settings.dataset_prep / "Inputs" / prediction_destination)
                 additional_input = domain.prediction.detach()
         else:
             additional_input = None
