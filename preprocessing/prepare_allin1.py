@@ -46,12 +46,12 @@ def preprocessing_allin1(settings: SettingsTraining):
             }
 
             run_id:int = get_run_ids(settings.dataset_prep / "Inputs")[0]
-            prediction_destination = f"1hpnn_RUN_{run_id}"
+            prediction_destination = f"Preprocessed_T_RUN_{run_id}.pt"
 
-            if (settings.dataset_prep / "Inputs" / f"domain_prediction_{prediction_destination}.pt").exists():
-                print(f"Loading domain prediction from 1hpnn from {settings.dataset_prep / 'Inputs' / f'domain_prediction_{prediction_destination}.pt'}")
-                # load domain prediction from 1hpnn
-                additional_input = torch.load(settings.dataset_prep / "Inputs" / f"domain_prediction_{prediction_destination}.pt")
+            if (settings.dataset_prep / "Inputs" / prediction_destination).exists():
+                print(f"Loading domain prediction from 1hpnn+ep from {settings.dataset_prep / 'Inputs' / prediction_destination}")
+                # load prediction (1hpnn+ep)-file if exists
+                additional_input = torch.load(settings.dataset_prep / "Inputs" / prediction_destination)
                 additional_input = additional_input.detach()
 
             else:
@@ -113,8 +113,8 @@ def preprocessing_allin1(settings: SettingsTraining):
                 # save domain, # TODO where / how to save
                 if len(domain.prediction.shape) == 2:
                     domain.prediction = domain.prediction.unsqueeze(0)
-                print(f"Saving domain of size {domain.prediction.shape} to {settings.dataset_prep / 'Inputs' / f'RUN_{run_id}_prediction_1hpnn.pt'}")
-                domain.save(folder=settings.dataset_prep / "Inputs", name=prediction_destination)
+                print(f"Saving domain of size {domain.prediction.shape} to {settings.dataset_prep / 'Inputs' / prediction_destination}")
+                torch.save(domain.prediction, settings.dataset_prep / "Inputs" / prediction_destination)
                 additional_input = domain.prediction.detach()
         else:
             additional_input = None
