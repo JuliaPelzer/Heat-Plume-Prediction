@@ -1,199 +1,168 @@
-from argparse import Namespace
-import numpy as np
-import torch
+from copy import deepcopy
 from pathlib import Path
-import yaml
+import argparse
+import torch
 from tqdm.auto import tqdm
 
-from preprocessing.transforms import (get_transforms, normalize, ToTensorTransform)
-from utils.utils_args import is_empty, load_yaml, save_yaml
-from preprocessing.statistics import WelfordStatistics
-import preprocessing.load_data as load
-import utils.utils_args as ut
-from preprocessing.prepare_allin1_copy import preprocessing_allin1
+from preprocessing.prepare_dataset import prepare_dataset, is_unprepared
+from preprocessing.domain_classes.domain_copy import Domain
+from preprocessing.domain_classes.heat_pump_copy import HeatPumpBox
+from processing.networks.unet import UNet
+from processing.networks.unetVariants import UNetHalfPad2
+# import processing.pipelines.extend_plumes as ep
+import utils.utils_args as ua
+
 
 def preprocessing(args):
     print("Preparing dataset")
+    # handling of case=="test"? TODO
+    if is_unprepared(args.data_prep): # or args.case == "test":
+        info = ua.load_yaml_dict(args.model/"info.yaml") if args.case != "train" else None
         
-    if args.problem in ["test", "1hp", "extend"]:
-        if is_unprepared(args.data_prep): # or args.case == "test":
-            info = load_yaml(args.model / "info.yaml") if args.case != "train" else None
-            info = prepare_dataset(args, info=info)
-        else:
-            info = load_yaml(args.data_prep / "info.yaml")
+        if args.problem == "2stages":
+            exit("2stages not implemented yet, use other branch")
 
-    elif args.problem == "2stages":
-        exit("2stages not implemented yet, use other branch")
+        if args.problem == "allin1" and "n" in args.inputs: # case: different datasets
+            # TODO handling of different datasets and several stages
+            additional_inputs_unnormed = preprocessing_allin1(args)
+            # TODO several runs now!
+        else: 
+            additional_inputs_unnormed = None
 
-    elif args.problem == "allin1":
-        # only doable if 3 datasets exist (case: different datasets)
-        # todo handling of different datasets and several stages
-        info = prepare_allin1(args)
+        info = prepare_dataset(args, info=info, additional_inputs=additional_inputs_unnormed)
+            # handling of case=="test"? TODO
+
+    else:
+        info = ua.load_yaml(args.data_prep/"info.yaml") 
+    print(f"Dataset prepared: {args.data_prep}")
 
     if args.case == "train": # TODO also finetune?
-        ut.save_yaml(args.model / "info.yaml", info)
+        # print(info.dtype)
+        ua.save_yaml(info, args.model/"info.yaml")
 
-    print("Dataset prepared")
+def preprocessing_allin1(args: argparse.Namespace):
+    args_gksi = deepcopy(args)
+
+    run_ids = ua.get_run_ids_from_raw(args.data_raw)
+    additional_inputs = []
+    assert len(run_ids) == 3, "allin1 requires 3 runs for train, val, test"
+
+    for run_id in tqdm(run_ids, desc="Runs"):
+        preprocessing_dir = args.data_prep / "Preprocessed"
+        preprocessing_dir.mkdir(parents=True, exist_ok=True)
+        preprocessing_destination = preprocessing_dir / f"RUN_{run_id}_n.pt"
 
 
-def prepare_allin1(args):
-    # achtung mit is_prepared_checks
-    # TODO LOGIK CHECKEN
-    if args.case != "infer":
-        info = prepare_allin1_block(args, args.data_raw + "_train" + " inputs_" + args.inputs)# correct???
-        if args.case == "train": # TODO also finetune?
-            ut.save_yaml(args.model / "info.yaml", info)
+        if (preprocessing_destination).exists():
+            print(f"Loading domain prediction from 1hpnn+ep from {preprocessing_destination}")
+            # load prediction (1hpnn+ep)-file if exists
+            additional_input = torch.load(preprocessing_destination)
+            additional_input = additional_input.detach()
+            # TODO CHECK this scenario
 
-        prepare_allin1_block(args, args.data_raw + "_val" + " inputs_" + args.inputs)
-        prepare_allin1_block(args, args.data_raw + "_test" + " inputs_" + args.inputs)
-
-
-def prepare_allin1_block(args, data_prep:Path):
-    if is_unprepared(data_prep):
-        if "n" in args.inputs:
-            additional_input_unnormed = preprocessing_allin1(args, data_prep) # TODO NEXT
         else:
-            additional_input_unnormed = None
-        info = load_yaml(args.model / "info.yaml") if args.case != "train" else None
-        info = prepare_dataset(args, info=info, additional_input=additional_input_unnormed)
-    else:
-        info = load_yaml(data_prep / "info.yaml")
+            print("Preparing domain for allin1")
+            # preprocessing with neural network: 1hpnn(+extend_plumes)
+
+            args_1hpnn = {
+                "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hp/dataset_small_10000dp_varyK_V2 inputs_gksi box256 skip32"), 
+                #Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hp/dataset_small_1000dp_varyK_v2 inputs_gksi case_train box256 skip32"), 
+                #Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hp/vary_k/dataset_medium_100dp_vary_perm inputs_gksi case_train box256 skip256 UNet"),
+                "model_type": UNet,
+                "inputs": "gksi",
+                }
+            model_1hp, info_1hp = load_1hp_model_and_info(args_1hpnn, args.device)
+
+            args_extend = {
+                "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend/vary_k/dataset_medium_100dp_vary_perm inputs_gk case_train box128 skip2"), #test_overlap_input_T"),
+                "model_type": UNetHalfPad2,
+                "inputs": "gk",
+                "box_size": 128,
+                "start_prior_box": 64, # box_size // 2
+                "skip_per_dir": 4,
+                "skip_in_field": 32, #< actual_len
+                "overlap": 46, # manually chosen for UNetHalfPad2
+                }
+            model_ep = load_extend_model(args_extend, args.device)
+
+            # prepare allin1 domain with 1hp-model normalization for cutting out hp boxes
+            args_gksi.inputs = args_1hpnn["inputs"]
+            args_gksi.model = args_1hpnn["model"]
+            args_gksi.data_prep = None
+            args_gksi.destination = None
+            # args_gksi.destination should be irrelevant because no model is trained
+            ua.make_paths(args_gksi, make_model_and_destination_bool=False)
+            if is_unprepared(args_gksi.data_prep): # or args.case == "test":
+                args_gksi = prepare_dataset(args_gksi, info=info_1hp) # TODO make faster by ignoring "s" in prep and adding dummy dimension afterwards
+
+            # extract hp boxes
+            domain = Domain(args_gksi.data_prep, stitching_method="max", file_name=f"RUN_{run_id}.pt", device=args.device)
+            threshold_T = domain.norm(10.7, property = "Temperature [C]")
+            single_hps = domain.extract_hp_boxes(args.device)
+            
+            hp: HeatPumpBox
+            use_1hp_groundtruth = False
+            for hp in tqdm(single_hps, desc="Applying 1HPNN + ep"):
+                if use_1hp_groundtruth:
+                    hp.primary_temp_field = hp.label.squeeze(0)
+                else:
+                    hp.primary_temp_field = hp.apply_nn(model_1hp, device=args.device) # prediction is shitty -> check for better 1hp-nn
+
+                # extend plumes
+                # while hp.primary_temp_field[-1].max() < threshold_T:
+                #     hp.extend_plume()
+                
+                domain.add_hp(hp)
+
+            # import matplotlib.pyplot as plt
+            # plt.subplot(2, 2, 1)
+            # plt.imshow(domain.inputs[1].detach().cpu().numpy().T)
+            # plt.colorbar()
+            # plt.subplot(2, 2, 2)
+            # plt.imshow(domain.inputs[0].detach().cpu().numpy().T)
+            # plt.colorbar()
+            # plt.subplot(2, 2, 3)
+            # plt.imshow(domain.prediction.detach().cpu().numpy().T)
+            # plt.colorbar()
+            # plt.subplot(2, 2, 4)
+            # plt.imshow(domain.label.detach().cpu().numpy().T)
+            # plt.colorbar()
+            # plt.show()
+
+            if len(domain.prediction.shape) == 2:
+                domain.prediction = domain.prediction.unsqueeze(0)
+            additional_input = domain.prediction.detach().cpu()
+            print(f"Saving domain to {preprocessing_destination}")
+            torch.save(domain.prediction, preprocessing_destination)
+            ua.save_yaml({"1hp": args_1hpnn, "extend": args_extend}, preprocessing_destination.parent / "info.yaml")
+
+        additional_inputs.append(additional_input) # TODO better as dict?
+        # break
+    return additional_inputs
+
+def load_1hp_model_and_info(args_1hpnn: dict, device: str):
+    model_1hp = args_1hpnn["model_type"](len(args_1hpnn["inputs"]))
+    model_1hp.load(args_1hpnn["model"]) # for cpu maybe: ,map_location=torch.device(device))
+    model_1hp.to(device)
+    model_1hp.eval()
+
+    info = ua.load_yaml(args_1hpnn["model"]/"info.yaml")
+
+    return model_1hp, info
+
+
+def load_extend_model(args_extend: dict, device: str):
+    model_ep = args_extend["model_type"](len(args_extend["inputs"])+1)
+    model_ep.load(args_extend["model"]) # for cpu maybe: ,map_location=torch.device(device))
+    model_ep.to(device)
+    model_ep.eval()
+
+    return model_ep
+
+
+def correct_skip_in_field(args_extend, actual_len):
+    if actual_len < args_extend["skip_in_field"]: 
+        skip_in_field = actual_len
+        print(f"Changed skip_in_field to {skip_in_field} because actual_len is smaller ({actual_len}).")
     
-    return info
-
-# helper function
-def is_unprepared(path:Path):
-    return is_empty(path / "Inputs") or is_empty(path / "Labels") or not (path / "info.yaml").exists()
-
-def prepare_dataset(args, info:dict = None, additional_input: torch.Tensor = None):
-    """
-    Create a dataset from the raw pflotran data in raw_data_path.
-    The saved dataset is normalized using the mean and standard deviation, which are saved to info.yaml in the new dataset folder.
-
-    Parameters
-    ----------
-        raw_data_path : str
-            Path to the raw pflotran data directory.
-        datasets_path : str
-            Path to the directory where all dataset are saved.
-        dataset_name : str
-            Name of the raw data. This will also be the name of the new dataset.
-        input_variables : str
-            String of characters, each of which is either x, y, z, p, t, k, i, s, g, ...
-            TODO make g (pressure gradient cell-size independent?)
-    """
-    transforms = get_transforms(problem=args.problem)
-    inputs = expand_property_names(args.inputs)
-    time_init = "   0 Time  0.00000E+00 y"
-    time_prediction = "   4 Time  2.75000E+01 y" #  "   3 Time  5.00000E+00 y"  # 
-    pflotran_settings = load_yaml(args.data_raw / "inputs" / "settings.yaml")
-    dims = np.array(pflotran_settings["grid"]["ncells"])
-    total_size = np.array(pflotran_settings["grid"]["size"])
-    cell_size = total_size/dims
-
-    if info is None: calc = WelfordStatistics()
-    tensor_transform = ToTensorTransform()
-    output_variables = ["Temperature [C]"]
-    data_paths, runs = load.detect_datapoints(args.data_raw)
-    total = len(data_paths)
-    for data_path, run in tqdm(zip(data_paths, runs), desc="Converting", total=total):
-        x = load.load_data(data_path, time_init, inputs, dims, additional_input=additional_input)
-        y = load.load_data(data_path, time_prediction, output_variables, dims)
-        loc_hp = load.get_hp_location(x)
-        x = transforms(x, loc_hp=loc_hp)
-        if info is None: calc.add_data(x) 
-        x = tensor_transform(x)
-        y = transforms(y, loc_hp=loc_hp)
-        if info is None: calc.add_data(y)
-        y = tensor_transform(y)
-        torch.save(x, args.data_prep / "Inputs" / f"{run}.pt")
-        torch.save(y, args.data_prep / "Labels" / f"{run}.pt")
-        
-    if info is not None: 
-        info["CellsNumberPrior"] = info["CellsNumber"]
-        info["PositionHPPrior"] = info["PositionLastHP"]
-        assert info["CellsSize"][:2] == cell_size.tolist()[:2], f"Cell size changed between given info.yaml {info['CellsSize']} and data {cell_size.tolist()}"
-    else:
-        info = dict()
-        means = calc.mean()
-        stds = calc.std()
-        mins = calc.min()
-        maxs = calc.max()
-        info["Inputs"] = {key: {"mean": means[key],
-                                "std": stds[key],
-                                "min": mins[key],
-                                "max": maxs[key],
-                                "norm": get_normalization_type(key),
-                                "index": n}
-                        for n, key in enumerate(inputs)}
-        info["Labels"] = {key: {"mean": means[key],
-                                "std": stds[key],
-                                "min": mins[key],
-                                "max": maxs[key],
-                                "norm": get_normalization_type(key),
-                                "index": n}
-                        for n, key in enumerate(output_variables)}
-        
-    info["CellsSize"] = cell_size.tolist()
-    # change of size possible; order of tensor is in any case the other way around
-    assert 1 in y.shape, "y is not expected to have several output parameters"
-    assert len(y.shape) == 3, "y is expected to be 2D"
-    dims = list(y.shape)[1:]
-    info["CellsNumber"] = dims
-    try:
-        info["PositionLastHP"] = loc_hp.tolist()
-    except:
-        info["PositionLastHP"] = loc_hp
-    # info["PositionLastHP"] = get_hp_location_from_tensor(x, info)
-    save_yaml(args.data_prep / "info.yaml", info)
-    normalize(args.data_prep, info, total)
-    save_yaml(args.data_prep / "args.yaml", {"dataset":args.data_raw.name, "inputs": inputs})
-
-    return info
-
-def expand_property_names(properties: str):
-    translation = {
-        "x": "Liquid X-Velocity [m_per_y]",
-        "y": "Liquid Y-Velocity [m_per_y]",
-        "z": "Liquid Z-Velocity [m_per_y]",
-        "p": "Liquid Pressure [Pa]",
-        "t": "Temperature [C]",
-        "k": "Permeability X [m^2]",
-        "i": "Material ID",
-        "s": "SDF",
-        "a": "PE x", # positional encoding: signed distance in x direction
-        "b": "PE y", # positional encoding: signed distance in y direction
-        "g": "Pressure Gradient [-]",
-        "o": "Original Temperature [C]",
-        "m": "MDF",
-        "l": "LST",
-        "n": "Preprocessed Temperature [C]",
-    }
-    possible_vars = ','.join(translation.keys())
-    assert all((prop in possible_vars)
-               for prop in properties), f"input parameters have to be a string of characters, each of which is either {possible_vars}"
-    return [translation[prop] for prop in properties]
-
-def get_normalization_type(property:str):
-    """
-    Returns the normalization type for a given property
-    Types can be:
-        Rescale: Rescale the data to be between 0 and 1
-        Standardize: Standardize the data to have mean 0 and standard deviation 1
-        None: Do not normalize the data
-    """
-    types = {
-        "default": "Rescale", #Standardize
-        # "Material ID": "Rescale",
-        "SDF": None,
-        "PE x": None,
-        "PE y": None,
-        "MDF": None,
-        "LST": None,
-        "Original Temperature [C]": None,
-    }
-    
-    if property in types:
-        return types[property]
-    else:
-        return types["default"]
+    return args_extend

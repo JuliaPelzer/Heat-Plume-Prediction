@@ -2,13 +2,13 @@ import numpy as np
 import torch
 
 from preprocessing.datasets.dataset import DatasetBasis
-from utils.utils_data import get_run_ids
+from utils.utils_args import get_run_ids_from_prep
 
 class SimulationDatasetCuts(DatasetBasis):
-    def __init__(self, path:str, skip_per_dir:int=4, box_size:int=64):
+    def __init__(self, path:str, skip_per_dir:int=4, box_size:int=64, idx:int=0):
         DatasetBasis.__init__(self, path, box_size)
         
-        run_id = get_run_ids(self.path / "Inputs")[0]
+        run_id = get_run_ids_from_prep(self.path / "Inputs")[idx]
         self.inputs = torch.load(self.path / "Inputs" / f"RUN_{run_id}.pt")
         self.labels = torch.load(self.path / "Labels" / f"RUN_{run_id}.pt")
         assert len(self.inputs.shape) == 3, "inputs should be 3D (C,H,W)"

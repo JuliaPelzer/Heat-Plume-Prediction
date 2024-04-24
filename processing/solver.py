@@ -1,3 +1,4 @@
+import argparse
 import csv
 import logging
 import pathlib
@@ -11,9 +12,8 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
-from postprocessing.visualization import visualizations
+# from postprocessing.visualization import visualizations
 from processing.networks.unet import UNet, weights_init
-from utils.utils_data import SettingsTraining
 
 
 @dataclass
@@ -36,7 +36,7 @@ class Solver(object):
         if not self.finetune:
             self.model.apply(weights_init)
 
-    def train(self, settings: SettingsTraining):
+    def train(self, settings: argparse.Namespace):
         manual_seed(0)
         log_val_epoch = False
         if log_val_epoch:
@@ -91,7 +91,7 @@ class Solver(object):
                         "training time in sec": (time.perf_counter() - start_time),
                     }
 
-                    if False:
+                    if True:
                         self.model.save(settings.destination, model_name=f"best_model_e{epoch}.pt")
 
                 if log_val_epoch:

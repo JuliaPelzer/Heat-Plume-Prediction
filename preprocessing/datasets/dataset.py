@@ -5,9 +5,10 @@ import yaml
 from torch.utils.data import Dataset
 
 from preprocessing.transforms import NormalizeTransform
+from utils.utils_args import get_run_ids_from_prep
 
 class DatasetBasis(Dataset):
-    def __init__(self, path:str, box_size:int=None):
+    def __init__(self, path:str, box_size:int=None, idx:int=None):
         Dataset.__init__(self)
         self.path = pathlib.Path(path)
         self.info = self.__load_info()
@@ -50,7 +51,15 @@ class DatasetBasis(Dataset):
         input = torch.load(self.path / "Inputs" / self.input_names[idx])[:, :self.box_size, :]
         label = torch.load(self.path / "Labels" / self.label_names[idx])[:, :self.box_size, :]
         return input, label
-    
+
+class DataPoint(DatasetBasis):
+    def __init__(self, path:str, idx:int=0):
+        DatasetBasis.__init__(self, path)
+        run_id = get_run_ids_from_prep(self.path / "Inputs")[idx]
+        
+        self.input_names = [f"RUN_{run_id}.pt"]
+        self.label_names = [f"RUN_{run_id}.pt"]
+        
 def get_splits(n, splits):
     splits = [int(n * s) for s in splits[:-1]]
     splits.append(n - sum(splits))

@@ -25,7 +25,7 @@ if __name__ == "__main__":
     ut.assertions_args(args)
     ut.make_paths(args) # and check if data / model exists
     ut.save_notes(args)
-    ut.save_cla(args)
+    ut.save_yaml(args, args.destination / "command_line_arguments.yaml")
 
     # prepare data
     prep.preprocessing(args) # and save info.yaml in model folder

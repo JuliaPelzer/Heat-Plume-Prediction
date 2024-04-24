@@ -371,8 +371,7 @@ class ToTensorTransform:
             if result is None:
                 result = data[prop].squeeze()[None, ...]
             else:
-                result = torch.cat(
-                    (result, data[prop].squeeze()[None, ...]), axis=0)
+                result = torch.cat((result, data[prop].squeeze()[None, ...]), axis=0)
         logging.info("Converted data to torch.Tensor")
         return result
 
