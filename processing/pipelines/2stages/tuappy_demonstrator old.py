@@ -10,10 +10,10 @@ import yaml
 # sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN") # relevant for remote
 # sys.path.append("/home/pelzerja/Development/1HP_NN")  
 
-from preprocessing.domain_classes.domain import Domain
+from old.domain import Domain
 from preprocessing.prepare_2ndstage import (load_and_prepare_for_2nd_stage,
                                             prepare_dataset_for_2nd_stage)
-from preprocessing.prepare_paths import Paths2HP, set_paths_2hpnn
+from old.prepare_paths import Paths2HP, set_paths_2hpnn
 from processing.networks.unet import UNet
 
 

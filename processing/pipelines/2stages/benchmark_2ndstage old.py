@@ -53,8 +53,8 @@ def get_hps_and_box_mask(field_shape:np.ndarray, material_ids:np.ndarray):
     hps = []
     for idx in range(len(pos_hps)):
         pos_hp = pos_hps[idx]
-        corner_ll, corner_ur = get_box_corners(pos_hp, size_hp_box, distance_hp_corner, field_shape)
-        box_mask[corner_ll[0]-1 : corner_ur[0]-1, corner_ll[1]-1 : corner_ur[1]-1] = 1
+        corner_ll = get_box_corners(pos_hp, size_hp_box, distance_hp_corner, field_shape)
+        box_mask[corner_ll[0]-1 : size_hp_box[0]-1, corner_ll[1]-1 : size_hp_box[1]-1] = 1
         hps.append({"pos" : pos_hps[idx], "mask": box_mask.copy()})
         box_mask = np.zeros(field_shape)
     return hps

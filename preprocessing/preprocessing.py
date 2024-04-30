@@ -5,8 +5,9 @@ import torch
 from tqdm.auto import tqdm
 
 from preprocessing.prepare_dataset import prepare_dataset, is_unprepared
-from preprocessing.domain_classes.domain_copy import Domain
-from preprocessing.domain_classes.heat_pump_copy import HeatPumpBox
+from preprocessing.domain_classes.domain import Domain
+from preprocessing.domain_classes.heat_pump import HeatPumpBox
+from processing.networks.model import Model
 from processing.networks.unet import UNet
 from processing.networks.unetVariants import UNetHalfPad2
 # import processing.pipelines.extend_plumes as ep
@@ -37,11 +38,10 @@ def preprocessing(args):
     print(f"Dataset prepared: {args.data_prep}")
 
     if args.case == "train": # TODO also finetune?
-        # print(info.dtype)
         ua.save_yaml(info, args.model/"info.yaml")
 
 def preprocessing_allin1(args: argparse.Namespace):
-    args_gksi = deepcopy(args)
+    args_domain_with_1hpnn_params = deepcopy(args)
 
     run_ids = ua.get_run_ids_from_raw(args.data_raw)
     additional_inputs = []
@@ -65,11 +65,12 @@ def preprocessing_allin1(args: argparse.Namespace):
             # preprocessing with neural network: 1hpnn(+extend_plumes)
 
             args_1hpnn = {
-                "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hp/dataset_small_10000dp_varyK_V2 inputs_gksi box256 skip32"), 
+                "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hp/dataset_small_10000dp_varyK_v3_part1 inputs_sik box256 skip256"),
+                #Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hp/dataset_small_10000dp_varyK_V2 inputs_gksi box256 skip32"), 
                 #Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hp/dataset_small_1000dp_varyK_v2 inputs_gksi case_train box256 skip32"), 
                 #Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hp/vary_k/dataset_medium_100dp_vary_perm inputs_gksi case_train box256 skip256 UNet"),
                 "model_type": UNet,
-                "inputs": "gksi",
+                "inputs": "sik", #"gksi",
                 }
             model_1hp, info_1hp = load_1hp_model_and_info(args_1hpnn, args.device)
 
@@ -86,17 +87,17 @@ def preprocessing_allin1(args: argparse.Namespace):
             model_ep = load_extend_model(args_extend, args.device)
 
             # prepare allin1 domain with 1hp-model normalization for cutting out hp boxes
-            args_gksi.inputs = args_1hpnn["inputs"]
-            args_gksi.model = args_1hpnn["model"]
-            args_gksi.data_prep = None
-            args_gksi.destination = None
+            args_domain_with_1hpnn_params.inputs = args_1hpnn["inputs"]
+            args_domain_with_1hpnn_params.model = args_1hpnn["model"]
+            args_domain_with_1hpnn_params.data_prep = None
+            args_domain_with_1hpnn_params.destination = None
             # args_gksi.destination should be irrelevant because no model is trained
-            ua.make_paths(args_gksi, make_model_and_destination_bool=False)
-            if is_unprepared(args_gksi.data_prep): # or args.case == "test":
-                args_gksi = prepare_dataset(args_gksi, info=info_1hp) # TODO make faster by ignoring "s" in prep and adding dummy dimension afterwards
+            ua.make_paths(args_domain_with_1hpnn_params, make_model_and_destination_bool=False)
+            if is_unprepared(args_domain_with_1hpnn_params.data_prep): # or args.case == "test":
+                prepare_dataset(args_domain_with_1hpnn_params, info=info_1hp) # TODO make faster by ignoring "s" in prep and adding dummy dimension afterwards
 
             # extract hp boxes
-            domain = Domain(args_gksi.data_prep, stitching_method="max", file_name=f"RUN_{run_id}.pt", device=args.device)
+            domain = Domain(args_domain_with_1hpnn_params.data_prep, stitching_method="max", file_name=f"RUN_{run_id}.pt", device=args.device)
             threshold_T = domain.norm(10.7, property = "Temperature [C]")
             single_hps = domain.extract_hp_boxes(args.device)
             
@@ -141,22 +142,23 @@ def preprocessing_allin1(args: argparse.Namespace):
     return additional_inputs
 
 def load_1hp_model_and_info(args_1hpnn: dict, device: str):
-    model_1hp = args_1hpnn["model_type"](len(args_1hpnn["inputs"]))
-    model_1hp.load(args_1hpnn["model"]) # for cpu maybe: ,map_location=torch.device(device))
-    model_1hp.to(device)
-    model_1hp.eval()
+    if args_1hpnn["model_type"] == UNet:
+        model_1hp:Model = args_1hpnn["model_type"](len(args_1hpnn["inputs"]))
+        model_1hp.load(args_1hpnn["model"]) # for cpu maybe: ,map_location=torch.device(device))
+        info = ua.load_yaml(args_1hpnn["model"]/"info.yaml")
 
-    info = ua.load_yaml(args_1hpnn["model"]/"info.yaml")
+    elif args_1hpnn["model_type"] == CdMLP:
+        assert args_1hpnn["inputs"] == "gksi", "CdMLP only implemented for gksi inputs."
+        model_1hp:CdMLP = args_1hpnn["model_type"](args_1hpnn["model"])
+        info = ua.load_yaml(args_1hpnn["model"].parent/"info.yaml")
 
     return model_1hp, info
 
 
 def load_extend_model(args_extend: dict, device: str):
-    model_ep = args_extend["model_type"](len(args_extend["inputs"])+1)
+    model_ep:Model = args_extend["model_type"](len(args_extend["inputs"])+1)
     model_ep.load(args_extend["model"]) # for cpu maybe: ,map_location=torch.device(device))
-    model_ep.to(device)
-    model_ep.eval()
-
+    
     return model_ep
 
 

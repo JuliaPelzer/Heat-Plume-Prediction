@@ -4,10 +4,10 @@ from typing import List
 
 # sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN")  # relevant for remote
 # sys.path.append("/home/pelzerja/Development/1HP_NN")  # relevant for local
-from utils.utils_data import save_yaml
+from utils.utils_args import save_yaml
 
 
-def save_config_of_separate_inputs(domain_info, path, name_file="info"):
+def save_config_of_separate_inputs(domain_info, path, name_file="info.yaml"):
     # ATTENTION! Lots of hardcoding
     temperature_info = domain_info["Labels"]["Temperature [C]"]
     shortened_input = {
@@ -23,9 +23,9 @@ def save_config_of_separate_inputs(domain_info, path, name_file="info"):
         "CellsNumberPrior": domain_info["CellsNumberPrior"],
         "CellsSize": domain_info["CellsSize"],
     }
-    save_yaml(shortened_infos, path, name_file)
+    save_yaml(shortened_infos, path / name_file)
 
-def save_config_of_merged_inputs(separate_info, path, name_file="info"):
+def save_config_of_merged_inputs(separate_info, path, name_file="info.yaml"):
     # ATTENTION! Lots of hardcoding
     temperature_info = separate_info["Labels"]["Temperature [C]"]
     shortened_input = {
@@ -39,7 +39,7 @@ def save_config_of_merged_inputs(separate_info, path, name_file="info"):
         "CellsNumberPrior": separate_info["CellsNumberPrior"],
         "CellsSize": separate_info["CellsSize"],
     }
-    save_yaml(shortened_infos, path, name_file)
+    save_yaml(shortened_infos, path / name_file)
 
 def check_all_datasets_prepared(paths: List):
     # check if all datasets required are prepared ( domain and 2hp-nn dataset )

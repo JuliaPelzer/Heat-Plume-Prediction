@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from pathlib import Path
 
-def load_data(data_path: Path, time: str, variables: dict, dimensions_of_datapoint: tuple, additional_input: torch.Tensor = None):
+def load_data(data_path: Path, time: str, variables: dict, dimensions_of_datapoint: tuple, additional_input: torch.Tensor = None, print_bool: bool = False):
     """
     Load data from h5 file on data_path, but only the variables named in variables.get_ids() at time stamp variables.time
     Sets the values of each PhysicalVariable in variables to the loaded data.
@@ -31,7 +31,8 @@ def load_data(data_path: Path, time: str, variables: dict, dimensions_of_datapoi
                 else:
                     raise KeyError(
                         f"Key '{key}' not found in {data_path} at time {time}")
-            print(f"Loaded {key} at time {time} with shape {data[key].shape}")
+            if print_bool:
+                print(f"Loaded {key} at time {time} with shape {data[key].shape}")
 
     return data
 

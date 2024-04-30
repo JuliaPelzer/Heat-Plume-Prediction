@@ -49,9 +49,11 @@ def prepare_dataset(args, info:dict = None, additional_inputs: torch.Tensor = No
     total = len(data_paths)
     if additional_inputs is None:
         additional_inputs = [None]*total
+    print_bool = True
     for data_path, run, additional_input in tqdm(zip(data_paths, runs, additional_inputs), desc="Converting", total=total):
-        x = load.load_data(data_path, time_init, inputs, dims, additional_input=additional_input)
-        y = load.load_data(data_path, time_prediction, output_variables, dims)
+        x = load.load_data(data_path, time_init, inputs, dims, additional_input=additional_input, print_bool=print_bool)
+        y = load.load_data(data_path, time_prediction, output_variables, dims, print_bool=print_bool)
+        print_bool = False
         loc_hp = load.get_hp_location(x)
         x = transforms(x, loc_hp=loc_hp)
         if info is None: calc.add_data(x) 

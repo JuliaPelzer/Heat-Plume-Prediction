@@ -13,7 +13,8 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
 # from postprocessing.visualization import visualizations
-from processing.networks.unet import UNet, weights_init
+from processing.networks.unet import UNet
+from processing.networks.model import weights_init
 
 
 @dataclass
@@ -45,7 +46,7 @@ class Solver(object):
             csv_writer.writerow(["epoch", "val loss", "train loss"])
             file = open(settings.destination / "log_best_loss_per_epoch.csv", 'w', newline='')
             csv_writer_best = csv.writer(file)
-            csv_writer_best.writerow(["epoch", "val loss", "train loss"])
+            csv_writer_best.writerow(["epoch", "val loss", "train loss", "val mse", "train mse", "val mae", "train mae"]) # TOOD
 
         start_time = time.perf_counter()
         # initialize tensorboard
@@ -136,9 +137,9 @@ class Solver(object):
 
             y_pred = self.model(x)
 
-            required_size = y_pred.shape[2]
-            start_pos = (y.shape[2] - required_size)//2
-            y_reduced = y[:, :, start_pos:start_pos+required_size, :]
+            required_size = y_pred.shape[2:]
+            start_pos = ((y.shape[2] - required_size[0])//2, (y.shape[3] - required_size[1])//2)
+            y_reduced = y[:, :, start_pos[0]:start_pos[0]+required_size[0], start_pos[1]:start_pos[1]+required_size[1]]
 
             loss = self.loss_func(y_pred, y_reduced)
 

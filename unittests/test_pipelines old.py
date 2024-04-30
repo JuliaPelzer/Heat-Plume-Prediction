@@ -1,11 +1,7 @@
 import shutil
 
-from main import main
-from preprocessing.prepare_2ndstage import main_merge_inputs
+from processing.training import train
 
-def test_merged_inputs():
-    main_merge_inputs("dataset_2hps_1fixed_10dp inputs_gki100 boxes", True)    
-    
 def test_main_1ststage():
     args = {
         "dataset_raw" :         "dataset_2d_small_1000dp",
@@ -27,7 +23,7 @@ def test_main_1ststage():
         "len_box" :             256,
         "skip_per_dir" :        0,
     }
-    main(args)
+    train(args)
     shutil.rmtree("runs/1hpnn/unittest", ignore_errors=True)
 
 
@@ -77,7 +73,7 @@ def test_main_allin1():
         "len_box" :             256,
         "skip_per_dir" :        32,
     }
-    main(args)
+    train(args)
     shutil.rmtree("runs/allin1/unittest", ignore_errors=True)
 
 
@@ -102,5 +98,5 @@ def test_main_extend():
         "len_box" :             256,
         "skip_per_dir" :        16,
     }
-    main(args)
+    train(args)
     shutil.rmtree("runs/extend_plumes/unittest", ignore_errors=True)

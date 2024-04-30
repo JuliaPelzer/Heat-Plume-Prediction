@@ -5,9 +5,9 @@ import time
 
 import torch
 
-from preprocessing.prepare_overview import prepare_data_and_paths
+from old.prepare_overview import prepare_data_and_paths
 from processing.networks.unet import UNet
-from utils.utils_data import SettingsTraining
+from old.utils_data import SettingsTraining
 
 
 def run_experiments(settings: SettingsTraining, measure_infer: bool = True, save: bool = True):

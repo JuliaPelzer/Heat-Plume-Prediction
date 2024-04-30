@@ -1,17 +1,15 @@
-import os
+import argparse
 import time
 from pathlib import Path
 from typing import Dict
 
 import matplotlib.pyplot as plt
 import torch
-import yaml
 from torch.nn import MSELoss, modules
 from torch.utils.data import DataLoader
 
 from processing.networks.unet import UNet
 from processing.solver import Solver
-from utils.utils_data import SettingsTraining
 
 
 def measure_len_width_1K_isoline(data: Dict[str, "DataToVisualize"]):
@@ -86,7 +84,7 @@ def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: mo
             "mean absolute error": mae_loss, "mean absolute error in [°C]": mae_closs,
             }
 
-def measure_additional_losses(model: UNet, dataloaders: Dict[str, DataLoader], device: str, summed_error_pic: torch.Tensor = None, settings: SettingsTraining = None):
+def measure_additional_losses(model: UNet, dataloaders: Dict[str, DataLoader], device: str, summed_error_pic: torch.Tensor = None, settings: argparse.Namespace = None):
     
     norm = dataloaders["train"].dataset.dataset.norm
     model.eval()
@@ -115,7 +113,7 @@ def measure_additional_losses(model: UNet, dataloaders: Dict[str, DataLoader], d
             for key, value in results.items():
                 f.write(f"{key}: {value}\n")
 
-def save_all_measurements(settings:SettingsTraining, len_dataset, times, solver:Solver=None, errors:Dict={}):
+def save_all_measurements(settings:argparse.Namespace, len_dataset, times, solver:Solver=None, errors:Dict={}):
     with open(Path.cwd() / "runs" / settings.destination / f"measurements_{settings.case}.yaml", "w") as f:
         for key, value in times.items():
             f.write(f"{key}: {value}\n")

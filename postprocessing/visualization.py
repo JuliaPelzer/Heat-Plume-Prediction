@@ -2,6 +2,7 @@ import time
 from dataclasses import dataclass, field
 from math import inf
 from typing import Dict
+import argparse
 
 # import matplotlib as mpl
 # mpl.use('pgf')
@@ -13,7 +14,6 @@ from torch.utils.data import DataLoader
 
 from preprocessing.transforms import NormalizeTransform
 from processing.networks.unet import UNet
-from utils.utils_data import SettingsTraining
 
 # plt.rcParams['figure.figsize'] = [16, 5]
 
@@ -51,8 +51,8 @@ class DataToVisualize:
         elif self.name == "SDF":
             self.name = "SDF-transformed position in [-]"
     
-def visualizations(model: UNet, dataloader: DataLoader, settings: SettingsTraining, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png", different_datasets: bool = False):
-    print("Visualizing...", end="\r")
+def visualizations(model: UNet, dataloader: DataLoader, settings: argparse.Namespace, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png"):
+    print("Visualizing...") #, end="\r")
 
     if amount_datapoints_to_visu > len(dataloader.dataset):
         amount_datapoints_to_visu = len(dataloader.dataset)
@@ -63,7 +63,6 @@ def visualizations(model: UNet, dataloader: DataLoader, settings: SettingsTraini
     except AttributeError:
         norm = dataloader.dataset.dataset.norm
         info = dataloader.dataset.dataset.info
-    model.eval()
     settings_pic = {"format": pic_format,
                     "dpi": 600,}
 
@@ -73,16 +72,16 @@ def visualizations(model: UNet, dataloader: DataLoader, settings: SettingsTraini
         for datapoint_id in range(len_batch):
             name_pic = f"{plot_path}_{current_id}"
 
-            x = torch.unsqueeze(inputs[datapoint_id].to(settings.device), 0)
+            x = torch.unsqueeze(inputs[datapoint_id], 0)
             y = labels[datapoint_id]
-            y_out = model(x).to(settings.device)
+            y_out = model.infer(x, settings.device)
 
             x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
             dict_to_plot = prepare_data_to_plot(x, y, y_out, info)
 
-            if different_datasets:
-                if settings.case=="test":
-                    plot_datafields(dict_to_plot, name_pic, settings_pic, only_inner=True)
+            if settings.problem == "allin1":
+                # if settings.case=="test":
+                #     plot_datafields(dict_to_plot, name_pic, settings_pic, only_inner=True)
                 plot_datafields(dict_to_plot, name_pic, settings_pic, only_inner=False, plot_all_in_1_pic=False)
             else:
                 plot_datafields(dict_to_plot, name_pic, settings_pic)
@@ -107,19 +106,20 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     temp_min = min(y.min(), y_out.min())
     extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
 
-    required_size = y_out.shape[0]
-    start_pos = (y.shape[0] - required_size)//2
-    y_red = y[start_pos:start_pos+required_size, :]
+    required_size = y_out.shape
+    start_pos = ((y.shape[0] - required_size[0])//2, (y.shape[1] - required_size[1])//2)
+    y_reduced = y[start_pos[0]:start_pos[0]+required_size[0], start_pos[1]:start_pos[1]+required_size[1]]
 
     dict_to_plot = {
-        "t_true": DataToVisualize(y_red, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+        "t_true": DataToVisualize(y_reduced, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
         "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-        "error": DataToVisualize(torch.abs(y_red-y_out), "Absolute error in [°C]", extent_highs),
+        "error": DataToVisualize(torch.abs(y_reduced-y_out), "Absolute error in [°C]", extent_highs),
     }
     inputs = info["Inputs"].keys()
     for input in inputs:
-        index = info["Inputs"][input]["index"]
-        dict_to_plot[input] = DataToVisualize(x[index], input, extent_highs)
+        if input == "Permeability X [m^2]":
+            index = info["Inputs"][input]["index"]
+            dict_to_plot[input] = DataToVisualize(x[index], input, extent_highs)
 
     return dict_to_plot
 
@@ -129,7 +129,7 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
     if plot_all_in_1_pic:
         num_subplots = len(data)
         fig, axes = plt.subplots(num_subplots, 1, sharex=True)
-        fig.set_figheight(num_subplots*5)
+        fig.set_figheight(num_subplots*3)
         
         for index, (name, datapoint) in enumerate(data.items()):
             plt.sca(axes[index])
