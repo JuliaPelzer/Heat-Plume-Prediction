@@ -4,11 +4,8 @@ from processing.training import train
 
 def test_main_1ststage():
     args = {
-        "dataset_raw" :         "dataset_2d_small_1000dp",
-        "dataset_train" :       None,
-        "dataset_val" :         None,
-        "dataset_test" :        None,
-        "dataset_prep" :        "",
+        "data_raw" :         "dataset_2d_small_1000dp",
+        "data_prep" :        "",
         "device" :              "cuda:0",
         "epochs" :              1,
         "case" :                "train",
@@ -54,11 +51,8 @@ def test_main_1ststage():
 
 def test_main_allin1():
     args = {
-        "dataset_raw" :         None,
-        "dataset_train" :       "dataset_giant_100hp_varyK_train",
-        "dataset_val" :         "dataset_giant_100hp_varyK_val",
-        "dataset_test" :        "dataset_giant_100hp_varyK_test",
-        "dataset_prep" :        "",
+        "data_raw" :         "dataset_giant_100hp_varyK",
+        "data_prep" :        "",
         "device" :              "cuda:0",
         "epochs" :              1,
         "case" :                "train",
@@ -79,11 +73,8 @@ def test_main_allin1():
 
 def test_main_extend():
     args = {
-        "dataset_raw" :         "dataset_medium-10dp",
-        "dataset_train" :       None,
-        "dataset_val" :         None,
-        "dataset_test" :        None,
-        "dataset_prep" :        "",
+        "data_raw" :         "dataset_medium-10dp",
+        "data_prep" :        "",
         "device" :              "cuda:0",
         "epochs" :              1,
         "case" :                "train",
@@ -99,4 +90,4 @@ def test_main_extend():
         "skip_per_dir" :        16,
     }
     train(args)
-    shutil.rmtree("runs/extend_plumes/unittest", ignore_errors=True)
+    shutil.rmtree("runs/extend/unittest", ignore_errors=True)

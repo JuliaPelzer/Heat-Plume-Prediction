@@ -14,16 +14,16 @@ from processing.networks.unetVariants import UNetHalfPad2
 import utils.utils_args as ua
 
 
-def preprocessing(args):
+def preprocessing(args:dict):
     print("Preparing dataset")
     # handling of case=="test"? TODO
-    if is_unprepared(args.data_prep): # or args.case == "test":
-        info = ua.load_yaml_dict(args.model/"info.yaml") if args.case != "train" else None
+    if is_unprepared(args["data_prep"]): # or args.case == "test":
+        info = ua.load_yaml_dict(args["model"]/"info.yaml") if args["case"] != "train" else None
         
-        if args.problem == "2stages":
+        if args["problem"] == "2stages":
             exit("2stages not implemented yet, use other branch")
 
-        if args.problem == "allin1" and "n" in args.inputs: # case: different datasets
+        if args["problem"] == "allin1" and "n" in args["inputs"]: # case: different datasets
             # TODO handling of different datasets and several stages
             additional_inputs_unnormed = preprocessing_allin1(args)
             # TODO several runs now!
@@ -34,21 +34,21 @@ def preprocessing(args):
             # handling of case=="test"? TODO
 
     else:
-        info = ua.load_yaml(args.data_prep/"info.yaml") 
-    print(f"Dataset prepared: {args.data_prep}")
+        info = ua.load_yaml(args["data_prep"]/"info.yaml") 
+    print(f"Dataset prepared: {args['data_prep']}")
 
-    if args.case == "train": # TODO also finetune?
-        ua.save_yaml(info, args.model/"info.yaml")
+    if args["case"] == "train": # TODO also finetune?
+        ua.save_yaml(info, args["model"]/"info.yaml")
 
-def preprocessing_allin1(args: argparse.Namespace):
+def preprocessing_allin1(args: dict):
     args_domain_with_1hpnn_params = deepcopy(args)
 
-    run_ids = ua.get_run_ids_from_raw(args.data_raw)
+    run_ids = ua.get_run_ids_from_raw(args["data_raw"])
     additional_inputs = []
     assert len(run_ids) == 3, "allin1 requires 3 runs for train, val, test"
 
     for run_id in tqdm(run_ids, desc="Runs"):
-        preprocessing_dir = args.data_prep / "Preprocessed"
+        preprocessing_dir = args["data_prep"] / "Preprocessed"
         preprocessing_dir.mkdir(parents=True, exist_ok=True)
         preprocessing_destination = preprocessing_dir / f"RUN_{run_id}_n.pt"
 
@@ -72,7 +72,13 @@ def preprocessing_allin1(args: argparse.Namespace):
                 "model_type": UNet,
                 "inputs": "sik", #"gksi",
                 }
-            model_1hp, info_1hp = load_1hp_model_and_info(args_1hpnn, args.device)
+            # args_1hpnn = {
+            #     "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/cdmlp/runs/NAME.keras"),
+            #     "model_type": CdMLP,
+            #     "inputs": "gksi",
+            # }
+
+            model_1hp, info_1hp = load_1hp_model_and_info(args_1hpnn, args["device"])
 
             args_extend = {
                 "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/extend/vary_k/dataset_medium_100dp_vary_perm inputs_gk case_train box128 skip2"), #test_overlap_input_T"),
@@ -84,22 +90,22 @@ def preprocessing_allin1(args: argparse.Namespace):
                 "skip_in_field": 32, #< actual_len
                 "overlap": 46, # manually chosen for UNetHalfPad2
                 }
-            model_ep = load_extend_model(args_extend, args.device)
+            model_ep = load_extend_model(args_extend, args["device"])
 
             # prepare allin1 domain with 1hp-model normalization for cutting out hp boxes
-            args_domain_with_1hpnn_params.inputs = args_1hpnn["inputs"]
-            args_domain_with_1hpnn_params.model = args_1hpnn["model"]
-            args_domain_with_1hpnn_params.data_prep = None
-            args_domain_with_1hpnn_params.destination = None
+            args_domain_with_1hpnn_params["inputs"] = args_1hpnn["inputs"]
+            args_domain_with_1hpnn_params["model"] = args_1hpnn["model"]
+            args_domain_with_1hpnn_params["data_prep"] = None
+            args_domain_with_1hpnn_params["destination"] = None
             # args_gksi.destination should be irrelevant because no model is trained
             ua.make_paths(args_domain_with_1hpnn_params, make_model_and_destination_bool=False)
-            if is_unprepared(args_domain_with_1hpnn_params.data_prep): # or args.case == "test":
+            if is_unprepared(args_domain_with_1hpnn_params["data_prep"]): # or args.case == "test":
                 prepare_dataset(args_domain_with_1hpnn_params, info=info_1hp) # TODO make faster by ignoring "s" in prep and adding dummy dimension afterwards
 
             # extract hp boxes
-            domain = Domain(args_domain_with_1hpnn_params.data_prep, stitching_method="max", file_name=f"RUN_{run_id}.pt", device=args.device)
+            domain = Domain(args_domain_with_1hpnn_params.data_prep, stitching_method="max", file_name=f"RUN_{run_id}.pt", device=args["device"])
             threshold_T = domain.norm(10.7, property = "Temperature [C]")
-            single_hps = domain.extract_hp_boxes(args.device)
+            single_hps = domain.extract_hp_boxes(args["device"])
             
             hp: HeatPumpBox
             use_1hp_groundtruth = False
@@ -107,7 +113,7 @@ def preprocessing_allin1(args: argparse.Namespace):
                 if use_1hp_groundtruth:
                     hp.primary_temp_field = hp.label.squeeze(0)
                 else:
-                    hp.primary_temp_field = hp.apply_nn(model_1hp, device=args.device) # prediction is shitty -> check for better 1hp-nn
+                    hp.primary_temp_field = hp.apply_nn(model_1hp, device=args["device"]) # TODO cdmlp; prediction is shitty -> check for better 1hp-nn
 
                 # extend plumes
                 # while hp.primary_temp_field[-1].max() < threshold_T:
@@ -144,7 +150,8 @@ def preprocessing_allin1(args: argparse.Namespace):
 def load_1hp_model_and_info(args_1hpnn: dict, device: str):
     if args_1hpnn["model_type"] == UNet:
         model_1hp:Model = args_1hpnn["model_type"](len(args_1hpnn["inputs"]))
-        model_1hp.load(args_1hpnn["model"]) # for cpu maybe: ,map_location=torch.device(device))
+        model_1hp.load(args_1hpnn["model"])
+        model_1hp.to(device)
         info = ua.load_yaml(args_1hpnn["model"]/"info.yaml")
 
     elif args_1hpnn["model_type"] == CdMLP:
@@ -158,7 +165,7 @@ def load_1hp_model_and_info(args_1hpnn: dict, device: str):
 def load_extend_model(args_extend: dict, device: str):
     model_ep:Model = args_extend["model_type"](len(args_extend["inputs"])+1)
     model_ep.load(args_extend["model"]) # for cpu maybe: ,map_location=torch.device(device))
-    
+    model_ep.to(device)
     return model_ep
 
 

@@ -12,7 +12,7 @@ import preprocessing.load_data as load
 def is_unprepared(path:Path):
     return is_empty(path / "Inputs") or is_empty(path / "Labels") or not (path / "info.yaml").exists()
 
-def prepare_dataset(args, info:dict = None, additional_inputs: torch.Tensor = None):
+def prepare_dataset(args:dict, info:dict = None, additional_inputs: torch.Tensor = None):
     """
     Create a dataset from the raw pflotran data in raw_data_path.
     The saved dataset is normalized using the mean and standard deviation, which are saved to info.yaml in the new dataset folder.
@@ -33,11 +33,11 @@ def prepare_dataset(args, info:dict = None, additional_inputs: torch.Tensor = No
     #     print("shape", additional_inputs.shape, "should be 4D?")
     #     exit()
 
-    transforms = get_transforms(problem=args.problem)
-    inputs = expand_property_names(args.inputs)
+    transforms = get_transforms(problem=args["problem"])
+    inputs = expand_property_names(args["inputs"])
     time_init = "   0 Time  0.00000E+00 y"
     time_prediction = "   4 Time  2.75000E+01 y" #  "   3 Time  5.00000E+00 y"  # 
-    pflotran_settings = load_yaml(args.data_raw / "inputs" / "settings.yaml")
+    pflotran_settings = load_yaml(args["data_raw"] / "inputs" / "settings.yaml")
     dims = np.array(pflotran_settings["grid"]["ncells"])
     total_size = np.array(pflotran_settings["grid"]["size"])
     cell_size = total_size/dims
@@ -45,7 +45,7 @@ def prepare_dataset(args, info:dict = None, additional_inputs: torch.Tensor = No
     if info is None: calc = WelfordStatistics()
     tensor_transform = ToTensorTransform()
     output_variables = ["Temperature [C]"]
-    data_paths, runs = load.detect_datapoints(args.data_raw)
+    data_paths, runs = load.detect_datapoints(args["data_raw"])
     total = len(data_paths)
     if additional_inputs is None:
         additional_inputs = [None]*total
@@ -61,8 +61,8 @@ def prepare_dataset(args, info:dict = None, additional_inputs: torch.Tensor = No
         y = transforms(y, loc_hp=loc_hp)
         if info is None: calc.add_data(y)
         y = tensor_transform(y)
-        torch.save(x, args.data_prep / "Inputs" / f"{run}.pt")
-        torch.save(y, args.data_prep / "Labels" / f"{run}.pt")
+        torch.save(x, args["data_prep"] / "Inputs" / f"{run}.pt")
+        torch.save(y, args["data_prep"] / "Labels" / f"{run}.pt")
         
     if info is not None: 
         info["CellsNumberPrior"] = info["CellsNumber"]
@@ -100,9 +100,9 @@ def prepare_dataset(args, info:dict = None, additional_inputs: torch.Tensor = No
     except:
         info["PositionLastHP"] = loc_hp
     # info["PositionLastHP"] = get_hp_location_from_tensor(x, info)
-    save_yaml(info, args.data_prep/"info.yaml")
-    normalize(args.data_prep, info, total)
-    save_yaml({"dataset":args.data_raw.name, "inputs": inputs}, args.data_prep/"args.yaml")
+    save_yaml(info, args["data_prep"]/"info.yaml")
+    normalize(args["data_prep"], info, total)
+    save_yaml({"dataset":args["data_raw"].name, "inputs": inputs}, args["data_prep"]/"args.yaml")
 
     return info
 

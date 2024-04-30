@@ -51,7 +51,7 @@ class DataToVisualize:
         elif self.name == "SDF":
             self.name = "SDF-transformed position in [-]"
     
-def visualizations(model: UNet, dataloader: DataLoader, settings: argparse.Namespace, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png"):
+def visualizations(model: UNet, dataloader: DataLoader, args: dict, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png"):
     print("Visualizing...") #, end="\r")
 
     if amount_datapoints_to_visu > len(dataloader.dataset):
@@ -74,12 +74,12 @@ def visualizations(model: UNet, dataloader: DataLoader, settings: argparse.Names
 
             x = torch.unsqueeze(inputs[datapoint_id], 0)
             y = labels[datapoint_id]
-            y_out = model.infer(x, settings.device)
+            y_out = model.infer(x, args["device"])
 
             x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
             dict_to_plot = prepare_data_to_plot(x, y, y_out, info)
 
-            if settings.problem == "allin1":
+            if args["problem"]== "allin1":
                 # if settings.case=="test":
                 #     plot_datafields(dict_to_plot, name_pic, settings_pic, only_inner=True)
                 plot_datafields(dict_to_plot, name_pic, settings_pic, only_inner=False, plot_all_in_1_pic=False)

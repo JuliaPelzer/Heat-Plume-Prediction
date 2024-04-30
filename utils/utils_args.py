@@ -1,15 +1,15 @@
 from pathlib import Path
 import yaml
-from typing import Dict, List, Union
+from typing import List, Union
 import argparse
 
-def assertions_args(args):
-    if args.case in ["test", "finetune"]:
-        assert args.model is not None, "Model name required for testing or finetuning"
+def assertions_args(args:dict):
+    if args["case"] in ["test", "finetune"]:
+        assert args["model"] is not None, "Model name required for testing or finetuning"
     else:
-        assert args.model is None, "Model name should not be defined for training"
+        assert args["model"] is None, "Model name should not be defined for training"
 
-def make_paths(args, make_model_and_destination_bool:bool=True):
+def make_paths(args:dict, make_model_and_destination_bool:bool=True):
     paths = get_paths(name="paths.yaml")
     get_raw_path(args, Path(paths["default_raw_dir"]))
     make_prep_path(args, prep_dir=Path(paths["datasets_prepared_dir"]))
@@ -22,41 +22,41 @@ def get_paths(name:str="paths.yaml"):
     paths = load_yaml(name)
     return paths
 
-def get_raw_path(args, raw_dir: Path):
+def get_raw_path(args:dict, raw_dir: Path):
     # dataset_raw
-    args.data_raw = raw_dir / args.problem / args.data_raw
-    if not args.data_raw.exists():
-        raise FileNotFoundError(f"{args.data_raw} not found")
+    args["data_raw"] = raw_dir / args["problem"] / args["data_raw"]
+    if not args["data_raw"].exists():
+        raise FileNotFoundError(f"{args['data_raw']} not found")
     
-def make_prep_path(args, prep_dir: Path):
+def make_prep_path(args:dict, prep_dir: Path):
     # dataset_prep
-    if args.data_prep is None:
-        args.data_prep = args.data_raw.name + " inputs_" + args.inputs
+    if args["data_prep"] is None:
+        args["data_prep"] = args["data_raw"].name + " inputs_" + args["inputs"]
 
-    args.data_prep = prep_dir / args.problem / args.data_prep
-    args.data_prep.mkdir(parents=True, exist_ok=True)
-    (args.data_prep / "Inputs").mkdir(parents=True, exist_ok=True)
-    (args.data_prep / "Labels").mkdir(parents=True, exist_ok=True)
+    args["data_prep"] = prep_dir / args["problem"] / args["data_prep"]
+    args["data_prep"].mkdir(parents=True, exist_ok=True)
+    (args["data_prep"] / "Inputs").mkdir(parents=True, exist_ok=True)
+    (args["data_prep"] / "Labels").mkdir(parents=True, exist_ok=True)
 
-def make_model_and_destination_paths(args, models_dir: Path):
+def make_model_and_destination_paths(args:dict, models_dir: Path):
     # model, destination
-    if args.destination is None:
-        args.destination = args.data_prep.name + " box"+str(args.len_box) + " skip"+str(args.skip_per_dir)
-    if args.case == "train":
-        args.destination = models_dir / args.problem / args.destination
-        args.destination.mkdir(parents=True, exist_ok=True)
-        args.model = args.destination
+    if args["destination"] is None:
+        args["destination"] = args["data_prep"].name + " box"+str(args["len_box"]) + " skip"+str(args["skip_per_dir"])
+    if args["case"] == "train":
+        args["destination"] = models_dir / args["problem"] / args["destination"]
+        args["destination"].mkdir(parents=True, exist_ok=True)
+        args["model"] = args["destination"]
     else:
-        args.model = models_dir / args.problem / args.model
-        if not (args.model / "model.pt").exists() or not (args.model / "info.yaml").exists():
-            raise FileNotFoundError(f"model.pt or info.yaml not found in '{args.model.name}'")
-        args.destination = args.model / (args.destination + " " + args.case)
-        args.destination.mkdir(parents=True, exist_ok=True)
+        args["model"] = models_dir / args["problem"] / args["model"]
+        if not (args["model"] / "model.pt").exists() or not (args["model"] / "info.yaml").exists():
+            raise FileNotFoundError(f"model.pt or info.yaml not found in {args['model'].name}")
+        args["destination"] = args["model"] / (args["destination"] + " " + args["case"])
+        args["destination"].mkdir(parents=True, exist_ok=True)
 
-def save_notes(args):
-    if args.notes is not None:
-        with open(args.destination / "notes.txt", "w") as file:
-            file.write(args.notes)
+def save_notes(args:dict):
+    if args["notes"] is not None:
+        with open(args["destination"] / "notes.txt", "w") as file:
+            file.write(args["notes"])
 
 def load_yaml(path: Path, **kwargs) -> dict:
     with open(path, "r") as file:
@@ -66,10 +66,10 @@ def load_yaml(path: Path, **kwargs) -> dict:
             args = yaml.load(file, **kwargs)
     return args
 
-def save_yaml(args:Union[dict, argparse.Namespace], destination_file):
+def save_yaml(args:dict, destination_file):
     with open(destination_file, "w") as file:
         try:
-            tmp = vars(args).copy()
+            tmp = args.copy()
             for arg in vars(args):
                 try:
                     for info in vars(arg):
