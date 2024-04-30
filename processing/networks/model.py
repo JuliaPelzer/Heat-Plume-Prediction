@@ -12,7 +12,6 @@ class Model(nn.Module):
 
     def infer(self, data, device:str = "cpu"):
         self.eval()
-        self.to(device)
         return self(data.to(device))
 
     def save(self, path:pathlib.Path, model_name: str = "model.pt"):
