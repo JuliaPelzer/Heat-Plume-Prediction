@@ -1,0 +1,7 @@
+animation
+__pycache__
+backups
+logs
+*.mp4
+*.keras
+data

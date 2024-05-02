@@ -1,9 +1,10 @@
-from typing import List
+from typing import List, Union
 from torch import long as torch_long
 from torch import ones, tensor, unsqueeze, zeros, cat
 
 from preprocessing.transforms import SignedDistanceTransform
 from processing.networks.model import Model
+from processing.networks.CdMLP import CdMLP
 
 
 class HeatPumpBox:
@@ -29,14 +30,22 @@ class HeatPumpBox:
         self.inputs[index_sdf] = SignedDistanceTransform().sdf(self.inputs[index_id].detach().clone(), self.dist_corner_hp)
         assert (self.inputs[index_sdf].max() == 1 and self.inputs[index_sdf].min() == 0), "SDF not in [0,1]"
 
-    def apply_nn(self, model: Model, inputs:str="inputs", device:str="cpu"):
-        if inputs == "inputs":
-            input = unsqueeze(self.inputs, 0)
-        elif inputs == "interim_outputs":
-            input_tmp1 = self.primary_temp_field.unsqueeze(0)
-            input_tmp2 = self.other_temp_field.unsqueeze(0)
-            input = cat([input_tmp1, input_tmp2], dim=0).unsqueeze(0)
-        output = model.infer(input, device).squeeze().detach()
+    def apply_nn(self, case_model:str, model: Union[Model, CdMLP], inputs:str="inputs", device:str="cpu", info:dict=None):
+        if case_model == "unet":
+            if inputs == "inputs":
+                input = unsqueeze(self.inputs, 0)
+            elif inputs == "interim_outputs":
+                input_tmp1 = self.primary_temp_field.unsqueeze(0)
+                input_tmp2 = self.other_temp_field.unsqueeze(0)
+                input = cat([input_tmp1, input_tmp2], dim=0).unsqueeze(0)
+            output = model.infer(input, device).squeeze().detach()
+        elif case_model == "cdmlp":
+            train_height, train_width = info["CellsNumber"]
+            print(train_height, train_width)
+            output = model.apply(self.inputs.unsqueeze(0), self.pos.unsqueeze(0), training_height=train_height, training_width=train_width).squeeze()
+            output = tensor(output).to(device)
+            self.dist_corner_hp -= 2
+
         return output
     
     def get_global_corner_ll(self):

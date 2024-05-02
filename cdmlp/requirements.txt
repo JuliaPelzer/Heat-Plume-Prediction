@@ -1,0 +1,7 @@
+keras
+torch
+torchvision
+tqdm
+matplotlib
+numpy
+tensorboardX
