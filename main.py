@@ -1,4 +1,5 @@
 import argparse
+import os
 
 import utils.utils_args as ut
 import preprocessing.preprocessing as prep
@@ -17,15 +18,18 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default=None) # required for testing or finetuning
     parser.add_argument("--destination", type=str, default=None)
     parser.add_argument("--visualize", type=bool, default=False)
-    parser.add_argument("--device", type=str, default="cuda:3")
+    parser.add_argument("--device", type=str, default="3")
     parser.add_argument("--notes", type=str, default=None)
     args = parser.parse_args()
+    args = vars(args)
 
+    os.environ["CUDA_VISIBLE_DEVICES"] = args["device"] if not args["device"]=="cpu" else "" #e.g. "1"
+    args["device"] = f"cuda:{args['device']}" if not args["device"]=="cpu" else "cpu"
 
     ut.assertions_args(args)
     ut.make_paths(args) # and check if data / model exists
     ut.save_notes(args)
-    ut.save_yaml(args, args.destination / "command_line_arguments.yaml")
+    ut.save_yaml(args, args["destination"] / "command_line_arguments.yaml")
 
     # prepare data
     prep.preprocessing(args) # and save info.yaml in model folder
