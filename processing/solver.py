@@ -39,15 +39,6 @@ class Solver(object):
 
     def train(self, args: dict):
         manual_seed(0)
-        log_val_epoch = False
-        if log_val_epoch:
-            file = open(args["destination"] / "log_loss_per_epoch.csv", 'w', newline='')
-            csv_writer = csv.writer(file)
-            csv_writer.writerow(["epoch", "val loss", "train loss"])
-            file = open(args["destination"] / "log_best_loss_per_epoch.csv", 'w', newline='')
-            csv_writer_best = csv.writer(file)
-            csv_writer_best.writerow(["epoch", "val loss", "train loss", "val mse", "train mse", "val mae", "train mae"]) # TOOD
-
         start_time = time.perf_counter()
         # initialize tensorboard
         writer = SummaryWriter(args["destination"])
@@ -94,11 +85,6 @@ class Solver(object):
 
                     if True:
                         self.model.save(args["destination"], model_name=f"best_model_e{epoch}.pt")
-
-                if log_val_epoch:
-                    if epoch in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 15000, 20000, 24999]:
-                        csv_writer.writerow([epoch, val_epoch_loss, train_epoch_loss])
-                        csv_writer_best.writerow([epoch, self.best_model_params["loss"], self.best_model_params["train loss"]])
 
             except KeyboardInterrupt:
                 # model_tmp = UNetHalfPad2(in_channels=len(settings.inputs), out_channels=1) # UNet
