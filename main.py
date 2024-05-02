@@ -18,7 +18,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default=None) # required for testing or finetuning
     parser.add_argument("--destination", type=str, default=None)
     parser.add_argument("--visualize", type=bool, default=False)
-    parser.add_argument("--device", type=str, default="3")
+    parser.add_argument("--device", type=str, default="3", help="cuda device number or 'cpu'")
     parser.add_argument("--notes", type=str, default=None)
     args = parser.parse_args()
     args = vars(args)
