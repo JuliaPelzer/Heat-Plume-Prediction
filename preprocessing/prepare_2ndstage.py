@@ -9,15 +9,15 @@ import yaml
 from torch import Tensor, load, save, stack, unsqueeze
 from tqdm.auto import tqdm
 
-from preprocessing.domain_classes.domain import Domain
-from preprocessing.domain_classes.heat_pump import HeatPumpBox
+from old.domain import Domain
+from old.heat_pump import HeatPumpBox
 from preprocessing.domain_classes.stitching import Stitching
 from preprocessing.domain_classes.utils_2hp import (
     save_config_of_merged_inputs, save_config_of_separate_inputs, save_yaml)
-from preprocessing.prepare_1hp_boxes import prepare_dataset
-from preprocessing.prepare_paths import Paths2HP
+from old.prepare_1hp_boxes import prepare_dataset
+from old.prepare_paths import Paths2HP
 from processing.networks.unet import UNet
-from utils.utils_data import SettingsTraining
+from old.utils_data import SettingsTraining
 
 
 def prepare_dataset_for_2nd_stage(paths: Paths2HP, settings:SettingsTraining):
