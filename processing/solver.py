@@ -5,8 +5,8 @@ import pathlib
 import time
 from dataclasses import dataclass
 
-from torch import manual_seed
-from torch.nn import Module, MSELoss, modules
+from torch import manual_seed, Tensor, log
+from torch.nn import Module, modules, MSELoss, L1Loss, KLDivLoss, HuberLoss, SmoothL1Loss
 from torch.optim import Adam, Optimizer
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -16,6 +16,12 @@ from tqdm.auto import tqdm
 from processing.networks.unet import UNet
 from processing.networks.model import weights_init
 
+class KLD_log():
+    def __init__(self):
+        self.kld = KLDivLoss()
+
+    def __call__(self, prediction: Tensor, label: Tensor):
+        return self.kld(log(prediction), label)
 
 @dataclass
 class Solver(object):
@@ -27,6 +33,7 @@ class Solver(object):
     opt: Optimizer = Adam
     finetune: bool = False
     best_model_params: dict = None
+    metrics: dict = None
 
     def __post_init__(self):
         self.opt = self.opt(self.model.parameters(),
@@ -36,6 +43,8 @@ class Solver(object):
 
         if not self.finetune:
             self.model.apply(weights_init)
+        
+        self.metrics: dict = {"MSE": MSELoss(), "MAE": L1Loss(), "KLD": KLD_log(), "Huber": HuberLoss(), "SmoothL1": SmoothL1Loss()}
 
     def train(self, args: dict):
         manual_seed(0)
@@ -55,13 +64,17 @@ class Solver(object):
 
                 # Training
                 self.model.train()
-                train_epoch_loss = self.run_epoch(
-                    self.train_dataloader, device)
+                train_epoch_loss, other_losses_train = self.run_epoch(self.train_dataloader, device)
 
                 # Validation
                 # if epoch % 10 == 0:
                 self.model.eval()
-                val_epoch_loss = self.run_epoch(self.val_dataloader, device)
+                val_epoch_loss, other_losses_val = self.run_epoch(self.val_dataloader, device)
+                if epoch % 10 == 0:
+                    for metric_name, metric_value in other_losses_val.items():
+                        writer.add_scalar(f"val {metric_name}", metric_value, epoch)
+                    for metric_name, metric_value in other_losses_train.items():
+                        writer.add_scalar(f"train {metric_name}", metric_value, epoch)
 
                 # Logging
                 writer.add_scalar("train_loss", train_epoch_loss, epoch)
@@ -130,7 +143,13 @@ class Solver(object):
 
             epoch_loss += loss.detach().item()
         epoch_loss /= len(dataloader)
-        return epoch_loss
+
+        # Calculate metrics
+        metric_values = {}
+        for metric_name, metric in self.metrics.items():
+            metric_values[metric_name] = metric(y_pred, y_reduced).detach().item()
+            
+        return epoch_loss, metric_values
 
     def save_lr_schedule(self, path: str):
         """ save learning rate history to csv file"""
