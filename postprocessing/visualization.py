@@ -117,7 +117,7 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     }
     inputs = info["Inputs"].keys()
     for input in inputs:
-        if input == "Permeability X [m^2]":
+        if input in ["Permeability X [m^2]", "Preprocessed Temperature [C]"]:
             index = info["Inputs"][input]["index"]
             dict_to_plot[input] = DataToVisualize(x[index], input, extent_highs)
 
