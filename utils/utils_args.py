@@ -68,21 +68,24 @@ def load_yaml(path: Path, **kwargs) -> dict:
 
 def save_yaml(args:dict, destination_file):
     with open(destination_file, "w") as file:
-        try:
-            tmp = args.copy()
-            for arg in vars(args):
-                try:
-                    for info in vars(arg):
-                        # if arg a Path object, convert to string
-                        if isinstance(vars(arg)[info], Path):
-                            tmp[info] = str(vars(arg)[info])
-                except:
-                    # if arg a Path object, convert to string
-                    if isinstance(vars(args)[arg], Path):
-                        tmp[arg] = str(vars(args)[arg])
-            yaml.dump(tmp, file)
-        except:
-            yaml.dump(args, file)
+        # TODO TEST
+        # try:
+        tmp = args.copy()
+        for arg in args.keys():
+            try:
+                for info in arg.keys():
+                    tmp[info] = path_to_str(arg[info])
+            except:
+                tmp[arg] = path_to_str(args[arg])
+        yaml.dump(tmp, file)
+        # except:
+        #     yaml.dump(args, file)
+
+def path_to_str(arg: Union[Path, str]) -> str:
+    '''if arg a Path object, convert to string'''
+    if isinstance(arg, Path):
+        return str(arg)
+    return arg
 
 def get_run_ids_from_prep(dir: Path) -> List[int]:
     run_ids = []
