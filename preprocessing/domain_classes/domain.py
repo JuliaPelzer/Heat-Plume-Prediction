@@ -103,7 +103,8 @@ class Domain:
         for idx in tqdm(range(len(pos_hps)), desc="Extracting HP-Boxes"):
             try:
                 pos_hp = pos_hps[idx]
-                corner_ll = get_box_corners(pos_hp, size_hp_box, distance_hp_corner, self.inputs.shape[1:], run_name=self.file_name,)
+                corner_ll = get_box_corners(pos_hp, distance_hp_corner)
+                check_box_corners(corner_ll, size_hp_box, self.inputs.shape[1:], pos_hp, run_name=self.file_name)
                 tmp_input = self.inputs[:, corner_ll[0] : corner_ll[0] + size_hp_box[0], corner_ll[1] : corner_ll[1] + size_hp_box[1]].detach().clone()
                 tmp_label = self.label[:, corner_ll[0] : corner_ll[0] + size_hp_box[0], corner_ll[1] : corner_ll[1] + size_hp_box[1]].detach().clone()
 
@@ -128,7 +129,8 @@ class Domain:
         # inspired by ep.assemble_inputs + extract_hp_boxes
 
         # TODO check achtung orientierung hp.primary_temp_field.shape for hp-size
-        corner_ll = get_box_corners(hp.pos, tensor(hp.primary_temp_field.shape), hp.dist_corner_hp, self.inputs.shape[1:], run_name=self.file_name,)
+        corner_ll = get_box_corners(hp.pos, hp.dist_corner_hp)
+        check_box_corners(corner_ll, tensor(hp.primary_temp_field.shape), self.inputs.shape[1:], hp.pos, run_name=self.file_name)
         # get "inputs" there from domain (only g,k (?) not s, i)
         start_curr = params["start_curr_box"] + corner_ll[0]
         # TODO inputs HARDCODED to "gk" from "gksi"
@@ -167,14 +169,16 @@ class Domain:
 
         return x, y
 
-def get_box_corners(pos_hp, size_hp_box, distance_hp_corner, domain_shape, run_name: str = "unknown"):
+def get_box_corners(pos_hp, distance_hp_corner) -> tensor:
     corner_ll = (pos_hp - distance_hp_corner) # corner lower left
     
     try:
         corner_ll = corner_ll.to(dtype=torch_long) 
     except: ...
 
+    return corner_ll
+
+def check_box_corners(corner_ll: tensor, size_hp_box: tensor, domain_shape: tuple[int, int], pos_hp: int, run_name: str = "unknown"):
+    
     assert (corner_ll[0] >= 0 and (corner_ll + size_hp_box)[0] < domain_shape[0]), f"HP BOX at {pos_hp} is with x=({corner_ll[0]}, {(corner_ll + size_hp_box)[0]}) in x-direction (0, {domain_shape[0]}) not in domain for {run_name}"
     assert (corner_ll[1] >= 0 and (corner_ll + size_hp_box)[1] < domain_shape[1]), f"HP BOX at {pos_hp} is with y=({corner_ll[1]}, {(corner_ll + size_hp_box)[1]}) in y-direction (0, {domain_shape[1]}) not in domain for {run_name}"
-
-    return corner_ll
