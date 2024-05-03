@@ -41,13 +41,14 @@ def preprocessing(args:dict):
 
 def preprocessing_allin1(args: dict):
     args_domain_with_1hpnn_params = deepcopy(args)
+    case_1hpnn = args["allin1_prepro_n_case"]
 
     run_ids = ua.get_run_ids_from_raw(args["data_raw"])
     additional_inputs = []
     assert len(run_ids) == 3, "allin1 requires 3 runs for train, val, test"
 
     for run_id in tqdm(run_ids, desc="Runs"):
-        preprocessing_dir = args["data_prep"] / "Preprocessed"
+        preprocessing_dir = args["data_prep"] / f"Preprocessed {case_1hpnn}"
         preprocessing_dir.mkdir(parents=True, exist_ok=True)
         preprocessing_destination = preprocessing_dir / f"RUN_{run_id}_n.pt"
 
@@ -60,9 +61,8 @@ def preprocessing_allin1(args: dict):
             # TODO CHECK this scenario
 
         else:
-            print("Preparing domain for allin1")
             # preprocessing with neural network: 1hpnn(+extend_plumes) or with groundtruth or with cdmlp
-            case_1hpnn = "unet"
+            print(f"Preparing domain for allin1 with {case_1hpnn}")
 
             if case_1hpnn == "unet":
                 args_1hpnn = {

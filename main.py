@@ -10,6 +10,7 @@ if __name__ == "__main__":
     parser.add_argument("--problem", type=str, choices=["1hp", "2stages", "allin1", "extend", "test"], default="allin1")
     parser.add_argument("--data_raw", type=str, default="dataset_small_10dp_varyK", help="Name of the raw dataset (without inputs)")
     parser.add_argument("--data_prep", type=str, default=None)
+    parser.add_argument("--allin1_prepro_n_case", type=str, choices=["gt", "unet", "cdmlp"], default=None, help="Case for preprocessing of allin1")
     parser.add_argument("--inputs", type=str, default="gksi") #e.g. "gki", "gksi100", "ogksi1000_finetune", "t", "lmi", "lmik","lmikp", ...
     parser.add_argument("--len_box", type=int, default=64) # for 1hp:256, extend:128?
     parser.add_argument("--skip_per_dir", type=int, default=32)
