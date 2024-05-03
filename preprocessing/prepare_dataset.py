@@ -36,7 +36,8 @@ def prepare_dataset(args:dict, info:dict = None, additional_inputs: torch.Tensor
     transforms = get_transforms(problem=args["problem"])
     inputs = expand_property_names(args["inputs"])
     time_init = "   0 Time  0.00000E+00 y"
-    time_prediction = "   4 Time  2.75000E+01 y" #  "   3 Time  5.00000E+00 y"  # 
+    # time_prediction = "   3 Time  5.00000E+00 y"
+    time_prediction = "   4 Time  2.75000E+01 y"
     pflotran_settings = load_yaml(args["data_raw"] / "inputs" / "settings.yaml")
     dims = np.array(pflotran_settings["grid"]["ncells"])
     total_size = np.array(pflotran_settings["grid"]["size"])
