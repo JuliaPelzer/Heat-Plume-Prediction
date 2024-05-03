@@ -53,6 +53,7 @@ def train(args: dict):
 
     # postprocessing
     # save_all_measurements(args, len(dataloaders["val"].dataset), times={}, solver=solver) #, errors)
+    solver.save_metrics(args["destination"], args["device"])
     if args["problem"] == "allin1":
         dataloaders = load_all_datasets_as_datapoints(args)
     for case in ["test", "val", "train"]:

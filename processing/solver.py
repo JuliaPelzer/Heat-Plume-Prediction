@@ -171,3 +171,25 @@ class Solver(object):
             for line in f:
                 epoch, lr = line.split(",")
                 self.lr_schedule[int(epoch)] = float(lr)
+
+    def save_metrics(self, destination: pathlib.Path, device: str = "cpu"):
+        csv_file = open(destination.parent / "measurements_all_metrics.csv", "a")
+        csv_writer = csv.writer(csv_file)
+
+        self.model.eval()
+        train_epoch_loss, other_losses_train = self.run_epoch(self.train_dataloader, device)
+        val_epoch_loss, other_losses_val = self.run_epoch(self.val_dataloader, device)
+
+        other_losses_train_list = []
+        for _, val in other_losses_train.items():
+            other_losses_train_list.append(val)
+        other_losses_val_list = []
+        for _, val in other_losses_val.items():
+            other_losses_val_list.append(val)
+
+        row = [destination.name, self.best_model_params["epoch"], train_epoch_loss, val_epoch_loss]
+        row.extend(other_losses_train_list)
+        row.extend(other_losses_val_list)
+               
+        csv_writer.writerow(row)
+        csv_file.close()
