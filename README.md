@@ -2,7 +2,7 @@
 - clone the repository and go to the respective branch
 - install the requirements: `pip install -r requirements.txt`
 - download the raw / prepared data, (optional models and data sets for 2nd stage) 
-- set the paths in paths.yaml (see later)
+- set the paths in paths.yaml (see later) - not all paths are required for all problems; the path always refers to the top directory which contains all data sets. Those data sets are later referred to by their name in the respective command.
 
 ## Exemplary paths.yaml file:
 
