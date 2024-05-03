@@ -7,7 +7,8 @@ class Model(nn.Module):
         super().__init__()
 
     def load(self, model_path:pathlib.Path, device:str = "cpu", model_name: str = "model.pt", **kwargs):
-        self.load_state_dict(load(model_path/model_name, **kwargs))
+        location = "cuda:0" if "cuda" in device else "cpu"
+        self.load_state_dict(load(model_path/model_name, map_location=location, **kwargs))
         self.to(device)
 
     def infer(self, data, device:str = "cpu"):
