@@ -3,6 +3,7 @@ from tqdm.auto import tqdm
 import torch
 import logging
 from keras import ops
+from utils.utils_args import load_yaml
 
 def load_dataset(
     dataset_name="benchmark_dataset_2d_100datapoints_5years",
@@ -38,11 +39,14 @@ def load_dataset(
 
 
 def load_and_split(dataset_name, dir="data", split=0.95, augment=False):
+    info = load_yaml((Path(dir) / dataset_name / "info.yaml"))
+    pos_hp = info["PositionLastHP"][:2][::-1]
     raw_inputs, raw_outputs = load_dataset(
         dataset_name, dir=dir, inputs_map=lambda x: x[:2]
     )
     number, height, width, channels = raw_inputs.shape
-    coordinate_origin_vary = ops.convert_to_tensor([23, 9])
+
+    coordinate_origin_vary = ops.convert_to_tensor(pos_hp) # with orig dataset:[23,9]
     total_size = number
     if augment:
         total_size *= 4

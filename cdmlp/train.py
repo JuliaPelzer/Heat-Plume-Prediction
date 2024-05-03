@@ -1,7 +1,7 @@
 import os
 
 os.environ["KERAS_BACKEND"] = "torch"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 # TODO set cuda device *before* loading any keras modules
 from cdmlp.models import CompleteModel
 from cdmlp.util import load_and_split, manual_scheduler
@@ -55,20 +55,21 @@ class RelativeLoss(keras.Loss):
 
 
 def train():
-    run_name = "pump_indices augmented"
+    run_name = "cdmlp new_vary_perm_data_vary_dist mae"
     (train_input, train_output), (val_input, val_output) = load_and_split(
-        "/scratch/sgs/pelzerja_share/datasets_prepared/benchmark_dataset_2d_1000dp_vary_perm inputs_gksi",
+        # "/scratch/sgs/pelzerja/datasets_prepared/1hp/dataset_small_10000dp_varyK_v3_part1 inputs_ksi plus_dummy_g",
+        "/scratch/sgs/pelzerja/datasets_prepared/1hp/dataset_small_10000dp_varyK_v3_part2 inputs_gksi",
+        # "/scratch/sgs/pelzerja_share/datasets_prepared/benchmark_dataset_2d_1000dp_vary_perm inputs_gksi",
         dir="",
         augment=True,
     )
+    
     print(f"{train_output.device=}")
     print(f"{train_input['fields'].device=}")
-    edge_size, complete_model = build_model(
-        *(train_input["fields"]).shape[1:3],
-    )
+    edge_size, complete_model = build_model(*(train_input["fields"]).shape[1:3],)
     complete_model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=1e-3),
-        loss=keras.losses.MeanSquaredError(),
+        loss=keras.losses.MeanAbsoluteError(),
         metrics=["mse"],
     )
     complete_model.fit(
@@ -88,7 +89,7 @@ def train():
             keras.callbacks.ModelCheckpoint(
                 (Path("checkpoints/complete_vary") / run_name).with_suffix(".keras")
             ),
-            keras.callbacks.BackupAndRestore("checkpoints/complete_vary/backup"),
+            # keras.callbacks.BackupAndRestore("checkpoints/complete_vary/backup"),
         ],
         verbose=1,
     )

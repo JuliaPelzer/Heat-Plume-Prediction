@@ -13,7 +13,7 @@ class CompleteModel(keras.models.Model):
         edge_size,
         oob_weight=1,
         ortho_weight=0.1,
-        radius=2,
+        radius=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
