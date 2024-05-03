@@ -8,6 +8,12 @@ def assertions_args(args:dict):
         assert args["model"] is not None, "Model name required for testing or finetuning"
     else:
         assert args["model"] is None, "Model name should not be defined for training"
+    
+    if "n" in args["inputs"]:
+        assert args["problem"] == "allin1", "n can only be input for allin1"
+        assert args["allin1_prepro_n_case"] is None, "allin1_prepro_n_case should not be defined for n in inputs"
+    if args["allin1_prepro_n_case"] is not None:
+        assert args["problem"] == "allin1", "allin1_prepro_n_case can only be defined for allin1"
 
 def make_paths(args:dict, make_model_and_destination_bool:bool=True):
     paths = get_paths(name="paths.yaml")
