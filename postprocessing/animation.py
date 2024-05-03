@@ -12,7 +12,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from tqdm.auto import tqdm
 
 # sys.path.append("/home/pelzerja/Development/code_NN/")
-from processing.pipelines.extend_plumes import (infer, infer_nopad, load_extend,
+from processing.pipelines.extend_plumes_old import (infer, infer_nopad, load_extend,
                                          load_front, load_models_and_data,
                                          rescale_temp)
 
