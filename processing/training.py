@@ -11,7 +11,7 @@ from processing.networks.encoder import Encoder
 from processing.networks.unet import UNet
 from processing.networks.unetVariants import UNetHalfPad2, UNetNoPad2
 from processing.solver import Solver
-from preprocessing.data_init import init_data, load_all_datasets_as_datapoints
+from preprocessing.data_init import init_data, load_all_datasets_in_full
 
 def train(args: dict):
     np.random.seed(1)
@@ -34,8 +34,8 @@ def train(args: dict):
     if args["case"] in ["test", "finetune"]:
         model.load(args["model"], args["device"])
 
+    solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=L1Loss(), finetune=(args["case"] == "finetune"))
     if args["case"] in ["train", "finetune"]:
-        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=L1Loss(), finetune=(args["case"] == "finetune"))
         try:
             solver.load_lr_schedule(args["destination"] / "learning_rate_history.csv")
             solver.train(args)
@@ -44,19 +44,17 @@ def train(args: dict):
         finally:
             solver.save_lr_schedule(args["destination"] / "learning_rate_history.csv")
             print("Training finished")
-    else:
-        solver = None
 
-    # save model
+    # save model and train metrics
     if args["case"] in ["train", "finetune"]:
         model.save(args["destination"])
+        solver.save_metrics(args["destination"], args["device"])
 
     # postprocessing
     # save_all_measurements(args, len(dataloaders["val"].dataset), times={}, solver=solver) #, errors)
-    solver.save_metrics(args["destination"], args["device"])
-    if args["problem"] == "allin1":
-        dataloaders = load_all_datasets_as_datapoints(args)
-    for case in ["test", "val", "train"]:
+
+    dataloaders = load_all_datasets_in_full(args)
+    for case in ["train", "val", "test"]:
         # try:
         visualizations(model, dataloaders[case], args, plot_path=args["destination"] / case, amount_datapoints_to_visu=1, pic_format="png")
         # except: pass

@@ -5,8 +5,9 @@ import sys
 from math import cos, sin
 from tqdm.auto import tqdm
 import yaml
+import numpy as np
 from torch import long as torch_long
-from torch import max, ones, stack, tensor, where, cat, load
+from torch import max, ones, stack, tensor, where, cat, load, FloatTensor
 
 sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN")  # relevant for remote
 sys.path.append("/home/pelzerja/Development/1HP_NN")  # relevant for local
@@ -97,6 +98,7 @@ class Domain:
         size_hp_box = tensor([self.info["CellsNumberPrior"][0],self.info["CellsNumberPrior"][1],])
         distance_hp_corner = tensor([self.info["PositionHPPrior"][1], self.info["PositionHPPrior"][0]])
         hp_boxes = []
+        hp_inputs = []
         pos_hps = stack(list(where(material_ids == max(material_ids))), dim=0).T
         names_inputs = [self.get_name_from_index(i) for i in range(self.inputs.shape[0])]
 
@@ -120,10 +122,13 @@ class Domain:
                     tmp_hp.recalc_sdf(self.info)
 
                 hp_boxes.append(tmp_hp)
+                hp_inputs.append(np.array(tmp_input))
                 logging.info(f"HP BOX at {pos_hp} is in domain, starting in corner {corner_ll}")
             except:
                 logging.warning(f"BOX of HP {idx} at {pos_hp} is not in domain")
-        return hp_boxes
+            break
+
+        return hp_boxes, FloatTensor(np.array(hp_inputs))
 
     def extract_ep_box(self, hp: "HeatPumpBox", params: dict, device:str = "cpu"):
         # inspired by ep.assemble_inputs + extract_hp_boxes

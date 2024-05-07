@@ -7,8 +7,9 @@ import matplotlib.pyplot as plt
 import torch
 import yaml
 
-from postprocessing.visualization import _aligned_colorbar
+from postprocessing.visu_utils import _aligned_colorbar
 from processing.networks.unetVariants import *
+from processing.networks.model import Model
 
 
 def load_front(model_front_path, dataset_front, run_id, model_name="model.pt"):
@@ -79,7 +80,7 @@ def assertions_infer(params):
     assert (params['start_prior_box']%params['skip_per_dir']) == 0, f"should be familiar with this part of a field {params['start_prior_box']} {params['skip_per_dir']}"
     assert params['rm_boundary_r'] >= 1, "right boundary value should be at least 1 (that would be that nothing is removed on that side)"
 
-def infer(model, inputs, labels, params, first_box:bool=True, visu:bool=True, front:List=None):
+def infer(model:Model, inputs, labels, params, first_box:bool=True, visu:bool=True, front:List=None):
     params["overlap"] = 0
     box_size, start_prior_box, start_curr_box, skip_in_field, inputs, labels = prep_params_and_data(inputs, labels, params, first_box)
 
@@ -97,7 +98,7 @@ def infer(model, inputs, labels, params, first_box:bool=True, visu:bool=True, fr
     while start_curr_box + box_size <= labels.shape[2]:
         input_all = assemble_inputs(inputs, labels, start_prior_box, start_curr_box, params)
 
-        output = model(input_all)
+        output = model.infer(input_all)
         labels[0,0,start_curr_box+params["rm_boundary_l"] : start_curr_box-params["rm_boundary_r"]] = output[:,:,params["rm_boundary_l"]:-params["rm_boundary_r"]]
 
         start_prior_box += skip_in_field
@@ -138,26 +139,31 @@ def calc_actual_len_and_gap(output, params):
 
     return actual_len, gap
 
-def infer_nopad(model, inputs, labels, params, overlap:bool=False):
+def infer_nopad(model:Model, inputs, labels, params, overlap:bool=False, device:str="cpu"):
     # no padding, option for overlap
     # TODO add front model
     params["overlap"] = 46 if overlap else 0 # TODO automate
     box_size, start_prior_box, start_curr_box, skip_in_field, inputs, labels = prep_params_and_data(inputs, labels, params)
 
-    if overlap:
-        if skip_in_field > params["overlap"]: skip_in_field = params["overlap"]
-        # TODO STIMMT DAS?
-
     while start_curr_box+box_size <= labels.shape[2]:
         input_all = assemble_inputs(inputs, labels, start_prior_box, start_curr_box, params)
-
-        output = model(input_all)
+        # import matplotlib.pyplot as plt
+        # plt.imshow(input_all[0, 3].detach().numpy().T)
+        # plt.colorbar()
+        # plt.show()
+        print([(input.max(), input.min()) for input in input_all])
+        output = model.infer(input_all, device)
+        # plt.imshow(output[0, 0].cpu().detach().numpy().T)
+        # plt.colorbar()
+        # plt.show()
         actual_len, gap = calc_actual_len_and_gap(output, params)
         labels[0,0,start_curr_box+gap : start_curr_box+gap+actual_len] = output
+        
+        skip_in_field = min([skip_in_field, actual_len])
 
         start_prior_box += skip_in_field
         start_curr_box = set_start_curr_box(start_prior_box, params)
-    return labels[0,0,:,:].detach().numpy()
+    return labels[:,:].detach().numpy()
 
 def rescale_temp(data, norm_info):
     # repetition of transform Rescale 

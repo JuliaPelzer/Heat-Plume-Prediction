@@ -9,11 +9,13 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 from torch.utils.data import DataLoader
 
 from preprocessing.transforms import NormalizeTransform
 from processing.networks.unet import UNet
+from processing.pipelines.extend_plumes_old import infer_nopad, update_params
+from postprocessing.visu_utils import _aligned_colorbar
+from utils.utils_args import load_yaml
 
 # plt.rcParams['figure.figsize'] = [16, 5]
 
@@ -65,6 +67,15 @@ def visualizations(model: UNet, dataloader: DataLoader, args: dict, amount_datap
         info = dataloader.dataset.dataset.info
     settings_pic = {"format": pic_format,
                     "dpi": 600,}
+    
+    if args["problem"] == "extend":
+        params = {"start_visu" : 0,
+                    "end_visu" : 1000,
+                    "start_input_box" : 64,
+                    "skip_in_field" : 32,
+                    "rm_boundary_l" : 16,
+                    "rm_boundary_r" : int(16/2),}
+        params = update_params(params, args["model"], temp_norm = norm)
 
     current_id = 0
     for inputs, labels in dataloader:
@@ -72,12 +83,21 @@ def visualizations(model: UNet, dataloader: DataLoader, args: dict, amount_datap
         for datapoint_id in range(len_batch):
             name_pic = f"{plot_path}_{current_id}"
 
-            x = torch.unsqueeze(inputs[datapoint_id], 0)
+            x = inputs[datapoint_id]
             y = labels[datapoint_id]
-            y_out = model.infer(x, args["device"])
 
-            x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
-            dict_to_plot = prepare_data_to_plot(x, y, y_out, info)
+            if args["problem"] == "extend":
+                y_out = infer_nopad(model, x, y, params, overlap=True, device=args["device"])
+            else:
+                x = torch.unsqueeze(x, 0)
+                y_out = model.infer(x, args["device"])
+
+            # plt.imshow(y_out[0,0].T, cmap="RdBu_r")
+            # plt.colorbar()
+            # plt.show()
+
+            # x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
+            dict_to_plot = prepare_data_to_plot(x, y[0], y_out[0], info)
 
             if args["problem"]== "allin1":
                 # if settings.case=="test":
@@ -97,7 +117,10 @@ def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, no
     # reverse transform for plotting real values
     x = norm.reverse(x.detach().cpu().squeeze(0), "Inputs")
     y = norm.reverse(y.detach().cpu(),"Labels")[0]
-    y_out = norm.reverse(y_out.detach().cpu()[0],"Labels")[0]
+    try:
+        y_out = norm.reverse(y_out.detach().cpu()[0],"Labels")[0]
+    except:
+        y_out = norm.reverse(y_out[0],"Labels")[0]
     return x, y, y_out
 
 def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, info: dict):
@@ -107,6 +130,7 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
 
     required_size = y_out.shape
+    print("required_size", required_size, y.shape, y_out.shape)
     start_pos = ((y.shape[0] - required_size[0])//2, (y.shape[1] - required_size[1])//2)
     y_reduced = y[start_pos[0]:start_pos[0]+required_size[0], start_pos[1]:start_pos[1]+required_size[1]]
 
@@ -242,8 +266,3 @@ def plot_avg_error_cellwise(dataloader, summed_error_pic, settings_pic: dict):
 
     plt.tight_layout()
     plt.savefig(f"{settings_pic['folder']}/avg_error.{settings_pic['format']}", format=settings_pic['format'])
-
-def _aligned_colorbar(*args, **kwargs):
-    cax = make_axes_locatable(plt.gca()).append_axes(
-        "right", size=0.3, pad=0.05)
-    plt.colorbar(*args, cax=cax, **kwargs)

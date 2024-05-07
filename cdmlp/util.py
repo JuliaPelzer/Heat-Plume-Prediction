@@ -44,6 +44,12 @@ def load_and_split(dataset_name, dir="data", split=0.95, augment=False):
     raw_inputs, raw_outputs = load_dataset(
         dataset_name, dir=dir, inputs_map=lambda x: x[:2]
     )
+    input_perm_log = ops.log(raw_inputs[..., info["Inputs"]["Permeability X [m^2]"]["index"]]+ops.exp(1))-1
+    perm_log_min = ops.min(input_perm_log)
+    perm_log_max = ops.max(input_perm_log)
+    input_perm_log = (input_perm_log - perm_log_min) / (perm_log_max - perm_log_min)
+    raw_inputs = ops.concatenate((raw_inputs, input_perm_log[..., None]), axis=-1)
+
     number, height, width, channels = raw_inputs.shape
 
     coordinate_origin_vary = ops.convert_to_tensor(pos_hp) # with orig dataset:[23,9]
@@ -56,6 +62,7 @@ def load_and_split(dataset_name, dir="data", split=0.95, augment=False):
         coords = coordinates(height, width, coordinate_origin_vary)
         inputs[..., :2] = coords[None, ...]
         inputs[..., 2:] = raw_inputs
+
         outputs = raw_outputs
         positions[:] = coordinate_origin_vary[None, :]
     else:
@@ -107,9 +114,7 @@ def load_and_split(dataset_name, dir="data", split=0.95, augment=False):
     logging.debug(f"{outputs.shape=}")
     logging.debug(f"{inputs.device=}")
     return (
-        {"fields": inputs_train, "pump_indices": positions_train},
-        outputs_train,
-    ), ({"fields": inputs_val, "pump_indices": positions_val}, outputs_val)
+        {"fields": inputs_train, "pump_indices": positions_train},outputs_train,), ({"fields": inputs_val, "pump_indices": positions_val}, outputs_val), info
 
 
 def coordinates(

@@ -11,7 +11,7 @@ def assertions_args(args:dict):
     
     if "n" in args["inputs"]:
         assert args["problem"] == "allin1", "n can only be input for allin1"
-        assert args["allin1_prepro_n_case"] is None, "allin1_prepro_n_case should not be defined for n in inputs"
+        assert args["allin1_prepro_n_case"] is not None, "allin1_prepro_n_case should be defined for n in inputs"
     if args["allin1_prepro_n_case"] is not None:
         assert args["problem"] == "allin1", "allin1_prepro_n_case can only be defined for allin1"
 
@@ -37,7 +37,10 @@ def get_raw_path(args:dict, raw_dir: Path):
 def make_prep_path(args:dict, prep_dir: Path):
     # dataset_prep
     if args["data_prep"] is None:
-        args["data_prep"] = args["data_raw"].name + " inputs_" + args["inputs"]
+        if "n" in args["inputs"]:
+            args["data_prep"] = args["data_raw"].name + " inputs_" + args["inputs"] + " " + args["allin1_prepro_n_case"]
+        else:
+            args["data_prep"] = args["data_raw"].name + " inputs_" + args["inputs"]
 
     args["data_prep"] = prep_dir / args["problem"] / args["data_prep"]
     args["data_prep"].mkdir(parents=True, exist_ok=True)

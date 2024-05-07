@@ -2,10 +2,13 @@ from copy import deepcopy
 from pathlib import Path
 import torch
 from tqdm.auto import tqdm
+import matplotlib
+matplotlib.use('QtAgg')
+import matplotlib.pyplot as plt
 
 from preprocessing.prepare_dataset import prepare_dataset, is_unprepared
 from preprocessing.domain_classes.domain import Domain
-from preprocessing.domain_classes.heat_pump import HeatPumpBox
+from preprocessing.domain_classes.heat_pump import HeatPumpBox, apply_nn_batch
 from processing.networks.model import Model
 from processing.networks.unet import UNet
 from processing.networks.CdMLP import CdMLP
@@ -64,7 +67,7 @@ def preprocessing_allin1(args: dict):
             # preprocessing with neural network: 1hpnn(+extend_plumes) or with groundtruth or with cdmlp
             print(f"Preparing domain for allin1 with {case_1hpnn}")
 
-            if case_1hpnn == "unet":
+            if case_1hpnn in ["unet", "gt"]:
                 args_1hpnn = {
                     "model": Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hp/dataset_small_10000dp_varyK_v3_part1 inputs_sik box256 skip256"),
                     #Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/1hp/dataset_small_10000dp_varyK_V2 inputs_gksi box256 skip32"), 
@@ -98,39 +101,53 @@ def preprocessing_allin1(args: dict):
             # prepare allin1 domain with 1hp-model normalization for cutting out hp boxes
             args_domain_with_1hpnn_params["inputs"] = args_1hpnn["inputs"]
             args_domain_with_1hpnn_params["model"] = args_1hpnn["model"]
-            args_domain_with_1hpnn_params["data_prep"] = args["data_raw"].name + " inputs_" + args["inputs"] + " " + case_1hpnn # TODO test
+            args_domain_with_1hpnn_params["data_prep"] = args["data_raw"].name + " inputs_" + args_1hpnn["inputs"] #+ " " + case_1hpnn # TODO test
             args_domain_with_1hpnn_params["destination"] = None
             # args_gksi.destination should be irrelevant because no model is trained
             ua.make_paths(args_domain_with_1hpnn_params, make_model_and_destination_bool=False)
             if is_unprepared(args_domain_with_1hpnn_params["data_prep"]): # or args.case == "test":
+                print(f"Preparing domain for preprocessing at {args_domain_with_1hpnn_params['data_prep']}")
                 prepare_dataset(args_domain_with_1hpnn_params, info=info_1hp) # TODO make faster by ignoring "s" in prep and adding dummy dimension afterwards
 
+
             # extract hp boxes
-            print(args_domain_with_1hpnn_params["data_prep"])
             domain = Domain(args_domain_with_1hpnn_params["data_prep"], stitching_method="max", file_name=f"RUN_{run_id}.pt", device=args["device"])
             threshold_T = domain.norm(10.7, property = "Temperature [C]")
-            single_hps = domain.extract_hp_boxes(args["device"])
-            
+            single_hps, hps_inputs = domain.extract_hp_boxes(args["device"])
+
             hp: HeatPumpBox
             for hp in tqdm(single_hps, desc="Applying 1HPNN + ep"):
                 if case_1hpnn == "gt":
                     hp.primary_temp_field = hp.label.squeeze(0)
                 else:
                     hp.primary_temp_field = hp.apply_nn(case_1hpnn, model_1hp, device=args["device"], info=info_1hp) # TODO prediction is shitty -> check for better 1hp-nn
+                    plt.subplot(1, 2, 1)
                     plt.imshow(hp.primary_temp_field.detach().cpu().numpy().T)
                     plt.colorbar()
-                    plt.savefig("test.png")
+                    plt.subplot(1, 2, 2)
+                    plt.imshow(hp.label.detach().cpu().numpy().T)
+                    plt.colorbar()
+                    plt.show()
                     exit()
-                    # TODO push through as batch to increase speed TODO TODO 
-                    
 
-                # extend plumes
-                # while hp.primary_temp_field[-1].max() < threshold_T:
-                #     hp.extend_plume()
+            #     # extend plumes
+            #     # while hp.primary_temp_field[-1].max() < threshold_T:
+            #     #     hp.extend_plume()
                 
-                domain.add_hp(hp)
+            #     domain.add_hp(hp)
 
-            import matplotlib.pyplot as plt
+            # # matrix of all extracted hp boxes for nn
+            # if case_1hpnn == "gt":
+            #     predictions = torch.stack([hp.label.squeeze() for hp in single_hps])
+            # else:
+            #     predictions = apply_nn_batch(case_1hpnn, hps_inputs, model_1hp, device=args["device"])
+            # print(predictions.shape)
+
+            # for hp, prediction in tqdm(zip(single_hps, predictions), desc="Storing 1HPNN + ep"):
+            #     hp.primary_temp_field = prediction
+            #     domain.add_hp(hp)
+            
+
             plt.subplot(2, 2, 1)
             plt.imshow(domain.inputs[1].detach().cpu().numpy().T)
             plt.colorbar()
@@ -150,7 +167,7 @@ def preprocessing_allin1(args: dict):
             additional_input = domain.prediction.detach().cpu()
             print(f"Saving domain to {preprocessing_destination}")
             torch.save(domain.prediction, preprocessing_destination)
-            ua.save_yaml({"1hp": args_1hpnn, "extend": args_extend}, preprocessing_destination.parent / "info.yaml")
+            ua.save_yaml({"1hp": args_1hpnn, "extend": args_extend}, preprocessing_destination.parent / "args.yaml")
 
         additional_inputs.append(additional_input) # TODO better as dict?
     return additional_inputs
@@ -158,21 +175,23 @@ def preprocessing_allin1(args: dict):
 def load_1hp_model_and_info(case_1hpnn:str, args_1hpnn: dict, device: str):
     if case_1hpnn == "unet":
         model_1hp:Model = args_1hpnn["model_type"](len(args_1hpnn["inputs"]))
-        model_1hp.load(args_1hpnn["model"], map_location=device)
+        model_1hp.load(args_1hpnn["model"], device)
         model_1hp.to(device)
-        info = ua.load_yaml(args_1hpnn["model"]/"info.yaml")
 
     elif case_1hpnn == "cdmlp":
         assert args_1hpnn["inputs"] == "gksi", "CdMLP only implemented for gksi inputs."
         model_1hp:CdMLP = args_1hpnn["model_type"](args_1hpnn["model"]/"model.keras")
-        info = ua.load_yaml(args_1hpnn["model"]/"info.yaml")
 
+    else:
+        model_1hp = None
+
+    info = ua.load_yaml(args_1hpnn["model"]/"info.yaml")
     return model_1hp, info
 
 
 def load_extend_model(args_extend: dict, device: str):
     model_ep:Model = args_extend["model_type"](len(args_extend["inputs"])+1)
-    model_ep.load(args_extend["model"]) # for cpu maybe: ,map_location=torch.device(device))
+    model_ep.load(args_extend["model"], device)
     model_ep.to(device)
     return model_ep
 

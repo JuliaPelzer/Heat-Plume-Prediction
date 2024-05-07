@@ -7,7 +7,7 @@ import torch
 from preprocessing.domain_classes.domain import get_box_corners
 from torch.nn import MSELoss, modules
 
-from postprocessing.visualization import _aligned_colorbar
+from postprocessing.visu_utils import _aligned_colorbar
 
 matplotlib.use('TkAgg')
 

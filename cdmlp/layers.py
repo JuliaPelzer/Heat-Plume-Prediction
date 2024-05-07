@@ -60,24 +60,15 @@ class ValuesAroundPump(keras.layers.Layer):
     the last two channels are not used as they are assumed to be the coordinates
     """
 
-    def __init__(self, radius=2, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.radius = radius
 
     def call(self, inputs):
         fields = inputs["fields"]
         batch, height, width, channels = fields.shape
-        r = self.radius
         result = ops.zeros((batch, height, width, channels - 2))
         for index, (py, px) in enumerate(inputs["pump_indices"]):
-            if self.radius is None:
-                tmp = ops.mean(fields[index, ..., 2:], axis=(-2, -3), keepdims=True)
-            else:
-                tmp = ops.mean(
-                    fields[index, py - r : py + r + 1, px - r : py + r + 1, 2:],
-                    axis=(-2, -3),
-                    keepdims=True,
-                )
+            tmp = ops.mean(fields[index, ..., 2:], axis=(-2, -3), keepdims=True)
             result[index, :, :, :] = tmp
 
         return result
@@ -85,12 +76,3 @@ class ValuesAroundPump(keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         batch, height, width, channels = input_shape
         return *input_shape[:-1], channels - 2
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"radius": self.radius})
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)

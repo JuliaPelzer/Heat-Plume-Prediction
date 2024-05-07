@@ -8,7 +8,7 @@ import torch
 import tqdm
 import yaml
 
-from postprocessing.visualization import _aligned_colorbar
+from postprocessing.visu_utils import _aligned_colorbar
 
 
 def prepare_domain_sdf(orig_domain_name: str = "domain_1hp_1dp inputs_gksi"):

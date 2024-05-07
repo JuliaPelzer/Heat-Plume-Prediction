@@ -38,16 +38,15 @@ class HeatPumpBox:
                 input_tmp1 = self.primary_temp_field.unsqueeze(0)
                 input_tmp2 = self.other_temp_field.unsqueeze(0)
                 input = cat([input_tmp1, input_tmp2], dim=0).unsqueeze(0)
-            output = model.infer(input, device).squeeze().detach()
+            output = model.infer(input, device).squeeze()
         elif case_model == "cdmlp":
-            train_height, train_width = info["CellsNumber"]
-            print(train_height, train_width)
-            output = model.apply(self.inputs.unsqueeze(0), self.pos.unsqueeze(0), training_height=train_height, training_width=train_width).squeeze()
+            train_height, train_width = info["CellsNumberPrior"]
+            output = model.apply(self.inputs.unsqueeze(0), self.dist_corner_hp.unsqueeze(0), training_height=train_height, training_width=train_width).squeeze()
             output = tensor(output).to(device)
             self.dist_corner_hp -= 2
 
         return output
-    
+            
     def get_global_corner_ll(self):
         return self.pos - self.dist_corner_hp
     
@@ -55,3 +54,10 @@ class HeatPumpBox:
         if self.primary_temp_field.shape[0] < insert_at + actual_len:
             self.primary_temp_field = cat([self.primary_temp_field, zeros(insert_at + actual_len - self.primary_temp_field.shape[0], *self.primary_temp_field.shape[1:], device=device)])
         self.primary_temp_field[insert_at : insert_at+actual_len] = output[0, 0]
+
+def apply_nn_batch(case_model:str, inputs:tensor, model: Union[Model, CdMLP], device:str="cpu"):
+    if case_model == "unet":
+        output = model.infer(inputs, device).squeeze()
+    else:
+        raise NotImplementedError(f"Batch application of {case_model} not implemented yet.")
+    return output

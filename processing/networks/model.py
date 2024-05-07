@@ -13,7 +13,7 @@ class Model(nn.Module):
 
     def infer(self, data, device:str = "cpu"):
         self.eval()
-        return self(data.to(device))
+        return self(data.to(device)).detach()
 
     def save(self, path:pathlib.Path, model_name: str = "model.pt"):
         save(self.state_dict(), path/model_name)

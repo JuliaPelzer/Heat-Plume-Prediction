@@ -52,7 +52,6 @@ class Solver(object):
         # initialize tensorboard
         writer = SummaryWriter(args["destination"])
         device = args["device"]
-        self.model = self.model.to(device)
         # writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
 
         epochs = tqdm(range(args["epochs"]), desc="epochs", disable=False)
@@ -187,6 +186,7 @@ class Solver(object):
         for _, val in other_losses_val.items():
             other_losses_val_list.append(val)
 
+        print(destination.name, self.best_model_params["epoch"], train_epoch_loss, val_epoch_loss)
         row = [destination.name, self.best_model_params["epoch"], train_epoch_loss, val_epoch_loss]
         row.extend(other_losses_train_list)
         row.extend(other_losses_val_list)

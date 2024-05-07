@@ -5,7 +5,7 @@ from preprocessing.datasets.dataset import DatasetBasis
 from utils.utils_args import get_run_ids_from_prep
 
 class SimulationDatasetCuts(DatasetBasis):
-    def __init__(self, path:str, skip_per_dir:int=4, box_size:int=64, idx:int=0):
+    def __init__(self, path:str, skip_per_dir:int=4, box_size:int=64, idx:int=0, case:str="train"):
         DatasetBasis.__init__(self, path, box_size)
         
         run_id = get_run_ids_from_prep(self.path / "Inputs")[idx]
@@ -18,9 +18,12 @@ class SimulationDatasetCuts(DatasetBasis):
         self.box_size = np.array([box_size,box_size]) #512,512]) #[128,64] #[64, 32])
         self.box_out = np.array([0,0]).astype(int) #((self.box_size - np.array([244,244]))/2).astype(int)
         self.skip_per_dir = skip_per_dir
+        self.case = case
 
     def __len__(self):
-        return (self.spatial_size[0] - self.box_size[0]) * (self.spatial_size[1] - self.box_size[1]) // self.skip_per_dir**2
+        # return (self.spatial_size[0] - self.box_size[0]) * (self.spatial_size[1] - self.box_size[1]) // self.skip_per_dir**2
+    
+        return int((self.spatial_size[0] - self.box_size[0]) * (self.spatial_size[1] - self.box_size[1]) // self.skip_per_dir**2 / 2) # TODO only for split
 
     def __getitem__(self, idx):
         pos = self.idx_to_pos(idx)
@@ -31,5 +34,9 @@ class SimulationDatasetCuts(DatasetBasis):
         return inputs, labels
 
     def idx_to_pos(self, idx):
-        # assert idx < (self.spatial_size[0] - self.box_size[0]) * (self.spatial_size[1] - self.box_size[1]) // self.skip_per_dir**2, "id out of range" # should later not be required because of __len__ TODO too expensive if in every call?
-        return np.array([((idx*self.skip_per_dir) // ((self.spatial_size[1] - self.box_size[1])))*self.skip_per_dir, (idx*self.skip_per_dir) % ((self.spatial_size[1] - self.box_size[1]))])
+        # # assert idx < (self.spatial_size[0] - self.box_size[0]) * (self.spatial_size[1] - self.box_size[1]) // self.skip_per_dir**2, "id out of range" # should later not be required because of __len__ TODO too expensive if in every call?
+        # return np.array([((idx*self.skip_per_dir) // ((self.spatial_size[1] - self.box_size[1])))*self.skip_per_dir, (idx*self.skip_per_dir) % ((self.spatial_size[1] - self.box_size[1]))])
+    
+        # TODO for split
+        factor = 1 if self.case == "val" else 0
+        return np.array([int(((idx*self.skip_per_dir) // ((self.spatial_size[1] - self.box_size[1])))*self.skip_per_dir ), ((idx+factor*self.__len__())*self.skip_per_dir) % ((self.spatial_size[1] - self.box_size[1]))])

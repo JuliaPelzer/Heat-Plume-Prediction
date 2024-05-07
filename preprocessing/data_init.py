@@ -19,7 +19,12 @@ def init_data(args:dict, seed=1):
             dataset_train, dataset_val = None, None
         else:
             dataset_train = SimulationDatasetCuts(args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], idx=0)
-            dataset_val = DataPoint(args["data_prep"], idx=1) #SimulationDatasetCuts(args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], idx=1)
+            dataset_val = DataPoint(args["data_prep"], idx=1)
+            # dataset_val = SimulationDatasetCuts(args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], idx=1)
+
+            dataset_train = SimulationDatasetCuts(args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], idx=0, case="train")
+            dataset_val = SimulationDatasetCuts(args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], idx=0, case="val") 
+
         dataset_test = DataPoint(args["data_prep"], idx=2)
         #Dataset1stBox(args["data_prep"]) # TODO only take idx=2
 
@@ -49,12 +54,17 @@ def init_data(args:dict, seed=1):
             print(f"Length of dataset: {len(dataset_train)}:{len(dataset_val)}:{len(dataset_test)}")
         return dataset_test.input_channels, dataloaders
 
-def load_all_datasets_as_datapoints(args: dict):
+def load_all_datasets_in_full(args: dict):
     dataloaders = {}
     for idx, case in zip([0, 1, 2], ["train", "val", "test"]):
-        try:
-            dataset = DataPoint(args["data_prep"], idx=idx)
-            dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
+        if args["problem"] == "allin1":
+            try:
+                dataset = DataPoint(args["data_prep"], idx=idx)
+                dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
+                dataloaders[case] = dataloader
+            except: pass
+        else:
+            dataset = Dataset1stBox(args["data_prep"])
+            dataloader = DataLoader(dataset, batch_size=50, shuffle=False, num_workers=0)
             dataloaders[case] = dataloader
-        except: pass
     return dataloaders    
