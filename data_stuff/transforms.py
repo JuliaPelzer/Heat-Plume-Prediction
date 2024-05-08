@@ -212,10 +212,48 @@ class CutLengthTransform:
         logging.info("Start CutLengthTransform")
 
         for prop in data.keys():
-            data[prop] = data[prop][:self.length]
+            print(f"Length {self.length}")
+            print(f"Before cut-off-length dim of data[prop]: {data[prop].shape}")
+            data[prop] = data[prop][:, :self.length, :]
+            print(f"In Cut-off-length dim of data[prop]: {data[prop].shape}")
 
-        logging.info("End CutLengthTransform, to length 256")
+        logging.info("End CutLengthTransform, to length {length}")
         return data
+    
+class CutOffStartTransform:
+    """
+    Transform class to cut off the start of all data to a certain length
+    """
+    def __init__(self, length):
+        self.length = length
+
+    def __call__(self, data):
+        logging.info("Start CutOffStartTransform")
+
+        for prop in data.keys():
+            data[prop] = data[prop][:, self.length:, :]
+
+        logging.info("End CutOffStartTransform, to length {length}")
+        return data
+
+class CutInputTransform:
+    '''
+    Transform class to cut the input
+    '''
+    def __init__(self, length):
+        self.length = length
+
+    def __call__(self, data):
+
+        for prop in data.keys():
+            if prop in {"Permeability X [m^2]", "Pressure Gradient [-]", "SDF", "Material ID"}:
+                data[prop] = data[prop][:, self.length:, :]
+            if prop in {"Temperature [C]"}:
+                data[prop] = data[prop][:, :self.length, :]
+            
+        logging.info("End CutOffStartTransform, to length {length}")
+        return data
+
 
 class ReduceTo2DTransform:
     """

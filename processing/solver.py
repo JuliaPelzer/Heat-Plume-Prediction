@@ -40,6 +40,7 @@ class Solver(object):
         manual_seed(0)
         log_val_epoch = True
         if log_val_epoch:
+            print(f"settings.destination: {settings.destination}")
             file = open(settings.destination / "log_loss_per_epoch.csv", 'w', newline='')
             csv_writer = csv.writer(file)
             csv_writer.writerow(["epoch", "val loss", "train loss"])
@@ -127,23 +128,28 @@ class Solver(object):
 
     def run_epoch(self, dataloader: DataLoader, device: str):
         epoch_loss = 0.0
-        for x, y in dataloader:
-            x = x.to(device)
-            y = y.to(device)
+        for inputs, labels in dataloader:
+            inputs = inputs.to(device)
+            labels = labels.to(device)
 
+            # Zero the gradients for every batch
             if self.model.training:
                 self.opt.zero_grad()
 
-            y_pred = self.model(x)
+            # Make prediction for this batch
+            labels_pred = self.model(inputs)
 
+            # Compute the loss
             loss = None
-            loss = self.loss_func(y_pred, y)
+            loss = self.loss_func(labels_pred, labels)
 
+            # Compute the gradients and adjust learning weights
             if self.model.training:
                 loss.backward()
                 self.opt.step()
 
             epoch_loss += loss.detach().item()
+            
         epoch_loss /= len(dataloader)
         return epoch_loss
 

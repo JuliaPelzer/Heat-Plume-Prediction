@@ -10,16 +10,18 @@ import torch
 import yaml
 from typing import Union
 from tqdm.auto import tqdm
+import matplotlib.pyplot as plt
 
 from data_stuff.transforms import (ComposeTransform, NormalizeTransform,
                              PowerOfTwoTransform, ReduceTo2DTransform, CutLengthTransform,
-                             SignedDistanceTransform, PositionalEncodingTransform, ToTensorTransform)
+                             SignedDistanceTransform, PositionalEncodingTransform, ToTensorTransform, CutOffStartTransform, CutInputTransform)
 from data_stuff.utils import SettingsTraining
 from preprocessing.prepare_paths import Paths1HP, Paths2HP
 
 def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, info_file: str = "info.yaml"):
     time_begin = time.perf_counter()
     info_file_path = settings.model / info_file
+    #Info file path: /home/hofmanja/test_nn/runs/extend_plumes2/default/info.yaml
 
     if settings.problem == "extend1":
         cutlengthtrafo=True
@@ -34,6 +36,7 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
         info = None
             
     # TODO unsauber, TODO cutlengthtrafo zu länge die in info.yaml gespeichert ist
+    #settings.inputs += 't'
     prepare_dataset(paths, settings.inputs, power2trafo=False, cutlengthtrafo=cutlengthtrafo, box_length=settings.len_box,info=info)
     
     if settings.case == "train" and not settings.case_2hp:
@@ -65,6 +68,7 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
             String of characters, each of which is either x, y, z, p, t, k, i, s, g.
             TODO make g (pressure gradient cell-size independent?)
     """
+    print("Preparing data...")
     time_start = time.perf_counter()
     check_for_dataset(paths.raw_path)
     dataset_prepared_path = pathlib.Path(paths.dataset_1st_prep_path)
@@ -73,6 +77,7 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
     dataset_prepared_path.joinpath("Labels").mkdir(parents=True, exist_ok=True)
 
     transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo, cutlengthtrafo=cutlengthtrafo, box_length=box_length)
+    print("inputs: " + inputs)
     inputs = expand_property_names(inputs)
     time_first = "   0 Time  0.00000E+00 y"
     time_final = "   3 Time  5.00000E+00 y"
@@ -81,6 +86,8 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
     dims = np.array(pflotran_settings["grid"]["ncells"])
     total_size = np.array(pflotran_settings["grid"]["size"])
     cell_size = total_size/dims
+    input_transforms = get_input_transforms()
+    label_transforms = get_label_transforms()
 
     if info is None: calc = WelfordStatistics()
     tensor_transform = ToTensorTransform()
@@ -88,15 +95,23 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
     data_paths, runs = detect_datapoints(paths.raw_path)
     total = len(data_paths)
     for data_path, run in tqdm(zip(data_paths, runs), desc="Converting", total=total):
-        x = load_data(data_path, time_first, inputs, dims)
+        x = load_data(data_path, time_first, inputs[:-1], dims)
+        x.update(load_data(data_path, time_steady_state, [inputs[-1]], dims))
         y = load_data(data_path, time_steady_state, output_variables, dims)
         loc_hp = get_hp_location(x)
-        x = transforms(x, loc_hp=loc_hp)
+        x = input_transforms(x)
+        y = label_transforms(y)
+
+        if run == "RUN_0":
+            output = 'Temperature [C]'
+            plot_inputs_and_outputs(x, y, inputs, output)
+    
         if info is None: calc.add_data(x) 
         x = tensor_transform(x)
-        y = transforms(y, loc_hp=loc_hp)
+        #y = transforms(y, loc_hp=loc_hp)
         if info is None: calc.add_data(y)
         y = tensor_transform(y)
+        
         torch.save(x, os.path.join(dataset_prepared_path, "Inputs", f"{run}.pt"))
         torch.save(y, os.path.join(dataset_prepared_path, "Labels", f"{run}.pt"))
         
@@ -127,6 +142,7 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
         
     info["CellsSize"] = cell_size.tolist()
     # change of size possible; order of tensor is in any case the other way around
+
     assert 1 in y.shape, "y is not expected to have several output parameters"
     assert len(y.shape) == 3, "y is expected to be 2D"
     dims = list(y.shape)[1:]
@@ -149,6 +165,30 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
     return info
 
 ## helper functions
+def plot_inputs_and_outputs(x,y:dict, inputs, output):
+
+    fig, axes = plt.subplots(6, 1, figsize=(8, 10))
+    mins = {}
+    max = {}
+    
+    #plot inputs
+    for i, key in enumerate(inputs):
+        a = x[key]
+        mins[key] = a.min()
+        max[key] = a.max()
+        axes[i].imshow(a, cmap='hot', interpolation='nearest', vmin=mins[key], vmax=max[key])
+        if key != "Temperature [C]":
+            axes[i].set_xticks(np.arange(0,513,100), [513,613,713,813, 913, 1013])
+        axes[i].set_title(f"Input: {key}")
+
+    #plot output
+    axes[5].imshow(y[output], cmap='hot', interpolation='nearest', vmin=mins[output], vmax=max[output])
+    axes[5].set_xticks(np.arange(0,513,100), [513,613,713,813, 913, 1013])
+    axes[5].set_title(f"Output: {output}")
+
+    #save fig
+    fig.savefig(f"/home/hofmanja/test_nn/Inputs and outputs.png")
+
 def check_for_dataset(path: pathlib.Path) -> str:
     """
     Check if the dataset exists and is not empty.
@@ -363,9 +403,9 @@ class WelfordStatistics:
 def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool = True, cutlengthtrafo: bool = False, box_length:int=256):
     transforms_list = []
 
-    if reduce_to_2D:
-        transforms_list.append(ReduceTo2DTransform(
-            reduce_to_2D_xy=reduce_to_2D_xy))
+    #if reduce_to_2D:
+        #transforms_list.append(ReduceTo2DTransform(
+            #reduce_to_2D_xy=reduce_to_2D_xy))
     if power2trafo:
         transforms_list.append(PowerOfTwoTransform())
     if cutlengthtrafo:
@@ -375,6 +415,25 @@ def get_transforms(reduce_to_2D: bool, reduce_to_2D_xy: bool, power2trafo: bool 
 
     transforms = ComposeTransform(transforms_list)
     return transforms
+
+def get_input_transforms(length:int=512):
+    transforms_list = []
+
+    transforms_list.append(PowerOfTwoTransform())
+    transforms_list.append(CutInputTransform(length))
+    
+    transforms = ComposeTransform(transforms_list)
+    return transforms
+
+def get_label_transforms(length:int=512):
+    transforms_list = []
+
+    transforms_list.append(PowerOfTwoTransform())
+    transforms_list.append(CutOffStartTransform(length))
+    
+    transforms = ComposeTransform(transforms_list)
+    return transforms
+
 
 def normalize(dataset_path: str, info: dict, total: int = None):
     """

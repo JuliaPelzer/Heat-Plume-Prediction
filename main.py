@@ -8,23 +8,31 @@ import yaml
 from torch.utils.data import DataLoader, random_split
 from torch.nn import MSELoss
 
-from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits
+from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, DatasetExtendConvLSTM, get_splits
 from data_stuff.utils import SettingsTraining
 from networks.unet import UNet, UNetBC
 from networks.unetHalfPad import UNetHalfPad
+from networks.lstm import MyLSTM
 from processing.solver import Solver
 from preprocessing.prepare import prepare_data_and_paths
 from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
 from postprocessing.measurements import measure_loss, save_all_measurements
 
+from networks.convLSTM.seq2Seq import Seq2Seq
+
+
 def init_data(settings: SettingsTraining, seed=1):
     if settings.problem == "2stages":
-        dataset = SimulationDataset(settings.dataset_prep)
+        dataset = SimulationDataset(settings.dataset_prep) # settings.dataset_prep = /import/sgs.scratch/hofmanja/datasets_prepared/extend_plumes/dataset_medium...cd
     elif settings.problem == "extend1":
         dataset = DatasetExtend1(settings.dataset_prep, box_size=settings.len_box)
     elif settings.problem == "extend2":
-        dataset = DatasetExtend2(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
-        settings.inputs += "T"
+        if settings.net == "ConvLSTM":
+            dataset = DatasetExtendConvLSTM(settings.dataset_prep,box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
+        else:
+            dataset = DatasetExtend2(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
+        
+        
     print(f"Length of dataset: {len(dataset)}")
     generator = torch.Generator().manual_seed(seed)
 
@@ -51,11 +59,16 @@ def run(settings: SettingsTraining):
     times["timestamp_begin"] = time.ctime()
 
     input_channels, dataloaders = init_data(settings)
+    print(f'input channels: {input_channels}')
     # model
     if settings.problem == "2stages":
         model = UNet(in_channels=input_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
-        model = UNetHalfPad(in_channels=input_channels).float()
+        if settings.net == "LSTM":
+            model = Seq2Seq()
+            print(model)
+        else:
+            model = UNetHalfPad(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)
@@ -136,14 +149,15 @@ if __name__ == "__main__":
     parser.add_argument("--case", type=str, choices=["train", "test", "finetune"], default="train")
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
     parser.add_argument("--destination", type=str, default="")
-    parser.add_argument("--inputs", type=str, default="gksi") #choices=["gki", "gksi", "pksi", "gks", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100", "t", "gkiab", "gksiab", "gkt"]
+    parser.add_argument("--inputs", type=str, default="gksit") #choices=["gki", "gkist" "gksi", "pksi", "gks", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100", "t", "gkiab", "gksiab", "gkt"]
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
-    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2",], default="extend1")
+    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2",], default="extend2")
     parser.add_argument("--notes", type=str, default="")
-    parser.add_argument("--len_box", type=int, default=256)
-    parser.add_argument("--skip_per_dir", type=int, default=256)
+    parser.add_argument("--len_box", type=int, default=16)
+    parser.add_argument("--skip_per_dir", type=int, default=2)
+    parser.add_argument("--net", type=str, choices=["CNN", "ConvLSTM"], default="CNN")
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

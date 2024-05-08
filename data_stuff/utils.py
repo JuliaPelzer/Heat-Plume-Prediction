@@ -35,6 +35,7 @@ class SettingsTraining:
     notes: str = ""
     skip_per_dir: int = 4
     len_box: int = 256
+    net: str = "CNN"
     
     def __post_init__(self):
         if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:
@@ -54,14 +55,14 @@ class SettingsTraining:
             assert self.model != "runs/default", "Please specify model path for testing or finetuning"
 
         if self.destination == "":
-            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " box"+str(self.len_box) + " skip"+str(self.skip_per_dir)
+            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " box"+str(self.len_box) + " skip"+str(self.skip_per_dir) + " "+self.net
 
     def save(self):
         save_yaml(self.__dict__, self.destination, "command_line_arguments")
         
     def make_destination_path(self, destination_dir: pathlib.Path):
         if self.destination == "":
-            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " box"+str(self.len_box) + " skip"+str(self.skip_per_dir)
+            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " box"+str(self.len_box) + " skip"+str(self.skip_per_dir) + " "+self.net
         self.destination = destination_dir / self.destination
         self.destination.mkdir(exist_ok=True)
 
