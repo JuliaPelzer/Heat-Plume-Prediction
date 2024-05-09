@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch
-from convLSTM import ConvLSTM
+from networks.convLSTM import ConvLSTM
 
 class Seq2Seq(nn.Module):
 

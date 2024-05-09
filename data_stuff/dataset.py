@@ -117,7 +117,7 @@ class DatasetExtend2(Dataset):
 
     @property
     def input_channels(self):
-        return len(self.info["Inputs"])
+        return len(self.info["Inputs"])+1
 
     @property
     def output_channels(self):

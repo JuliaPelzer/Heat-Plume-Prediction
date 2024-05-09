@@ -18,7 +18,7 @@ from preprocessing.prepare import prepare_data_and_paths
 from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
 from postprocessing.measurements import measure_loss, save_all_measurements
 
-from networks.convLSTM.seq2Seq import Seq2Seq
+from networks.seq2Seq import Seq2Seq
 
 
 def init_data(settings: SettingsTraining, seed=1):
@@ -139,6 +139,7 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
     print(f"Inference finished, outputs saved in {data_dir / 'Outputs'}")
 
 if __name__ == "__main__":
+    print("starting")
     logging.basicConfig(level=logging.WARNING)
         
     parser = argparse.ArgumentParser()
