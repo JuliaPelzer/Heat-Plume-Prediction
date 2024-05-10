@@ -34,7 +34,7 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
         info = None
             
     # TODO unsauber, TODO cutlengthtrafo zu länge die in info.yaml gespeichert ist
-    prepare_dataset(paths, settings.inputs, power2trafo=False, cutlengthtrafo=cutlengthtrafo, box_length=settings.len_box,info=info)
+    prepare_dataset(paths, settings.inputs, power2trafo=True, cutlengthtrafo=cutlengthtrafo, box_length=settings.len_box,info=info)
     
     if settings.case == "train" and not settings.case_2hp:
         # store info of training
