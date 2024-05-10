@@ -21,9 +21,10 @@ class SimulationDatasetCuts(DatasetBasis):
         self.case = case
 
     def __len__(self):
-        # return (self.spatial_size[0] - self.box_size[0]) * (self.spatial_size[1] - self.box_size[1]) // self.skip_per_dir**2
+        return (self.spatial_size[0] - self.box_size[0]) * (self.spatial_size[1] - self.box_size[1]) // self.skip_per_dir**2
     
-        return int((self.spatial_size[0] - self.box_size[0]) * (self.spatial_size[1] - self.box_size[1]) // self.skip_per_dir**2 / 2) # TODO only for split
+        # TODO only for split
+        return int((self.spatial_size[0] - self.box_size[0]) * (self.spatial_size[1] - self.box_size[1]) // self.skip_per_dir**2 / 2) 
 
     def __getitem__(self, idx):
         pos = self.idx_to_pos(idx)
@@ -34,9 +35,10 @@ class SimulationDatasetCuts(DatasetBasis):
         return inputs, labels
 
     def idx_to_pos(self, idx):
-        # # assert idx < (self.spatial_size[0] - self.box_size[0]) * (self.spatial_size[1] - self.box_size[1]) // self.skip_per_dir**2, "id out of range" # should later not be required because of __len__ TODO too expensive if in every call?
-        # return np.array([((idx*self.skip_per_dir) // ((self.spatial_size[1] - self.box_size[1])))*self.skip_per_dir, (idx*self.skip_per_dir) % ((self.spatial_size[1] - self.box_size[1]))])
+        return np.array([((idx*self.skip_per_dir) // ((self.spatial_size[1] - self.box_size[1])))*self.skip_per_dir, (idx*self.skip_per_dir) % ((self.spatial_size[1] - self.box_size[1]))])
     
         # TODO for split
         factor = 1 if self.case == "val" else 0
-        return np.array([int(((idx*self.skip_per_dir) // ((self.spatial_size[1] - self.box_size[1])))*self.skip_per_dir ), ((idx+factor*self.__len__())*self.skip_per_dir) % ((self.spatial_size[1] - self.box_size[1]))])
+        idx_mod = int(((idx*self.skip_per_dir) // ((self.spatial_size[1] - self.box_size[1])))*self.skip_per_dir + factor*(self.spatial_size[0]-self.box_size[0])/2)
+        idx_rest = (idx*self.skip_per_dir) % (self.spatial_size[1] - self.box_size[1])
+        return np.array([idx_mod, idx_rest])

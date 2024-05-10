@@ -36,8 +36,8 @@ def prepare_dataset(args:dict, info:dict = None, additional_inputs: torch.Tensor
     transforms = get_transforms(problem=args["problem"])
     inputs = expand_property_names(args["inputs"])
     time_init = "   0 Time  0.00000E+00 y"
-    # time_prediction = "   3 Time  5.00000E+00 y"
-    time_prediction = "   4 Time  2.75000E+01 y"
+    time_prediction = "   3 Time  5.00000E+00 y"
+    # time_prediction = "   4 Time  2.75000E+01 y"
     pflotran_settings = load_yaml(args["data_raw"] / "inputs" / "settings.yaml")
     dims = np.array(pflotran_settings["grid"]["ncells"])
     total_size = np.array(pflotran_settings["grid"]["size"])
@@ -46,6 +46,7 @@ def prepare_dataset(args:dict, info:dict = None, additional_inputs: torch.Tensor
     if info is None: calc = WelfordStatistics()
     tensor_transform = ToTensorTransform()
     output_variables = ["Temperature [C]"]
+    # output_variables = ["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]"]
     data_paths, runs = load.detect_datapoints(args["data_raw"])
     total = len(data_paths)
     if additional_inputs is None:
@@ -92,7 +93,7 @@ def prepare_dataset(args:dict, info:dict = None, additional_inputs: torch.Tensor
         
     info["CellsSize"] = cell_size.tolist()
     # change of size possible; order of tensor is in any case the other way around
-    assert 1 in y.shape, "y is not expected to have several output parameters"
+    # assert 1 in y.shape, "y is not expected to have several output parameters"
     assert len(y.shape) == 3, "y is expected to be 2D"
     dims = list(y.shape)[1:]
     info["CellsNumber"] = dims

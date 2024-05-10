@@ -7,13 +7,15 @@ from tqdm.auto import tqdm
 import yaml
 import numpy as np
 from torch import long as torch_long
-from torch import max, ones, stack, tensor, where, cat, load, FloatTensor
+from torch import max, maximum, ones, zeros, stack, tensor, where, cat, load, FloatTensor
 
 sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN")  # relevant for remote
 sys.path.append("/home/pelzerja/Development/1HP_NN")  # relevant for local
 from preprocessing.domain_classes.heat_pump import HeatPumpBox
 from preprocessing.domain_classes.stitching import Stitching
+from preprocessing.transforms import SignedDistanceTransform
 import utils.utils_args as ua
+
 
 
 class Domain:
@@ -102,6 +104,9 @@ class Domain:
         pos_hps = stack(list(where(material_ids == max(material_ids))), dim=0).T
         names_inputs = [self.get_name_from_index(i) for i in range(self.inputs.shape[0])]
 
+        dummy_mat_id_field = zeros(size_hp_box.tolist())
+        dummy_mat_id_field[distance_hp_corner[0], distance_hp_corner[1]] = 1
+        
         for idx in tqdm(range(len(pos_hps)), desc="Extracting HP-Boxes"):
             try:
                 pos_hp = pos_hps[idx]
@@ -110,12 +115,10 @@ class Domain:
                 tmp_input = self.inputs[:, corner_ll[0] : corner_ll[0] + size_hp_box[0], corner_ll[1] : corner_ll[1] + size_hp_box[1]].detach().clone()
                 tmp_label = self.label[:, corner_ll[0] : corner_ll[0] + size_hp_box[0], corner_ll[1] : corner_ll[1] + size_hp_box[1]].detach().clone()
 
-                tmp_mat_ids = stack(list(where(tmp_input == max(material_ids))), dim=0).T
-                if len(tmp_mat_ids) > 1:
-                    for i in range(len(tmp_mat_ids)):
-                        tmp_pos = tmp_mat_ids[i]
-                        if (tmp_pos[1:2] != distance_hp_corner).all():
-                            tmp_input[tmp_pos[0], tmp_pos[1], tmp_pos[2]] = 0
+                # if "i" in inputs: make sure to cut out none-primary hps
+                if "Material ID" in self.info["Inputs"]:
+                    idx_i = self.get_index_from_name("Material ID")
+                    tmp_input[idx_i] = dummy_mat_id_field # Attention: no deepcopy
 
                 tmp_hp = HeatPumpBox(id=idx, pos=pos_hp, orientation=0, inputs=tmp_input, names=names_inputs, dist_corner_hp=distance_hp_corner, label=tmp_label, device=device,)
                 if "SDF" in self.info["Inputs"]:
@@ -126,7 +129,6 @@ class Domain:
                 logging.info(f"HP BOX at {pos_hp} is in domain, starting in corner {corner_ll}")
             except:
                 logging.warning(f"BOX of HP {idx} at {pos_hp} is not in domain")
-            break
 
         return hp_boxes, FloatTensor(np.array(hp_inputs))
 
@@ -172,7 +174,67 @@ class Domain:
         x = (fixpoint[0] + int(position[0] * cos(orientation)) + int(position[1] * sin(orientation)))
         y = (fixpoint[1] + int(position[0] * sin(orientation)) + int(position[1] * cos(orientation)))
 
-        return x, y
+        return int(x), int(y) # Attention: int() for indexing
+class DomainBatch(Domain):
+    def __init__(self, info_path: str, stitching_method: str = "max", file_name: str = "RUN_0.pt", device="cpu"):
+        super().__init__(info_path, stitching_method, file_name, device)
+        assert stitching_method == "max", "Only 'max' stitching implemented for Domain2"
+
+    def extract_hp_boxes(self, device:str) -> list:
+        # TODO decide: get hp_boxes based on grad_p or based on v or get squared boxes around hp
+        material_ids = self.get_input_field_from_name("Material ID")
+        size_hp_box = tensor([self.info["CellsNumberPrior"][0],self.info["CellsNumberPrior"][1],])
+        distance_hp_corner = tensor([self.info["PositionHPPrior"][1], self.info["PositionHPPrior"][0]])
+        hp_inputs = []
+        hp_labels = []
+        hp_poss = []
+
+        dummy_mat_id_field = calc_mat_id_field(size_hp_box, distance_hp_corner)
+        dummy_sdf = calc_sdf(dummy_mat_id_field, dist_corner_hp=distance_hp_corner)
+        
+        tqdm_pos_hps = stack(list(where(material_ids == max(material_ids))), dim=0).T
+        for idx in tqdm(range(len(tqdm_pos_hps)), desc="Extracting HP-Boxes"):
+            try:
+                pos_hp = tqdm_pos_hps[idx]
+                corner_ll = get_box_corners(tqdm_pos_hps[idx], distance_hp_corner)
+                check_box_corners(corner_ll, size_hp_box, self.inputs.shape[1:], tqdm_pos_hps[idx], run_name=self.file_name)
+                tmp_input = self.inputs[:, corner_ll[0] : corner_ll[0] + size_hp_box[0], corner_ll[1] : corner_ll[1] + size_hp_box[1]].detach().clone()
+                tmp_label = self.label[:, corner_ll[0] : corner_ll[0] + size_hp_box[0], corner_ll[1] : corner_ll[1] + size_hp_box[1]].detach().clone()
+
+                # if "i" in inputs: make sure to cut out none-primary hps
+                if "Material ID" in self.info["Inputs"]:
+                    idx_i = self.get_index_from_name("Material ID")
+                    tmp_input[idx_i] = dummy_mat_id_field # Attention: no deepcopy
+                if "SDF" in self.info["Inputs"]:
+                    idx_s = self.get_index_from_name("SDF")
+                    tmp_input[idx_s] = dummy_sdf # Attention: no deepcopy
+
+                hp_inputs.append(np.array(tmp_input))
+                hp_labels.append(np.array(tmp_label))
+                hp_poss.append(np.array(pos_hp))
+                logging.info(f"HP BOX at {tqdm_pos_hps[idx]} is in domain, starting in corner {corner_ll}")
+            except:
+                logging.warning(f"BOX of HP {idx} at {tqdm_pos_hps[idx]} is not in domain")
+
+        return {"pos": FloatTensor(np.array(hp_poss)).to(device), "inputs": FloatTensor(np.array(hp_inputs)).to(device), "labels": FloatTensor(np.array(hp_labels)).to(device)}, distance_hp_corner.to(device)
+
+    def add_predictions(self, hps:dict, distance_hp_corner:tensor):
+        predictions = self.reverse_norm(hps["predictions"], property="Temperature [C]") # for adding to domain
+
+        for pos, prediction_field in tqdm(zip(hps["pos"],predictions), desc="Adding box-predictions (+ep) to domain"):
+            x_min, y_min = self.coord_trafo(pos, (0 - distance_hp_corner[0], 0 - distance_hp_corner[1]), orientation=0)
+            x_max, y_max = self.coord_trafo(pos, (prediction_field.shape[-2] - distance_hp_corner[0], prediction_field.shape[-1] - distance_hp_corner[1]), orientation=0)
+            
+            if (0 <= x_min < self.prediction.shape[-2] and 0 <= y_min < self.prediction.shape[-1] and 0 <= x_max < self.prediction.shape[-2] and 0 <= y_max < self.prediction.shape[-1]):
+                self.prediction[x_min:x_max, y_min:y_max] = maximum(self.prediction[x_min:x_max, y_min:y_max], prediction_field)
+
+def calc_mat_id_field(size_hp_box, distance_hp_corner):
+    dummy_mat_id_field = zeros(size_hp_box.tolist())
+    dummy_mat_id_field[distance_hp_corner[0], distance_hp_corner[1]] = 1
+    return dummy_mat_id_field
+
+def calc_sdf(input_mat_id, dist_corner_hp):
+    return SignedDistanceTransform().sdf(input_mat_id.detach().clone(), dist_corner_hp)
 
 def get_box_corners(pos_hp, distance_hp_corner) -> tensor:
     corner_ll = (pos_hp - distance_hp_corner) # corner lower left

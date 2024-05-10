@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from torch import manual_seed, Tensor, log
 from torch.nn import Module, modules, MSELoss, L1Loss, KLDivLoss, HuberLoss, SmoothL1Loss
-from torch.optim import Adam, Optimizer
+from torch.optim import Adam, Optimizer, lr_scheduler
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
@@ -29,7 +29,7 @@ class Solver(object):
     train_dataloader: DataLoader
     val_dataloader: DataLoader
     loss_func: modules.loss._Loss = MSELoss()
-    learning_rate: float = 1e-5
+    learning_rate: float = 1e-3
     opt: Optimizer = Adam
     finetune: bool = False
     best_model_params: dict = None
@@ -39,7 +39,8 @@ class Solver(object):
         self.opt = self.opt(self.model.parameters(),
                             self.learning_rate, weight_decay=1e-4)
         # contains the epoch and learning rate, when lr changes
-        self.lr_schedule = {0: self.opt.param_groups[0]["lr"]}
+        # self.lr_schedule = {0: self.opt.param_groups[0]["lr"]}
+        self.lr_scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, patience=10, cooldown=10, factor=0.5)
 
         if not self.finetune:
             self.model.apply(weights_init)
@@ -57,9 +58,9 @@ class Solver(object):
         epochs = tqdm(range(args["epochs"]), desc="epochs", disable=False)
         for epoch in epochs:
             try:
-                # Set lr according to schedule
-                if epoch in self.lr_schedule.keys():
-                    self.opt.param_groups[0]["lr"] = self.lr_schedule[epoch]
+                # # Set lr according to schedule
+                # if epoch in self.lr_schedule.keys():
+                #     self.opt.param_groups[0]["lr"] = self.lr_schedule[epoch]
 
                 # Training
                 self.model.train()
@@ -98,6 +99,8 @@ class Solver(object):
                     if True:
                         self.model.save(args["destination"], model_name=f"best_model_e{epoch}.pt")
 
+                self.lr_scheduler.step(val_epoch_loss)
+
             except KeyboardInterrupt:
                 # model_tmp = UNetHalfPad2(in_channels=len(settings.inputs), out_channels=1) # UNet
                 # model_tmp.load_state_dict(self.best_model_params["state_dict"])
@@ -129,7 +132,6 @@ class Solver(object):
                 self.opt.zero_grad()
 
             y_pred = self.model(x)
-
             required_size = y_pred.shape[2:]
             start_pos = ((y.shape[2] - required_size[0])//2, (y.shape[3] - required_size[1])//2)
             y_reduced = y[:, :, start_pos[0]:start_pos[0]+required_size[0], start_pos[1]:start_pos[1]+required_size[1]]

@@ -16,17 +16,17 @@ def init_data(args:dict, seed=1):
         args["inputs"] += "T"
     elif args["problem"] == "allin1":
         if args["case"] == "test":
-            dataset_train, dataset_val = None, None
+            dataset_train = DataPoint(args["data_prep"], idx=0)
+            dataset_val = DataPoint(args["data_prep"], idx=1)
         else:
             dataset_train = SimulationDatasetCuts(args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], idx=0)
             dataset_val = DataPoint(args["data_prep"], idx=1)
             # dataset_val = SimulationDatasetCuts(args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], idx=1)
 
-            dataset_train = SimulationDatasetCuts(args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], idx=0, case="train")
-            dataset_val = SimulationDatasetCuts(args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], idx=0, case="val") 
+            # dataset_train = SimulationDatasetCuts(args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], idx=0, case="train")
+            # dataset_val = SimulationDatasetCuts(args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], idx=0, case="val") 
 
         dataset_test = DataPoint(args["data_prep"], idx=2)
-        #Dataset1stBox(args["data_prep"]) # TODO only take idx=2
 
     split_ratios = [0.7, 0.2, 0.1]
     generator = torch.Generator().manual_seed(seed)

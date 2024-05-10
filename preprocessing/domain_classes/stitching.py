@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from torch import maximum
+from torch import maximum, tensor
 
 
 @dataclass
@@ -16,4 +16,3 @@ class Stitching:
                 return additional_value
             else:
                 return current_value + additional_value - self.background_temperature
-

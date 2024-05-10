@@ -27,36 +27,33 @@ def train(args: dict):
         model = UNetHalfPad2(in_channels=input_channels).float()
         # model = Encoder(in_channels=input_channels).float()
     elif args["problem"] in ["allin1"]:
-        model = UNet(in_channels=input_channels).float()
+        model = UNet(in_channels=input_channels, out_channels=1).float()
         # model = UNetNoPad2(in_channels=input_channels).float()
     model.to(args["device"])
 
     if args["case"] in ["test", "finetune"]:
         model.load(args["model"], args["device"])
 
-    solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=L1Loss(), finetune=(args["case"] == "finetune"))
     if args["case"] in ["train", "finetune"]:
+        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=L1Loss(), finetune=(args["case"] == "finetune"))
         try:
-            solver.load_lr_schedule(args["destination"] / "learning_rate_history.csv")
+            # solver.load_lr_schedule(args["destination"] / "learning_rate_history.csv")
             solver.train(args)
         except KeyboardInterrupt:
             logging.warning(f"Manually stopping training early with best model found in epoch {solver.best_model_params['epoch']}.")
         finally:
-            solver.save_lr_schedule(args["destination"] / "learning_rate_history.csv")
+            # solver.save_lr_schedule(args["destination"] / "learning_rate_history.csv")
             print("Training finished")
 
-    # save model and train metrics
-    if args["case"] in ["train", "finetune"]:
+        # save model and train metrics
         model.save(args["destination"])
         solver.save_metrics(args["destination"], args["device"])
 
     # postprocessing
     # save_all_measurements(args, len(dataloaders["val"].dataset), times={}, solver=solver) #, errors)
-
+    
     dataloaders = load_all_datasets_in_full(args)
     for case in ["train", "val", "test"]:
-        # try:
         visualizations(model, dataloaders[case], args, plot_path=args["destination"] / case, amount_datapoints_to_visu=1, pic_format="png")
-        # except: pass
 
     return model

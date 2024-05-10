@@ -1,9 +1,18 @@
 import argparse
 import os
+from pathlib import Path
 
 import utils.utils_args as ut
 import preprocessing.preprocessing as prep
 from processing.training import train
+
+def read_cla(model_path:str):
+    clas = ut.load_yaml(model_path / "command_line_arguments.yaml")
+    for path_typed_cla in ["data_prep", "data_raw", "destination", "model"]:
+        if clas[path_typed_cla] is not None:
+            clas[path_typed_cla] = Path(clas[path_typed_cla])
+
+    return clas
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -27,14 +36,23 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = args["device"] if not args["device"]=="cpu" else "" #e.g. "1"
     args["device"] = f"cuda:{args['device']}" if not args["device"]=="cpu" else "cpu"
 
-    ut.assertions_args(args)
-    ut.make_paths(args) # and check if data / model exists
+
+    cheat = True # read in cla.yaml as settings-file for training
+    if cheat:
+        args["destination"] = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/allin1") / args["destination"]
+        current_destination = args["destination"]
+        args = read_cla(args["destination"])
+        args["destination"] = current_destination # just to make sure that nothing is overwritten
+
+    else: # the normal way
+        ut.assertions_args(args)
+        ut.make_paths(args) # and check if data / model exists
+
     ut.save_notes(args)
     ut.save_yaml(args, args["destination"] / "command_line_arguments.yaml")
 
     # prepare data
     prep.preprocessing(args) # and save info.yaml in model folder
-
     model = train(args)
 
     print("Done")

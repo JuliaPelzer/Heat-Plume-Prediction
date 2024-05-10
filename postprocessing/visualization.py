@@ -2,7 +2,7 @@ import time
 from dataclasses import dataclass, field
 from math import inf
 from typing import Dict
-import argparse
+import pathlib
 
 # import matplotlib as mpl
 # mpl.use('pgf')
@@ -16,8 +16,6 @@ from processing.networks.unet import UNet
 from processing.pipelines.extend_plumes_old import infer_nopad, update_params
 from postprocessing.visu_utils import _aligned_colorbar
 from utils.utils_args import load_yaml
-
-# plt.rcParams['figure.figsize'] = [16, 5]
 
 @dataclass
 class DataToVisualize:
@@ -52,7 +50,7 @@ class DataToVisualize:
             self.name = "Permeability in [m$^2$]"
         elif self.name == "SDF":
             self.name = "SDF-transformed position in [-]"
-    
+
 def visualizations(model: UNet, dataloader: DataLoader, args: dict, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png"):
     print("Visualizing...") #, end="\r")
 
@@ -83,21 +81,16 @@ def visualizations(model: UNet, dataloader: DataLoader, args: dict, amount_datap
         for datapoint_id in range(len_batch):
             name_pic = f"{plot_path}_{current_id}"
 
-            x = inputs[datapoint_id]
-            y = labels[datapoint_id]
+            x = inputs[datapoint_id] #.to(args["device"])
+            y = labels[datapoint_id] #.to(args["device"])
 
             if args["problem"] == "extend":
                 y_out = infer_nopad(model, x, y, params, overlap=True, device=args["device"])
             else:
-                x = torch.unsqueeze(x, 0)
-                y_out = model.infer(x, args["device"])
+                y_out = model.infer(x.unsqueeze(0), args["device"])
 
-            # plt.imshow(y_out[0,0].T, cmap="RdBu_r")
-            # plt.colorbar()
-            # plt.show()
-
-            # x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
-            dict_to_plot = prepare_data_to_plot(x, y[0], y_out[0], info)
+            x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
+            dict_to_plot = prepare_data_to_plot(x, y, y_out, info, args["problem"]) # TODO vorher: y[0], y_out[0]
 
             if args["problem"]== "allin1":
                 # if settings.case=="test":
@@ -123,7 +116,7 @@ def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, no
         y_out = norm.reverse(y_out[0],"Labels")[0]
     return x, y, y_out
 
-def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, info: dict):
+def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, info: dict, problem: str):
     # prepare data of temperature true, temperature out, error, physical variables (inputs)
     temp_max = max(y.max(), y_out.max())
     temp_min = min(y.min(), y_out.min())
@@ -141,7 +134,7 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     }
     inputs = info["Inputs"].keys()
     for input in inputs:
-        if input in ["Permeability X [m^2]", "Preprocessed Temperature [C]"]:
+        if input in ["Permeability X [m^2]", "Preprocessed Temperature [C]", "Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]"]:
             index = info["Inputs"][input]["index"]
             dict_to_plot[input] = DataToVisualize(x[index], input, extent_highs)
 

@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 
 class WelfordStatistics:
@@ -49,7 +48,7 @@ class WelfordStatistics:
     def std(self):
         result = dict()
         for key in self.__ns:
-            result[key] = (np.sqrt(self.var()[key])).item()
+            result[key] = (torch.sqrt(self.var()[key])).item()
         return result
     
     def min(self):

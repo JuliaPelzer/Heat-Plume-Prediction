@@ -39,7 +39,7 @@ def load_dataset(
 
 
 def load_and_split(dataset_name, dir="data", split=0.95, augment=False):
-    info = load_yaml((Path(dir) / dataset_name / "info.yaml"))
+    info = load_yaml(Path(dir) / dataset_name / "info.yaml")
     pos_hp = info["PositionLastHP"][:2][::-1]
     raw_inputs, raw_outputs = load_dataset(
         dataset_name, dir=dir, inputs_map=lambda x: x[:2]
@@ -99,7 +99,7 @@ def load_and_split(dataset_name, dir="data", split=0.95, augment=False):
         outputs[3 * number :] = ops.flip(raw_outputs, axis=(-2, -3))  # flip both
 
     if split is None:
-        return {"fields": inputs, "pump_indices": positions}, outputs
+        return {"fields": inputs, "pump_indices": positions}, outputs, info
     split = 0.95
     n_split = int(split * total_size)
     inputs_train, inputs_val = inputs[:n_split], inputs[n_split:]
@@ -113,8 +113,7 @@ def load_and_split(dataset_name, dir="data", split=0.95, augment=False):
     logging.debug(f"{inputs.shape=}")
     logging.debug(f"{outputs.shape=}")
     logging.debug(f"{inputs.device=}")
-    return (
-        {"fields": inputs_train, "pump_indices": positions_train},outputs_train,), ({"fields": inputs_val, "pump_indices": positions_val}, outputs_val), info
+    return ({"fields": inputs_train, "pump_indices": positions_train},outputs_train,), ({"fields": inputs_val, "pump_indices": positions_val}, outputs_val), info
 
 
 def coordinates(
