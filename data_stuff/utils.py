@@ -35,6 +35,7 @@ class SettingsTraining:
     notes: str = ""
     skip_per_dir: int = 4
     len_box: int = 256
+    net: str = "convLSTM"
     
     def __post_init__(self):
         if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:

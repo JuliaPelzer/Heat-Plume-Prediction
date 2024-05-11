@@ -8,10 +8,11 @@ import yaml
 from torch.utils.data import DataLoader, random_split
 from torch.nn import MSELoss
 
-from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits
+from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, DatasetExtendConvLSTM, get_splits
 from data_stuff.utils import SettingsTraining
 from networks.unet import UNet, UNetBC
 from networks.unetHalfPad import UNetHalfPad
+from networks.convLSTM import Seq2Seq
 from processing.solver import Solver
 from preprocessing.prepare import prepare_data_and_paths
 from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
@@ -23,7 +24,10 @@ def init_data(settings: SettingsTraining, seed=1):
     elif settings.problem == "extend1":
         dataset = DatasetExtend1(settings.dataset_prep, box_size=settings.len_box)
     elif settings.problem == "extend2":
-        dataset = DatasetExtend2(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
+        if settings.net == "convLSTM":
+            dataset = DatasetExtendConvLSTM(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
+        else:
+            dataset = DatasetExtend2(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
         settings.inputs += "T"
     print(f"Length of dataset: {len(dataset)}")
     generator = torch.Generator().manual_seed(seed)
@@ -55,7 +59,10 @@ def run(settings: SettingsTraining):
     if settings.problem == "2stages":
         model = UNet(in_channels=input_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
-        model = UNetHalfPad(in_channels=input_channels).float()
+        if settings.net == "convLSTM":
+            model = Seq2Seq(num_channels=5, num_kernels=64, kernel_size=3, padding=1, activation='relu', frame_size=(64,64), num_layers=3)
+        else:
+            model = UNetHalfPad(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)
@@ -140,10 +147,11 @@ if __name__ == "__main__":
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
-    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2",], default="extend1")
+    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2",], default="extend2")
     parser.add_argument("--notes", type=str, default="")
-    parser.add_argument("--len_box", type=int, default=256)
-    parser.add_argument("--skip_per_dir", type=int, default=256)
+    parser.add_argument("--len_box", type=int, default=64)
+    parser.add_argument("--skip_per_dir", type=int, default=4)
+    parser.add_argument("--net", type=str, choices=["CNN", "convLSTM"], default="convLSTM")
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

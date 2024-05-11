@@ -3,6 +3,7 @@ import logging
 import pathlib
 import time
 from dataclasses import dataclass
+import matplotlib.pyplot as plt
 
 from torch.nn import Module, MSELoss, modules
 from torch.optim import Adam, Optimizer
@@ -15,6 +16,8 @@ from postprocessing.visualization import visualizations
 from data_stuff.utils import SettingsTraining
 from networks.unet import weights_init, UNet
 from networks.unetHalfPad import UNetHalfPad
+from networks.convLSTM import weights_init, Seq2Seq
+import datetime
 
 @dataclass
 class Solver(object):
@@ -46,6 +49,7 @@ class Solver(object):
             file = open(settings.destination / "log_best_loss_per_epoch.csv", 'w', newline='')
             csv_writer_best = csv.writer(file)
             csv_writer_best.writerow(["epoch", "val loss", "train loss"])
+            print(f"wrote in {settings.destination}/log_best_loss_per_epoch.csv")
 
         start_time = time.perf_counter()
         # initialize tensorboard
@@ -128,6 +132,16 @@ class Solver(object):
     def run_epoch(self, dataloader: DataLoader, device: str):
         epoch_loss = 0.0
         for x, y in dataloader:
+            # fig, ax = plt.subplots(2)
+            # ax[0].imshow(x[0][1], cmap='hot')
+            # ax[1].imshow(y[0][0], cmap='hot')
+            # plt.savefig("/home/hofmanja/test_nn/input_label_CNN.png")
+            file_path = '/home/hofmanja/test_nn/shapes.txt'  # Specify the file path
+            with open(file_path, 'w') as file:
+                # Write some text to the file
+                file.write(f'x shape: {x.shape}\n y shape: {y.shape} \n {datetime.datetime.now()}')
+                print("file written")
+
             x = x.to(device)
             y = y.to(device)
 
