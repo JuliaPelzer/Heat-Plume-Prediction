@@ -15,7 +15,7 @@ from networks.unetHalfPad import UNetHalfPad
 from networks.convLSTM import Seq2Seq
 from processing.solver import Solver
 from preprocessing.prepare import prepare_data_and_paths
-from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
+from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic, visualizations_convLSTM
 from postprocessing.measurements import measure_loss, save_all_measurements
 
 def init_data(settings: SettingsTraining, seed=1):
@@ -25,7 +25,7 @@ def init_data(settings: SettingsTraining, seed=1):
         dataset = DatasetExtend1(settings.dataset_prep, box_size=settings.len_box)
     elif settings.problem == "extend2":
         if settings.net == "convLSTM":
-            dataset = DatasetExtendConvLSTM(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
+            dataset = DatasetExtendConvLSTM(settings.dataset_prep, total_time_steps=settings.total_time_steps, time_step_to_predict = settings.time_step_to_predict)
         else:
             dataset = DatasetExtend2(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
         settings.inputs += "T"
@@ -60,7 +60,7 @@ def run(settings: SettingsTraining):
         model = UNet(in_channels=input_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         if settings.net == "convLSTM":
-            model = Seq2Seq(num_channels=5, num_kernels=64, kernel_size=3, padding=1, activation='relu', frame_size=(64,64), num_layers=3)
+            model = Seq2Seq(num_channels=input_channels, frame_size=(1280//settings.total_time_steps,64 )).float()
         else:
             model = UNetHalfPad(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
@@ -87,6 +87,7 @@ def run(settings: SettingsTraining):
 
     # save model
     model.save(settings.destination)
+    print(f"Model saved in {settings.destination}")
 
     # visualization
     which_dataset = "val"
@@ -98,9 +99,15 @@ def run(settings: SettingsTraining):
         # errors = measure_loss(model, dataloaders[which_dataset], settings.device)
     save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver) #, errors)
     if settings.visualize:
-        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
-        times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
-        plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
+        if settings.net == "CNN":
+            visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
+            times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
+            plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
+        elif settings.net == "convLSTM":
+            visualizations_convLSTM(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
+            times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
+            plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
+            
         print("Visualizations finished")
         
     print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
@@ -112,7 +119,10 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
     if settings.problem == "2stages":
         model = UNet(in_channels=in_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
-        model = UNetHalfPad(in_channels=in_channels).float()
+        if settings.net == "convLSTM":
+            model = Seq2Seq(num_channels=in_channels, frame_size=(1280//settings.total_time_steps,64 )).float()
+        else:
+            model = UNetHalfPad(in_channels=in_channels).float()
     model.load(model_name, settings.device)
     model.eval()
 
@@ -152,6 +162,8 @@ if __name__ == "__main__":
     parser.add_argument("--len_box", type=int, default=64)
     parser.add_argument("--skip_per_dir", type=int, default=4)
     parser.add_argument("--net", type=str, choices=["CNN", "convLSTM"], default="convLSTM")
+    parser.add_argument("--total_time_steps", type=int, default=20)
+    parser.add_argument("--time_step_to_predict", type=int, default=10)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

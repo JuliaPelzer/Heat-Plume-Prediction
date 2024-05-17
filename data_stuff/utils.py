@@ -36,6 +36,8 @@ class SettingsTraining:
     skip_per_dir: int = 4
     len_box: int = 256
     net: str = "convLSTM"
+    total_time_steps: int = 20
+    time_step_to_predict: int = 10
     
     def __post_init__(self):
         if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:
@@ -55,14 +57,14 @@ class SettingsTraining:
             assert self.model != "runs/default", "Please specify model path for testing or finetuning"
 
         if self.destination == "":
-            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " box"+str(self.len_box) + " skip"+str(self.skip_per_dir)
+            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " net_"+self.net + " steps_"+str(self.total_time_steps) + " predictBox_"+str(self.time_step_to_predict)
 
     def save(self):
         save_yaml(self.__dict__, self.destination, "command_line_arguments")
         
     def make_destination_path(self, destination_dir: pathlib.Path):
         if self.destination == "":
-            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " box"+str(self.len_box) + " skip"+str(self.skip_per_dir)
+            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " net_"+self.net + " steps_"+str(self.total_time_steps) + " predictBox_"+str(self.time_step_to_predict)
         self.destination = destination_dir / self.destination
         self.destination.mkdir(exist_ok=True)
 

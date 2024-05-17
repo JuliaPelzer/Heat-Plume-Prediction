@@ -8,7 +8,6 @@ from torch.utils.data import Dataset, Subset
 from torch._utils import _accumulate
 from typing import List,Optional,Sequence
 import matplotlib.pyplot as plt
-import tensorflow as tf
 
 from data_stuff.transforms import NormalizeTransform
 
@@ -145,7 +144,7 @@ class DatasetExtend2(Dataset):
         return idx // self.dp_per_run, idx % self.dp_per_run + 1 #depends on which box is taken (front or last)
     
 class DatasetExtendConvLSTM(Dataset):
-    def __init__(self, path:str, skip_per_dir:int=4, box_size:int=64):
+    def __init__(self, path:str, total_time_steps:int, time_step_to_predict:int):
         Dataset.__init__(self)
         self.path = pathlib.Path(path)
         self.info = self.__load_info()
@@ -159,10 +158,12 @@ class DatasetExtendConvLSTM(Dataset):
         self.input_names.sort()
         self.label_names.sort()
         self.spatial_size = torch.load(self.path / "Inputs" / self.input_names[0]).shape[1:]
-        self.box_size:int = box_size
-        self.skip_per_dir:int = skip_per_dir
-        self.dp_per_run:int = 1 #-2 to exclude last box
-        print(f"dp_per_run: {self.dp_per_run}, spatial_size: {self.spatial_size}, box_size: {self.box_size}, skip_per_dir: {self.skip_per_dir}")
+        # self.box_size:int = box_size
+        # self.skip_per_dir:int = skip_per_dir
+        # self.dp_per_run:int = 1 #-2 to exclude last box
+        self.total_time_steps = total_time_steps
+        self.time_step_to_predict = time_step_to_predict
+        #print(f"dp_per_run: {self.dp_per_run}, spatial_size: {self.spatial_size}, box_size: {self.box_size}, skip_per_dir: {self.skip_per_dir}")
 
     @property
     def input_channels(self):
@@ -186,9 +187,13 @@ class DatasetExtendConvLSTM(Dataset):
         input_T = torch.load(self.path / "Labels" / self.input_names[idx])
         input = torch.cat((input, input_T),dim=0)
         input = input.unsqueeze(1)
-        slices = torch.tensor_split(input,4,axis=2)
-        input_seq = torch.cat(slices, dim=1)
-        label = slices[-1].squeeze(1)
+        slices = torch.tensor_split(input,self.total_time_steps,axis=2)
+        input_seq = torch.cat(slices, dim=1)[:,:self.time_step_to_predict-1, :, :]
+        label = slices[self.time_step_to_predict-1].squeeze(1)
+        with open('/home/hofmanja/test_nn/runs/shapes.txt', 'w') as file:
+            # Write some lines to the file
+            file.write(f"Shape of input_seq: {input_seq.shape}\n")
+            file.write(f'Shape of label: {label.shape}')
         return input_seq, label
 
     # def __getitem__(self, idx):

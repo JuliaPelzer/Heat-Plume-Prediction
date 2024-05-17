@@ -4,6 +4,7 @@ import pathlib
 import time
 from dataclasses import dataclass
 import matplotlib.pyplot as plt
+import torch
 
 from torch.nn import Module, MSELoss, modules
 from torch.optim import Adam, Optimizer
@@ -56,7 +57,7 @@ class Solver(object):
         writer = SummaryWriter(settings.destination)
         device = settings.device
         self.model = self.model.to(device)
-        writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
+        #writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
 
         epochs = tqdm(range(settings.epochs), desc="epochs", disable=False)
         for epoch in epochs:
@@ -128,19 +129,33 @@ class Solver(object):
 
         if log_val_epoch:
             file.close()
+    
+    def plot_inputs_and_labels(self, inputs,label):
+        """ plot examplary input and label"""
+        #if settings.net == "convLSTM":
+        max_temp:float=0
+        min_temp:float=20
+        for i in range(inputs.shape[0]):
+            time_step = inputs[i]
+            min_temp = torch.min(time_step) if torch.min(time_step) < min_temp else min_temp
+            max_temp = torch.max(time_step) if torch.max(time_step) > max_temp else max_temp
+        
+        fig,ax = plt.subplots(1, len(inputs)+1, figsize=(10,2))
+        for i in range(inputs.shape[0]):
+            ax[i].imshow(inputs[i].T, cmap='hot',vmin=min_temp, vmax=max_temp)
+            ax[i].set_xlabel(f't={i}')
+        
+        ax[len(inputs)].imshow(label[0], cmap='hot',vmin=min_temp, vmax=max_temp)
+        ax[len(inputs)].set_xlabel('label')
+
+        plt.savefig("/home/hofmanja/test_nn/input_label_convLSTM.png")
 
     def run_epoch(self, dataloader: DataLoader, device: str):
         epoch_loss = 0.0
         for x, y in dataloader:
-            # fig, ax = plt.subplots(2)
-            # ax[0].imshow(x[0][1], cmap='hot')
-            # ax[1].imshow(y[0][0], cmap='hot')
-            # plt.savefig("/home/hofmanja/test_nn/input_label_CNN.png")
-            file_path = '/home/hofmanja/test_nn/shapes.txt'  # Specify the file path
-            with open(file_path, 'w') as file:
-                # Write some text to the file
-                file.write(f'x shape: {x.shape}\n y shape: {y.shape} \n {datetime.datetime.now()}')
-                print("file written")
+            #input_temp = x[0][4]
+            #label_temp = y[0][4]
+            #self.plot_inputs_and_labels(inputs=input_temp, label=label_temp)
 
             x = x.to(device)
             y = y.to(device)
@@ -149,7 +164,7 @@ class Solver(object):
                 self.opt.zero_grad()
 
             y_pred = self.model(x)
-
+            
             loss = None
             loss = self.loss_func(y_pred, y)
 
@@ -159,7 +174,11 @@ class Solver(object):
 
             epoch_loss += loss.detach().item()
         epoch_loss /= len(dataloader)
+
+        
         return epoch_loss
+    
+    
 
     def save_lr_schedule(self, path: str):
         """ save learning rate history to csv file"""

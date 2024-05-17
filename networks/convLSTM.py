@@ -1,6 +1,8 @@
 
 import torch
 import torch.nn as nn
+from torch import save, tensor, cat, load
+import pathlib
 
 # Original ConvLSTM cell as proposed by Shi et al.
 class ConvLSTMCell(nn.Module):
@@ -35,6 +37,13 @@ class ConvLSTMCell(nn.Module):
 
         # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
         i_conv, f_conv, C_conv, o_conv = torch.chunk(conv_output, chunks=4, dim=1)
+
+        with open('/home/hofmanja/test_nn/shapes.txt', 'w') as file:
+            # Write some text to the file
+            file.write(f'Shape of X: {X.shape}')
+            file.write(f'Shape of i_conv: {i_conv.shape}\n')
+            file.write(f'Shape of self.W_ci: {self.W_ci.shape}\n')
+            file.write(f'Shape of C_prev: {C_prev.shape}')
 
         input_gate = torch.sigmoid(i_conv + self.W_ci * C_prev )
         forget_gate = torch.sigmoid(f_conv + self.W_cf * C_prev )
@@ -92,8 +101,8 @@ class ConvLSTM(nn.Module):
 
 class Seq2Seq(nn.Module):
 
-    def __init__(self, num_channels, num_kernels, kernel_size, padding, 
-    activation, frame_size, num_layers):
+    def __init__(self, num_channels, frame_size, num_kernels=32, kernel_size=3, padding=1, 
+    activation='relu', num_layers=3):
 
         super(Seq2Seq, self).__init__()
 
@@ -139,6 +148,20 @@ class Seq2Seq(nn.Module):
         output = self.conv(output[:,:,-1])
         
         return nn.Sigmoid()(output)
+    
+    def save(self, path:pathlib.Path, model_name: str = "model.pt"):
+        save(self.state_dict(), path/model_name)
+
+        model_structure = []
+        for name, param in self.named_parameters():
+            model_structure.append([name, param.shape])
+        with open(path/"model_structure.txt", "w") as f:
+            f.write(str(model_structure))
+
+    def load(self, model_path:pathlib.Path, device:str = "cpu", model_name: str = "model.pt"):
+        self.load_state_dict(load(model_path/model_name))
+        self.to(device)
+
     
 def weights_init(m):
     classname = m.__class__.__name__

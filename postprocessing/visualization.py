@@ -86,12 +86,61 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
                 return None
             current_id += 1
 
+def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png"):
+    print("Visualizing...", end="\r")
+
+    if amount_datapoints_to_visu > len(dataloader.dataset):
+        amount_datapoints_to_visu = len(dataloader.dataset)
+
+    norm = dataloader.dataset.dataset.norm
+    info = dataloader.dataset.dataset.info
+    model.eval()
+    settings_pic = {"format": pic_format,
+                    "dpi": 600,}
+
+    current_id = 0
+    for inputs, labels in dataloader:
+        len_batch = inputs.shape[0]
+        for datapoint_id in range(len_batch):
+            name_pic = f"{plot_path}_{current_id}"
+            
+            x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
+            y = labels[datapoint_id]
+            print(f'shape of y: {y.shape}')
+            y_out = model(x).to(device)
+            
+
+            x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
+            dict_to_plot = prepare_data_to_plot_convLSTM(x, y, y_out, info)
+
+            plot_datafields(dict_to_plot, name_pic, settings_pic)
+            # plot_isolines(dict_to_plot, name_pic, settings_pic)
+            # measure_len_width_1K_isoline(dict_to_plot)
+
+            if current_id >= amount_datapoints_to_visu-1:
+                return None
+            current_id += 1
+
 def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, norm: NormalizeTransform):
     # reverse transform for plotting real values
     x = norm.reverse(x.detach().cpu().squeeze(0), "Inputs")
-    y = norm.reverse(y.detach().cpu(),"Labels")[0]
+    y = norm.reverse(y.detach().cpu(),"Labels")[4]
     y_out = norm.reverse(y_out.detach().cpu()[0],"Labels")[0]
     return x, y, y_out
+
+def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, info: dict):
+    # prepare data of temperature true, temperature out, error, physical variables (inputs)
+    temp_max = max(y.max(), y_out.max())
+    temp_min = min(y.min(), y_out.min())
+    extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
+
+    dict_to_plot = {
+        "t_true": DataToVisualize(y, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+        "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
+        "error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]", extent_highs),
+    }
+
+    return dict_to_plot
 
 def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, info: dict):
     # prepare data of temperature true, temperature out, error, physical variables (inputs)
@@ -136,6 +185,38 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
     plt.sca(axes[-1])
     plt.xlabel("y [m]")
     plt.tight_layout()
+    plt.savefig(f"{name_pic}.{settings_pic['format']}", **settings_pic)
+
+def plot_datafields_convLSTM(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
+    # plot datafields (temperature true, temperature out, error, physical variables (inputs))
+
+    # num_subplots = len(data)
+    # fig, axes = plt.subplots()
+    # fig, axes = plt.subplots(num_subplots, 19, figsize=(30,10), sharex=True)
+    # fig.set_figheight(num_subplots)
+    
+    # for row_index, (name, datapoint) in enumerate(data.items()):
+    #     if len(datapoint.data.shape) > 2: 
+    #         for column_index, datapoint_time_step in enumerate(datapoint.data):
+    #             plt.sca(axes[row_index][column_index])
+    #             plt.title(datapoint.name)
+    #             plt.imshow(datapoint_time_step, **datapoint.imshowargs)
+    #             plt.gca().invert_yaxis()
+    #     else:
+    #         plt.sca(axes[row_index][0])
+    #         #plt.title(datapoint.name)
+    #         plt.imshow(datapoint.data[0], **datapoint.imshowargs)
+    #         plt.gca().invert_yaxis()
+
+    #     plt.ylabel("x [m]")
+    #     _aligned_colorbar()
+
+    #     plt.ylabel("x [m]")
+    #     _aligned_colorbar()
+
+    #plt.sca(axes[-1])
+    #plt.xlabel("y [m]")
+    #plt.tight_layout()
     plt.savefig(f"{name_pic}.{settings_pic['format']}", **settings_pic)
 
 def plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
