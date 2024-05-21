@@ -23,9 +23,6 @@ class SimulationDatasetCuts(DatasetBasis):
     def __len__(self):
         return (self.spatial_size[0] - self.box_size[0]) * (self.spatial_size[1] - self.box_size[1]) // self.skip_per_dir**2
     
-        # TODO only for split
-        return int((self.spatial_size[0] - self.box_size[0]) * (self.spatial_size[1] - self.box_size[1]) // self.skip_per_dir**2 / 2) 
-
     def __getitem__(self, idx):
         pos = self.idx_to_pos(idx)
         # assert id too close to wall
@@ -36,9 +33,3 @@ class SimulationDatasetCuts(DatasetBasis):
 
     def idx_to_pos(self, idx):
         return np.array([((idx*self.skip_per_dir) // ((self.spatial_size[1] - self.box_size[1])))*self.skip_per_dir, (idx*self.skip_per_dir) % ((self.spatial_size[1] - self.box_size[1]))])
-    
-        # TODO for split
-        factor = 1 if self.case == "val" else 0
-        idx_mod = int(((idx*self.skip_per_dir) // ((self.spatial_size[1] - self.box_size[1])))*self.skip_per_dir + factor*(self.spatial_size[0]-self.box_size[0])/2)
-        idx_rest = (idx*self.skip_per_dir) % (self.spatial_size[1] - self.box_size[1])
-        return np.array([idx_mod, idx_rest])
