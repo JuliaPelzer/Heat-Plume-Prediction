@@ -4,8 +4,8 @@ from math import inf
 from typing import Dict
 import pathlib
 
-# import matplotlib as mpl
-# mpl.use('pgf')
+import matplotlib as mpl
+mpl.use('pdf') #pgf')
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -15,7 +15,6 @@ from preprocessing.transforms import NormalizeTransform
 from processing.networks.unet import UNet
 from processing.pipelines.extend_plumes_old import infer_nopad, update_params
 from postprocessing.visu_utils import _aligned_colorbar
-from utils.utils_args import load_yaml
 
 @dataclass
 class DataToVisualize:
@@ -30,7 +29,8 @@ class DataToVisualize:
         extent = (0,int(self.extent_highs[0]),int(self.extent_highs[1]),0)
 
         self.imshowargs = {"cmap": "RdBu_r", 
-                           "extent": extent}
+                           "extent": extent,
+                           "interpolation": "nearest"}
 
         self.contourfargs = {"levels": np.arange(10.4, 16, 0.25), 
                              "cmap": "RdBu_r", 
@@ -134,9 +134,9 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     }
     inputs = info["Inputs"].keys()
     for input in inputs:
-        if input in ["Permeability X [m^2]", "Preprocessed Temperature [C]", "Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]"]:
-            index = info["Inputs"][input]["index"]
-            dict_to_plot[input] = DataToVisualize(x[index], input, extent_highs)
+        # if input in ["Permeability X [m^2]", "Preprocessed Temperature [C]", "Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]"]:
+        index = info["Inputs"][input]["index"]
+        dict_to_plot[input] = DataToVisualize(x[index], input, extent_highs)
 
     return dict_to_plot
 
