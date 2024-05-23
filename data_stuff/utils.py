@@ -38,6 +38,7 @@ class SettingsTraining:
     net: str = "convLSTM"
     total_time_steps: int = 20
     time_step_to_predict: int = 10
+    vis_entire_plume: bool = False
     
     def __post_init__(self):
         if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:

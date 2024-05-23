@@ -38,6 +38,7 @@ def init_data(settings: SettingsTraining, seed=1):
 
     datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     dataloaders = {}
+    torch.manual_seed(2809)
     try:
         dataloaders["train"] = DataLoader(datasets[0], batch_size=50, shuffle=True, num_workers=0)
         dataloaders["val"] = DataLoader(datasets[1], batch_size=50, shuffle=True, num_workers=0)
@@ -96,7 +97,8 @@ def run(settings: SettingsTraining):
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"
-        # errors = measure_loss(model, dataloaders[which_dataset], settings.device)
+    if settings.vis_entire_plume == True:
+        settings.visualize = True
     save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver) #, errors)
     if settings.visualize:
         if settings.net == "CNN":
@@ -104,7 +106,7 @@ def run(settings: SettingsTraining):
             times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
             plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         elif settings.net == "convLSTM":
-            visualizations_convLSTM(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
+            visualizations_convLSTM(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination, amount_datapoints_to_visu=8, pic_format=pic_format, vis_entire = settings.vis_entire_plume, box=settings.time_step_to_predict)
             times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
             plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
             
@@ -164,6 +166,7 @@ if __name__ == "__main__":
     parser.add_argument("--net", type=str, choices=["CNN", "convLSTM"], default="convLSTM")
     parser.add_argument("--total_time_steps", type=int, default=20)
     parser.add_argument("--time_step_to_predict", type=int, default=10)
+    parser.add_argument("--vis_entire_plume", type=bool, default=True)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

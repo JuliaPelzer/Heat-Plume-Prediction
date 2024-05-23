@@ -86,7 +86,7 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
                 return None
             current_id += 1
 
-def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png"):
+def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, vis_entire: bool, box: int, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png"):
     print("Visualizing...", end="\r")
 
     if amount_datapoints_to_visu > len(dataloader.dataset):
@@ -103,19 +103,21 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, am
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
             name_pic = f"{plot_path}_{current_id}"
-            
             x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
             y = labels[datapoint_id]
-            print(f'shape of y: {y.shape}')
             y_out = model(x).to(device)
-            
 
             x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
-            dict_to_plot = prepare_data_to_plot_convLSTM(x, y, y_out, info)
+            
+            if vis_entire == True:
+                 torch.save(y_out, f"{plot_path}/pred_dp{datapoint_id}_box{box}.pt")
+                 torch.save(y, f"{plot_path}/label{datapoint_id}_box{box}.pt")
+            
+                
+            dict_to_plot = prepare_data_to_plot_convLSTM(x[4], y[4], y_out[4], info)
 
             plot_datafields(dict_to_plot, name_pic, settings_pic)
-            # plot_isolines(dict_to_plot, name_pic, settings_pic)
-            # measure_len_width_1K_isoline(dict_to_plot)
+            
 
             if current_id >= amount_datapoints_to_visu-1:
                 return None
@@ -123,9 +125,24 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, am
 
 def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, norm: NormalizeTransform):
     # reverse transform for plotting real values
-    x = norm.reverse(x.detach().cpu().squeeze(0), "Inputs")
-    y = norm.reverse(y.detach().cpu(),"Labels")[4]
-    y_out = norm.reverse(y_out.detach().cpu()[0],"Labels")[0]
+    x_split = torch.split(x, 1, 1)
+    x_other = torch.cat(x_split[:4], dim=1)
+    x_other = norm.reverse(x_other.detach().cpu().squeeze(0), "Inputs")
+    x_temp = x_split[4]
+    x_temp = norm.reverse(x_temp.detach().cpu().squeeze(0), "Labels")
+    x = torch.cat((x_other,x_temp), dim=0)
+
+    y_split = torch.split(y, 1, dim=0)
+    y_temp = y_split[4]
+    y_temp = norm.reverse(y_temp.detach().cpu(), "Labels")
+    y_other = y_split[:4]
+    y_other = norm.reverse(torch.cat(y_other).detach().cpu(), "Inputs")
+    y = torch.cat((y_other, y_temp), dim=0)
+
+    y_out_split = torch.split(y_out,1,1)
+    y_out_temp = norm.reverse(y_out_split[4].detach().cpu(), "Labels")
+    y_out_other = norm.reverse(torch.cat(y_out_split[:4]).detach().cpu(), "Inputs")
+    y_out = torch.cat((y_out_other, y_out_temp), dim=0)
     return x, y, y_out
 
 def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, info: dict):
@@ -177,7 +194,7 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
         #         CS = plt.contour(torch.flip(datapoint.data, dims=[1]).T, **datapoint.contourargs)
         #     plt.clabel(CS, inline=1, fontsize=10)
         plt.imshow(datapoint.data.T, **datapoint.imshowargs)
-        plt.gca().invert_yaxis()
+        #plt.gca().invert_yaxis()
 
         plt.ylabel("x [m]")
         _aligned_colorbar()

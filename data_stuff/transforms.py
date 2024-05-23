@@ -26,7 +26,7 @@ class NormalizeTransform:
                 logging.warning(f"Index {index} might be in training data but not in this dataset")
         return data
     
-    def reverse(self,data,type = "Labels"):
+    def reverse(self, data, type="Labels"):
         for prop, stats in self.info[type].items():
             index = stats["index"]
             self.__reverse_norm(data,index,stats)
