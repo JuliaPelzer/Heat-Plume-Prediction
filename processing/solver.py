@@ -159,7 +159,7 @@ class Solver(object):
         # check if path contains lr-schedule, else use default one
         if not path.exists():
             logging.warning(f"Could not find lr-schedule at {path}. Using default lr-schedule instead.")
-            path = pathlib.Path.cwd() / "processing" / "lr_schedules"
+            path = pathlib.Path.cwd() / "Heat-Plume-Prediction_temp"/ "processing" / "lr_schedules"
             lr_schedule_file = "default_lr_schedule.csv" if not case_2hp else "default_lr_schedule_2hp.csv"
             path = path / lr_schedule_file
 
