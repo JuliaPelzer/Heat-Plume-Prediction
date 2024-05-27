@@ -36,6 +36,16 @@
     --inputs: make sure, they are the same as in the model (default `gksi`)
     --visualize: visualize the results (default `False`)
     ```
+## Visualize the results:
+
+- produce data by executing the following code for each time step of interest (e.g. 3-20)
+
+    ```
+    python main.py --case test --model PATH_TO_MODEL (after "/extend_plumes2") --time_step_to_visualize 3
+    ```
+- separate visualization by executing vis_entire_plume.py
+
+
 ## Training a 2nd stage model (2HP-NN): !excluded on this branch!
 - for running a 2HP-NN you need the prepared 2HP-dataset in datasets_prepared_dir_2hp (paths.yaml)
 - for preparing 2HP-NN: expects that 1HP-NN exists and trained on; for 2HP-NN (including preparation) run main.py with the following arguments:
