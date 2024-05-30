@@ -105,7 +105,7 @@ class Solver(object):
                         #     writer.add_histogram(name, param, epoch)
 
             except KeyboardInterrupt:
-                model_tmp = UNetHalfPad(in_channels=len(settings.inputs), out_channels=1) # UNet
+                model_tmp = Seq2Seq()
                 model_tmp.load_state_dict(self.best_model_params["state_dict"])
                 model_tmp.to(settings.device)
                 model_tmp.save(settings.destination, model_name=f"interim_model_e{epoch}.pt")
@@ -173,6 +173,7 @@ class Solver(object):
                 self.opt.step()
 
             epoch_loss += loss.detach().item()
+            
         epoch_loss /= len(dataloader)
 
         

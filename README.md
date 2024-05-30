@@ -20,7 +20,7 @@
 - run main.py
 
     ```
-    python main.py --dataset_raw NAME_OF_DATASET --problem 2stages
+    python main.py --time_step_to_predict
     ```
     optional arguments:
     --inputs: make sure, they are the same as in the model (default `gksi`)

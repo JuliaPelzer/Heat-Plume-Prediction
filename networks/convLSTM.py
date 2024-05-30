@@ -101,7 +101,7 @@ class ConvLSTM(nn.Module):
 
 class Seq2Seq(nn.Module):
 
-    def __init__(self, num_channels, frame_size, num_kernels=32, kernel_size=3, padding=1, 
+    def __init__(self, num_channels, frame_size, num_kernels=64, kernel_size=6, padding='same',
     activation='relu', num_layers=3):
 
         super(Seq2Seq, self).__init__()
@@ -136,7 +136,7 @@ class Seq2Seq(nn.Module):
 
         # Add Convolutional Layer to predict output frame
         self.conv = nn.Conv2d(
-            in_channels=num_kernels, out_channels=num_channels,
+            in_channels=num_kernels, out_channels=1,
             kernel_size=kernel_size, stride=1, padding=padding)
 
     def forward(self, X):

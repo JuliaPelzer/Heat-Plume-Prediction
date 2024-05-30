@@ -113,8 +113,8 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, vi
                  torch.save(y_out, f"{plot_path}/pred_dp{datapoint_id}_box{box}.pt")
                  torch.save(y, f"{plot_path}/label{datapoint_id}_box{box}.pt")
             
-                
-            dict_to_plot = prepare_data_to_plot_convLSTM(x[4], y[4], y_out[4], info)
+        
+            dict_to_plot = prepare_data_to_plot_convLSTM(x[3], y.squeeze(), y_out.squeeze(), info)
 
             plot_datafields(dict_to_plot, name_pic, settings_pic)
             
@@ -126,23 +126,14 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, vi
 def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, norm: NormalizeTransform):
     # reverse transform for plotting real values
     x_split = torch.split(x, 1, 1)
-    x_other = torch.cat(x_split[:4], dim=1)
-    x_other = norm.reverse(x_other.detach().cpu().squeeze(0), "Inputs")
-    x_temp = x_split[4]
-    x_temp = norm.reverse(x_temp.detach().cpu().squeeze(0), "Labels")
-    x = torch.cat((x_other,x_temp), dim=0)
+    x = torch.cat(x_split[:4], dim=1)
+    x = norm.reverse(x.detach().cpu().squeeze(0), "Inputs")
+    
+    y = y.unsqueeze(0)
+    y = norm.reverse(y.detach().cpu(), "Labels")
 
-    y_split = torch.split(y, 1, dim=0)
-    y_temp = y_split[4]
-    y_temp = norm.reverse(y_temp.detach().cpu(), "Labels")
-    y_other = y_split[:4]
-    y_other = norm.reverse(torch.cat(y_other).detach().cpu(), "Inputs")
-    y = torch.cat((y_other, y_temp), dim=0)
+    y_out = norm.reverse(y_out.detach().cpu(),"Labels")
 
-    y_out_split = torch.split(y_out,1,1)
-    y_out_temp = norm.reverse(y_out_split[4].detach().cpu(), "Labels")
-    y_out_other = norm.reverse(torch.cat(y_out_split[:4]).detach().cpu(), "Inputs")
-    y_out = torch.cat((y_out_other, y_out_temp), dim=0)
     return x, y, y_out
 
 def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, info: dict):
@@ -187,12 +178,6 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
     for index, (name, datapoint) in enumerate(data.items()):
         plt.sca(axes[index])
         plt.title(datapoint.name)
-        # if name in ["t_true", "t_out"]:  
-        #     with warnings.catch_warnings():
-        #         warnings.simplefilter("ignore")
-
-        #         CS = plt.contour(torch.flip(datapoint.data, dims=[1]).T, **datapoint.contourargs)
-        #     plt.clabel(CS, inline=1, fontsize=10)
         plt.imshow(datapoint.data.T, **datapoint.imshowargs)
         #plt.gca().invert_yaxis()
 
@@ -203,6 +188,7 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
     plt.xlabel("y [m]")
     plt.tight_layout()
     plt.savefig(f"{name_pic}.{settings_pic['format']}", **settings_pic)
+
 
 def plot_datafields_convLSTM(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
     # plot datafields (temperature true, temperature out, error, physical variables (inputs))

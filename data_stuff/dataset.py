@@ -167,7 +167,7 @@ class DatasetExtendConvLSTM(Dataset):
 
     @property
     def input_channels(self):
-        return len(self.info["Inputs"])+1
+        return len(self.info["Inputs"])
 
     @property
     def output_channels(self):
@@ -182,7 +182,7 @@ class DatasetExtendConvLSTM(Dataset):
         return len(self.input_names) #* self.dp_per_run
 
     def __getitem__(self,idx):
-        file_path = self.path / "Inputs" / self.input_names[idx]
+        file_path = self.path / "Inputs" / self.input_names[0]
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
         if file_path.stat().st_size == 0:
@@ -190,25 +190,25 @@ class DatasetExtendConvLSTM(Dataset):
         
         try:
             input = torch.load(self.path / "Inputs" / self.input_names[idx])        
-            input_T = torch.load(self.path / "Labels" / self.input_names[idx])
+            temp = torch.load(self.path / "Labels" / self.input_names[idx])
         except EOFError as e:
             print(f"Error loading file: {file_path}")
             raise e
         except Exception as e:
             print(f"Unexpected error loading file: {file_path}")
             raise e
-            
-        input = torch.cat((input, input_T),dim=0)
-        input = input.unsqueeze(1)
-        slices = torch.tensor_split(input,self.total_time_steps,axis=2)
-        input_seq = torch.cat(slices, dim=1)[:,:self.time_step_to_predict-1, :, :]
-        label = slices[self.time_step_to_predict-1].squeeze(1)
         
+        with open('/home/hofmanja/test_nn/runs/shapes.txt', 'w') as file:
+            # Write some lines to the file
+            file.write(f"Shape of input: {input.shape}\n")
+            file.write(f'Shape of label: {temp.shape}')    
+
+        input, temp = input.unsqueeze(1), temp.unsqueeze(1)
+        input_slices = torch.tensor_split(input,self.total_time_steps,axis=2)
+        temp_slices = torch.tensor_split(temp, self.total_time_steps, axis=2)
+        input_seq = torch.cat(input_slices, dim=1)[:,:self.time_step_to_predict-1, :, :]
+        label = temp_slices[self.time_step_to_predict-1].squeeze(1)        
         
-        # with open('/home/hofmanja/test_nn/runs/shapes.txt', 'a') as file:
-        #     # Write some lines to the file
-        #     file.write(f"Shape of input_seq: {input_seq.shape}\n")
-        #     file.write(f'Shape of label: {label.shape}')
         return input_seq, label
 
     # def __getitem__(self, idx):
