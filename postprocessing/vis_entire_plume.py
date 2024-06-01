@@ -7,7 +7,7 @@ path_plot = "/home/hofmanja/test_nn/runs/extend_plumes2/"
 
 steps = 20
 
-for dp in range(8):
+for dp in range(20):
     results = []
     labels = []
     perm_labels = []

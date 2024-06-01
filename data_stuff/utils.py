@@ -58,7 +58,7 @@ class SettingsTraining:
             assert self.model != "runs/default", "Please specify model path for testing or finetuning"
 
         if self.destination == "":
-            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " net_"+self.net + " steps_"+str(self.total_time_steps) + " predictBox_"+str(self.time_step_to_predict)
+            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " net_"+self.net + "with_temp "# steps_"+str(self.total_time_steps) + " predictBox_"+str(self.time_step_to_predict)
 
     def save(self):
         save_yaml(self.__dict__, self.destination, "command_line_arguments")

@@ -29,20 +29,20 @@ class DataToVisualize:
     contourargs: Dict = field(default_factory=dict)
 
     def __post_init__(self):
-        extent = (0,int(self.extent_highs[0]),int(self.extent_highs[1]),0)
+        #extent = (,int(self.extent_highs[0]),int(self.extent_highs[1]),0)
 
-        self.imshowargs = {"cmap": "RdBu_r", 
-                           "extent": extent}
+        self.imshowargs.update({"cmap": "terrain", 
+                           "extent": self.extent_highs})
 
         self.contourfargs = {"levels": np.arange(10.4, 16, 0.25), 
-                             "cmap": "RdBu_r", 
-                             "extent": extent}
+                             "cmap": "terrain", 
+                             "extent": self.extent_highs}
         
         T_gwf = 10.6
         T_inj_diff = 5.0
         self.contourargs = {"levels" : [np.round(T_gwf + 1, 1)],
                             "cmap" : "Pastel1", 
-                            "extent": extent}
+                            "extent": self.extent_highs}
 
         if self.name == "Liquid Pressure [Pa]":
             self.name = "Pressure in [Pa]"
@@ -102,19 +102,19 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, vi
     for inputs, labels in dataloader:
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
-            name_pic = f"{plot_path}_{current_id}"
+            name_pic = f"{plot_path}/plots/dp_{current_id}"
             x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
             y = labels[datapoint_id]
             y_out = model(x).to(device)
 
             x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
             
+            
             if vis_entire == True:
                  torch.save(y_out, f"{plot_path}/pred_dp{datapoint_id}_box{box}.pt")
                  torch.save(y, f"{plot_path}/label{datapoint_id}_box{box}.pt")
-            
-        
-            dict_to_plot = prepare_data_to_plot_convLSTM(x[3], y.squeeze(), y_out.squeeze(), info)
+             
+            dict_to_plot = prepare_data_to_plot_convLSTM(x, y.squeeze(), y_out.squeeze(), info)
 
             plot_datafields(dict_to_plot, name_pic, settings_pic)
             
@@ -138,14 +138,26 @@ def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, no
 
 def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, info: dict):
     # prepare data of temperature true, temperature out, error, physical variables (inputs)
+    # Shape of x: torch.Size([4, 10, 64, 64])
+    # Shape of y: torch.Size([10, 64, 64])
+    # Shape of y_out: torch.Size([64, 64])
+    
+    perm = x[1]
+    perm = perm.view(640,64)
+    y = y.view(640,64)
     temp_max = max(y.max(), y_out.max())
+    print(f'temp_max: {temp_max}')
     temp_min = min(y.min(), y_out.min())
-    extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
+    print(f'temp_min: {temp_min}')
+    extent_highs = (0,640,64,0)
+    #extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
 
     dict_to_plot = {
-        "t_true": DataToVisualize(y, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-        "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-        "error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]", extent_highs),
+        
+        "t_true": DataToVisualize(y, "Label: Temperature in [°C]", (0,640,64,0), {"vmax": temp_max, "vmin": temp_min}),
+        "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]", (576, 640, 0, 64), {"vmax": temp_max, "vmin": temp_min}),
+        "error": DataToVisualize(torch.abs(y[-64:]-y_out), "Absolute error in [°C]", (576, 640, 0, 64)),
+        "perm" : DataToVisualize(perm,  "Input: Permeabilität", (0,640,64,0)),
     }
 
     return dict_to_plot

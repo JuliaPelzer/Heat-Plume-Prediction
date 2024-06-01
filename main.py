@@ -61,7 +61,7 @@ def run(settings: SettingsTraining):
         model = UNet(in_channels=input_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         if settings.net == "convLSTM":
-            model = Seq2Seq(num_channels=input_channels, frame_size=(1280//settings.total_time_steps,64 )).float()
+            model = Seq2Seq(num_channels=input_channels, frame_size=(1280//(settings.total_time_steps*2),64 )).float()
         else:
             model = UNetHalfPad(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
@@ -81,6 +81,8 @@ def run(settings: SettingsTraining):
             times["time_training"] = time.perf_counter()
         except KeyboardInterrupt:
             times["time_training"] = time.perf_counter()
+            model.save(settings.destination)
+            print(f"Model saved in {settings.destination}")
             logging.warning(f"Manually stopping training early with best model found in epoch {solver.best_model_params['epoch']}.")
         finally:
             solver.save_lr_schedule(settings.destination / "learning_rate_history.csv")
@@ -106,9 +108,9 @@ def run(settings: SettingsTraining):
             times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
             plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         elif settings.net == "convLSTM":
-            visualizations_convLSTM(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination, amount_datapoints_to_visu=8, pic_format=pic_format, vis_entire = settings.vis_entire_plume, box=settings.time_step_to_predict)
+            visualizations_convLSTM(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination, amount_datapoints_to_visu=40, pic_format=pic_format, vis_entire = settings.vis_entire_plume, box=settings.time_step_to_predict)
             times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
-            plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
+            #plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
             
         print("Visualizations finished")
         
@@ -122,7 +124,7 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
         model = UNet(in_channels=in_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         if settings.net == "convLSTM":
-            model = Seq2Seq(num_channels=in_channels, frame_size=(1280//settings.total_time_steps,64 )).float()
+            model = Seq2Seq(num_channels=in_channels, frame_size=(1280//(settings.total_time_steps*2),64 )).float()
         else:
             model = UNetHalfPad(in_channels=in_channels).float()
     model.load(model_name, settings.device)
@@ -164,7 +166,7 @@ if __name__ == "__main__":
     parser.add_argument("--len_box", type=int, default=64)
     parser.add_argument("--skip_per_dir", type=int, default=4)
     parser.add_argument("--net", type=str, choices=["CNN", "convLSTM"], default="convLSTM")
-    parser.add_argument("--total_time_steps", type=int, default=20)
+    parser.add_argument("--total_time_steps", type=int, default=10)
     parser.add_argument("--time_step_to_predict", type=int, default=10)
     parser.add_argument("--vis_entire_plume", type=bool, default=True)
     args = parser.parse_args()

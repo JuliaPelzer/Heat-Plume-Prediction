@@ -153,9 +153,10 @@ class Solver(object):
     def run_epoch(self, dataloader: DataLoader, device: str):
         epoch_loss = 0.0
         for x, y in dataloader:
-            #input_temp = x[0][4]
-            #label_temp = y[0][4]
-            #self.plot_inputs_and_labels(inputs=input_temp, label=label_temp)
+            with open('/home/hofmanja/test_nn/runs/shapes.txt', 'a') as file:
+                # Write some lines to the file
+                file.write(f"Shape of x: {x.shape}\n")
+                file.write(f'Shape of y: {y.shape}\n')    
 
             x = x.to(device)
             y = y.to(device)

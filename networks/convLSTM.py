@@ -33,17 +33,22 @@ class ConvLSTMCell(nn.Module):
     def forward(self, X, H_prev, C_prev):
 
         # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
+        
         conv_output = self.conv(torch.cat([X, H_prev], dim=1))
+        with open('/home/hofmanja/test_nn/runs/shapes.txt', 'a') as file:
+            file.write(f"Shape of conv_output: {conv_output.shape}\n")
+            file.write(f"Shape of H_prev: {H_prev.shape}\n")
 
         # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
         i_conv, f_conv, C_conv, o_conv = torch.chunk(conv_output, chunks=4, dim=1)
 
-        with open('/home/hofmanja/test_nn/shapes.txt', 'w') as file:
+        with open('/home/hofmanja/test_nn/runs/shapes.txt', 'a') as file:
             # Write some text to the file
-            file.write(f'Shape of X: {X.shape}')
+            file.write(f'Shape of X: {X.shape}\n')
             file.write(f'Shape of i_conv: {i_conv.shape}\n')
-            file.write(f'Shape of self.W_ci: {self.W_ci.shape}\n')
-            file.write(f'Shape of C_prev: {C_prev.shape}')
+            file.write(f'Shape of W: {self.W_ci.shape}\n')
+            file.write(f'Shape of C: {C_prev.shape}\n')
+            file.write(f'Shape of W * C: {(self.W_ci * C_prev).shape}')
 
         input_gate = torch.sigmoid(i_conv + self.W_ci * C_prev )
         forget_gate = torch.sigmoid(f_conv + self.W_cf * C_prev )
@@ -101,7 +106,7 @@ class ConvLSTM(nn.Module):
 
 class Seq2Seq(nn.Module):
 
-    def __init__(self, num_channels, frame_size, num_kernels=64, kernel_size=6, padding='same',
+    def __init__(self, num_channels, frame_size, num_kernels=32, kernel_size=3, padding=1,
     activation='relu', num_layers=3):
 
         super(Seq2Seq, self).__init__()

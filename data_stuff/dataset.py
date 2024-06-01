@@ -160,14 +160,14 @@ class DatasetExtendConvLSTM(Dataset):
         self.spatial_size = torch.load(self.path / "Inputs" / self.input_names[0]).shape[1:]
         # self.box_size:int = box_size
         # self.skip_per_dir:int = skip_per_dir
-        # self.dp_per_run:int = 1 #-2 to exclude last box
+        self.dp_per_run:int = self.spatial_size[0] // 2 // 64
         self.total_time_steps = total_time_steps
         self.time_step_to_predict = time_step_to_predict
-        #print(f"dp_per_run: {self.dp_per_run}, spatial_size: {self.spatial_size}, box_size: {self.box_size}, skip_per_dir: {self.skip_per_dir}")
+        print(f"dp_per_run: {self.dp_per_run}, spatial_size: {self.spatial_size}")
 
     @property
     def input_channels(self):
-        return len(self.info["Inputs"])
+        return len(self.info["Inputs"])+1
 
     @property
     def output_channels(self):
@@ -179,18 +179,22 @@ class DatasetExtendConvLSTM(Dataset):
         return info
     
     def __len__(self):
-        return len(self.input_names) #* self.dp_per_run
+        return len(self.input_names) * self.dp_per_run
+    
+    
 
     def __getitem__(self,idx):
-        file_path = self.path / "Inputs" / self.input_names[0]
+        run_id, window_nr = self.idx_to_window(idx)
+        file_path = self.path / "Inputs" / self.input_names[run_id]
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
         if file_path.stat().st_size == 0:
             raise EOFError(f"File is empty: {file_path}")
         
         try:
-            input = torch.load(self.path / "Inputs" / self.input_names[idx])        
-            temp = torch.load(self.path / "Labels" / self.input_names[idx])
+            input = torch.load(self.path / "Inputs" / self.input_names[run_id])
+            input = input[:,64*window_nr:64*window_nr+(self.spatial_size[0]//2),:]        
+            temp = torch.load(self.path / "Labels" / self.input_names[run_id])[:,64*window_nr:64*window_nr+(self.spatial_size[0]//2)] 
         except EOFError as e:
             print(f"Error loading file: {file_path}")
             raise e
@@ -198,30 +202,23 @@ class DatasetExtendConvLSTM(Dataset):
             print(f"Unexpected error loading file: {file_path}")
             raise e
         
-        with open('/home/hofmanja/test_nn/runs/shapes.txt', 'w') as file:
-            # Write some lines to the file
-            file.write(f"Shape of input: {input.shape}\n")
-            file.write(f'Shape of label: {temp.shape}')    
-
         input, temp = input.unsqueeze(1), temp.unsqueeze(1)
+        input = torch.cat((input, temp), dim=0)
         input_slices = torch.tensor_split(input,self.total_time_steps,axis=2)
         temp_slices = torch.tensor_split(temp, self.total_time_steps, axis=2)
-        input_seq = torch.cat(input_slices, dim=1)[:,:self.time_step_to_predict-1, :, :]
-        label = temp_slices[self.time_step_to_predict-1].squeeze(1)        
+        input_seq = torch.cat(input_slices, dim=1)
+        temp_seq = torch.cat(temp_slices, dim=1)
+        with open('/home/hofmanja/test_nn/runs/shapes.txt', 'w') as file:
+            # Write some lines to the file
+            file.write(f"Shape of input: {input_seq.shape}\n")
+            file.write(f'Shape of label: {temp_seq.shape}\n')     
         
-        return input_seq, label
+        return input_seq, temp_seq
 
-    # def __getitem__(self, idx):
-    #     run_id, box_id = self.idx_to_pos(idx)
-    #     input = torch.load(self.path / "Inputs" / self.input_names[run_id])[:, box_id*self.skip_per_dir + self.box_size : box_id*self.skip_per_dir + 2*self.box_size, :]
-    #     input_T = torch.load(self.path / "Labels" / self.input_names[run_id])[:, box_id*self.skip_per_dir : box_id*self.skip_per_dir  + self.box_size, :]
-    #     assert input.shape[1:] == input_T.shape[1:], f"Shapes of input and input_T do not match  {input.shape}, {input_T.shape}"
-    #     input = torch.cat((input, input_T), dim=0)
-    #     label = torch.load(self.path / "Labels" / self.label_names[run_id])[:, box_id*self.skip_per_dir + self.box_size : box_id*self.skip_per_dir + 2*self.box_size, :]
-    #     return input, label
-
-    def idx_to_pos(self, idx):
-        return idx // self.dp_per_run, idx % self.dp_per_run + 1 #depends on which box is taken (front or last)
+    def idx_to_window(self, idx):
+        run_id = idx // self.dp_per_run
+        window = idx % self.dp_per_run
+        return run_id, window
     
 def get_splits(n, splits):
     splits = [int(n * s) for s in splits[:-1]]
