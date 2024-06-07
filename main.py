@@ -60,6 +60,11 @@ def run(settings: SettingsTraining):
         model.load(settings.model, settings.device)
     model.to(settings.device)
 
+    if settings.case_2hp:
+        #TODO
+        
+        return model
+
     solver = None
     if settings.case in ["train", "finetune"]:
         loss_fn = MSELoss()
