@@ -99,6 +99,10 @@ def extend_paths_for_problem(problem:str, default_raw_dir: pathlib.Path, destina
         default_raw_dir = default_raw_dir / "1hp_boxes"
         destination_dir = destination_dir / "1hpnn"
         datasets_prepared_dir = datasets_prepared_dir / "1hp_boxes"
+    elif problem == "turbnet":
+        default_raw_dir = default_raw_dir / "turbnet"
+        destination_dir = destination_dir / "turbnet"
+        datasets_prepared_dir = datasets_prepared_dir / "turbnet"
     else:
         raise ValueError(f"problem {problem} not known")
     return default_raw_dir, destination_dir, datasets_prepared_dir

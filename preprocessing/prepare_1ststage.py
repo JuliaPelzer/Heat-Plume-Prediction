@@ -26,15 +26,19 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
     else:
         cutlengthtrafo=False
 
+    power2trafo=True
     if settings.case == "test" or settings.case_2hp:
+        power2trafo=False
         # get info of training
         with open(info_file_path, "r") as file:
             info = yaml.safe_load(file)
+
     else:
         info = None
-            
+    
+
     # TODO unsauber, TODO cutlengthtrafo zu länge die in info.yaml gespeichert ist
-    prepare_dataset(paths, settings.inputs, power2trafo=True, cutlengthtrafo=cutlengthtrafo, box_length=settings.len_box,info=info)
+    prepare_dataset(paths, settings.inputs, power2trafo=power2trafo, cutlengthtrafo=cutlengthtrafo, box_length=settings.len_box,info=info)
     
     if settings.case == "train" and not settings.case_2hp:
         # store info of training
@@ -81,7 +85,6 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
     dims = np.array(pflotran_settings["grid"]["ncells"])
     total_size = np.array(pflotran_settings["grid"]["size"])
     cell_size = total_size/dims
-
     if info is None: calc = WelfordStatistics()
     tensor_transform = ToTensorTransform()
     output_variables = ["Temperature [C]"]
@@ -101,8 +104,7 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
         torch.save(y, os.path.join(dataset_prepared_path, "Labels", f"{run}.pt"))
         
     if info is not None:
-        print(info)
-        info["CellsNumberPrior"] = info["CellsNumber"]
+        info["CellsNumberPrior"] = info["CellsNumberPrior"]
         info["PositionHPPrior"] = info["PositionLastHP"]
         assert info["CellsSize"][:2] == cell_size.tolist()[:2], f"Cell size changed between given info.yaml {info['CellsSize']} and data {cell_size.tolist()}"
     else:

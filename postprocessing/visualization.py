@@ -72,6 +72,8 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
             name_pic = f"{plot_path}_{current_id}"
 
             x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
+            print(f"mean temp: {x[0][4].mean()}")
+            x = torch.load('/home/zhangxu/test_nn/1HP_NN/runs/1hpnn/iterTest/RUN_4/1.pt', weights_only=True).to(device)
             y = labels[datapoint_id]
             y_out = model(x).to(device)
 
@@ -115,11 +117,18 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
     # plot datafields (temperature true, temperature out, error, physical variables (inputs))
 
     num_subplots = len(data)
-    fig, axes = plt.subplots(num_subplots, 1, sharex=True)
-    fig.set_figheight(num_subplots)
+    fig, axes = plt.subplots(num_subplots, 1)
+
+    if num_subplots == 1:
+        fig.set_figheight(10)
+    else:
+        fig.set_figheight(num_subplots * 1.5)
     
     for index, (name, datapoint) in enumerate(data.items()):
-        plt.sca(axes[index])
+        if num_subplots == 1:
+            plt.sca(axes)
+        else:
+            plt.sca(axes[index])
         plt.title(datapoint.name)
         # if name in ["t_true", "t_out"]:  
         #     with warnings.catch_warnings():
@@ -133,7 +142,10 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
         plt.ylabel("x [m]")
         _aligned_colorbar()
 
-    plt.sca(axes[-1])
+    if num_subplots == 1:
+        plt.sca(axes)
+    else:
+        plt.sca(axes[-1])
     plt.xlabel("y [m]")
     plt.tight_layout()
     plt.savefig(f"{name_pic}.{settings_pic['format']}", **settings_pic)

@@ -25,7 +25,6 @@ class SimulationDataset(Dataset):
         self.label_names.sort()
         self.info = self.__load_info()
         self.norm = NormalizeTransform(self.info)
-
         if len(self.input_names) != len(self.label_names):
             raise ValueError(
                 "Number of Inputs and labels does not match!")

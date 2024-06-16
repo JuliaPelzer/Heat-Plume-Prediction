@@ -12,13 +12,15 @@ from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2
 from data_stuff.utils import SettingsTraining
 from networks.unet import UNet, UNetBC
 from networks.unetHalfPad import UNetHalfPad
+from networks.turbnet import TurbNetG
 from processing.solver import Solver
 from preprocessing.prepare import prepare_data_and_paths
 from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
 from postprocessing.measurements import measure_loss, save_all_measurements
+from postprocessing.test_temp import test_temp
 
 def init_data(settings: SettingsTraining, seed=1):
-    if settings.problem == "2stages":
+    if settings.problem in ["2stages", "turbnet"]:
         dataset = SimulationDataset(settings.dataset_prep)
     elif settings.problem == "extend1":
         dataset = DatasetExtend1(settings.dataset_prep, box_size=settings.len_box)
@@ -56,15 +58,19 @@ def run(settings: SettingsTraining):
         model = UNet(in_channels=input_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         model = UNetHalfPad(in_channels=input_channels).float()
+    elif settings.problem == "turbnet":
+        model = TurbNetG(in_channels=input_channels).float()
+
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
-    model.to(settings.device)
 
     if settings.case_2hp:
-        #TODO
-        
+        model.to("cpu")
+        model = test_temp(model,settings)
         return model
-
+    
+    
+    model.to(settings.device)
     solver = None
     if settings.case in ["train", "finetune"]:
         loss_fn = MSELoss()
@@ -111,6 +117,9 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
         model = UNet(in_channels=in_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         model = UNetHalfPad(in_channels=in_channels).float()
+    elif settings.problem == "turbnet":
+        model = TurbNetG(in_channels=in_channels).float()  
+
     model.load(model_name, settings.device)
     model.eval()
 
@@ -145,7 +154,7 @@ if __name__ == "__main__":
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
-    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2",], default="extend1")
+    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2","turbnet",], default="extend1")
     parser.add_argument("--notes", type=str, default="")
     parser.add_argument("--len_box", type=int, default=256)
     parser.add_argument("--skip_per_dir", type=int, default=256)

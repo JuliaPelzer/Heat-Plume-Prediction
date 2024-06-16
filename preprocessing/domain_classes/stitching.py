@@ -17,5 +17,5 @@ class Stitching:
             else:
                 return current_value + additional_value - self.background_temperature
         elif self.method == "update":
-            current_value = additional_value
+            return additional_value
 

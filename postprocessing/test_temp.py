@@ -8,6 +8,7 @@ import yaml
 import numpy as np
 
 from torch.utils.data import DataLoader
+from torch import unsqueeze,save,load
 from tqdm.auto import tqdm
 
 from networks.unet import UNet
@@ -22,34 +23,25 @@ from preprocessing.domain_classes.heat_pump import HeatPumpBox
 from preprocessing.domain_classes.stitching import Stitching
 from preprocessing.domain_classes.utils_2hp import (
     save_config_of_merged_inputs, save_config_of_separate_inputs, save_yaml)
+from data_stuff.transforms import NormalizeTransform
 
-
-def test_temp(model: UNet, dataloader: DataLoader, settings: SettingsTraining):
-
-    #load data
-    #if not os.path.exists(paths.dataset_1st_prep_path):        
-        # norm with data from dataset that NN was trained with!!
-    #    with open(paths.dataset_model_trained_with_prep_path / "info.yaml", "r") as file:
-    #        info = yaml.safe_load(file)
-    #    prepare_dataset(paths, settings.inputs, info=info, power2trafo=False) # for using unet on whole domain required: power2trafo=True
-    #print(f"Domain prepared ({paths.dataset_1st_prep_path})")
-    
-    # prepare dataset for 2nd stage
+def test_temp(model: UNet, settings: SettingsTraining):
     time_start_prep_2hp = time.perf_counter()
+
     avg_time_inference_1hp = 0
     list_runs = os.listdir(settings.dataset_prep / "Inputs")
-    settings_pic = {"format": pic_format,
-                "dpi": 600,}
-
+    model.eval()
+    settings_pic = {"format": "png",
+                "dpi": 600,}  
     info_file_path = settings.model / "info.yaml"
     with open(info_file_path, "r") as file:
          info = yaml.safe_load(file)
-
+    norm = NormalizeTransform(info)     
     for run_file in tqdm(list_runs, desc="2HP prepare", total=len(list_runs)):
         # for each run, configure domain
-        run_id = f'{run_file.split(".")[0]}_'
+        run_id = f'{run_file.split(".")[0]}'
+        pathlib.Path(settings.destination / run_id).mkdir(parents=True, exist_ok=True)
         domain = Domain(settings.dataset_prep, stitching_method="update", file_name=run_file)
-        prediction_field = domain
 
         ## generate 1hp-boxes and extract information like perm and ids etc.
         if domain.skip_datapoint:
@@ -57,26 +49,52 @@ def test_temp(model: UNet, dataloader: DataLoader, settings: SettingsTraining):
             continue
 
         single_hps = domain.extract_hp_boxes("cpu")
-        for current in len(single_hps):
+
+        for current in range(len(single_hps)):
+
+            dict_to_plot = {}
+            name_pic = settings.destination / run_id / str(current)
             #apply NN
             time_start_run_1hp = time.perf_counter()
-            single_hps[current].primary_temp_field = single_hps[current].apply_nn(model)
+            x = unsqueeze(single_hps[current].inputs.to("cpu"), 0)
+            single_hps[current].primary_temp_field = model(x).squeeze().detach()
             avg_time_inference_1hp += time.perf_counter() - time_start_run_1hp
 
-            temp_max = single_hps[current].primary_temp_field.max()
-            temp_min = single_hps[current].primary_temp_field.min()
+            #plot domain
+            domain.plot("t",settings.destination / run_id ,f"domain_step_{current}")
+
+            #plot inputs
             extent_highs = (np.array(info["CellsSize"][:2]) * single_hps[current].inputs.shape[-2:])
-            dict_to_plot = {
-                "t_out": DataToVisualize(single_hps[current].primary_temp_field, f"Prediction hp{current}: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-            }
-            name_pic = f"{settings.destination}_{run_id}_hp{current}"
-            plot_datafields(dict_to_plot, name_pic, settings_pic)
+            inputs = single_hps[current].inputs.clone().detach()
+            inputs = norm.reverse(inputs.cpu(), "Inputs")
+            inputKeys = info["Inputs"].keys()
+            for input in inputKeys:
+                index = info["Inputs"][input]["index"]
+                dict_to_plot[f"{input}_{current}"] = DataToVisualize(inputs[index], f"step {current} : {input}", extent_highs)
+
+            #plot output
+            output = single_hps[current].primary_temp_field.clone().detach()
+            y = domain.reverse_norm(output.cpu())
+            temp_max = y.max()
+            temp_min = y.min()
+            print(f"mean of output: {y.mean()}")
+            print(f"min Temp Output: {temp_min}")
+            print(f"max Temp Output: {temp_max}")
+            dict_to_plot[f"t_out_{current}"] = DataToVisualize(y, f"Prediction hp{current}: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min})
+
             #update domain
             #hp.get_other_temp_field(single_hps)
             domain.add_hp(single_hps[current])
+            
             single_hps = domain.extract_hp_boxes("cpu")
+            plot_datafields(dict_to_plot, name_pic, settings_pic)
+        #plot final domain
+        domain.plot("t",settings.destination / run_id ,"domain_step_final")
+
+        name_pic = settings.destination / run_id / "final"
+        plot_datafields(dict_to_plot, name_pic, settings_pic)
         avg_time_inference_1hp /= len(single_hps)
-    print(f"visualization saved in: {name_pic}")
+    print(f"visualization saved in: {settings.destination}")
     time_end = time.perf_counter()
     avg_inference_times = avg_time_inference_1hp / len(list_runs)
 

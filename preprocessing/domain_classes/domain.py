@@ -10,29 +10,29 @@ import matplotlib.pyplot as plt
 import yaml
 from torch import long as torch_long
 from torch import max, ones, save, squeeze, stack, tensor, where, cat, load
+import torch
 
-sys.path.append("/home/pelzerja/pelzerja/test_nn/1HP_NN")  # relevant for remote
-sys.path.append("/home/pelzerja/Development/1HP_NN")  # relevant for local
 from postprocessing.visualization import _aligned_colorbar
 from preprocessing.domain_classes.heat_pump import HeatPumpBox
 from preprocessing.domain_classes.stitching import Stitching
 from preprocessing.prepare_1ststage import expand_property_names
-from utils.utils_data import load_yaml
+from data_stuff.utils import load_yaml
 
 
 class Domain:
     def __init__(
         self, info_path: str, stitching_method: str = "max", file_name: str = "RUN_0.pt", device = "cpu", problem: str = "2stages"):
         self.skip_datapoint = False
-        self.info = load_yaml(info_path, "info", Loader=yaml.FullLoader)
+        self.info = load_yaml(info_path, "info")
         self.size: tuple[int, int] = [self.info["CellsNumber"][0], self.info["CellsNumber"][1], ]  # (x, y), cell-ids
-        self.background_temperature: float = 10.6
+        self.background_temperature: float = self.info["Inputs"]["Temperature prediction (other HPs) [C]"]["min"]
         self.inputs: tensor = self.load_datapoint(info_path, case="Inputs", file_name=file_name)
         self.label: tensor = self.load_datapoint(info_path, case="Labels", file_name=file_name)
-        self.prediction: tensor = (ones(self.size) * self.background_temperature).to(device)
+        self.prediction: tensor = self.inputs[4].clone().detach()
         self.stitching: Stitching = Stitching(stitching_method, self.background_temperature)
         self.label_normed_bool: bool = True
         self.file_name: str = file_name
+        
         if problem == "2stages": 
             if (self.get_input_field_from_name("Permeability X [m^2]").max() > 1
                 or self.get_input_field_from_name("Permeability X [m^2]").min() < 0):
@@ -109,6 +109,8 @@ class Domain:
 
     def norm(self, data: tensor, property: str = "Temperature [C]"):
         norm_fct, max_val, min_val, mean_val, std_val = self.get_norm_info(property)
+        print(f"{property}norm_info: {self.get_norm_info(property)}" )
+        print(f"current_val {data}")
 
         if norm_fct == "Rescale":
             out_min, out_max = (0, 1)  # TODO Achtung! Hardcoded, values same as in transforms.NormalizeTransform.out_min/max
@@ -161,9 +163,12 @@ class Domain:
         # TODO decide: get hp_boxes based on grad_p or based on v or get squared boxes around hp
         material_ids = self.get_input_field_from_name("Material ID")
         size_hp_box = tensor([self.info["CellsNumberPrior"][0],self.info["CellsNumberPrior"][1],])
-        distance_hp_corner = tensor([self.info["PositionHPPrior"][1], self.info["PositionHPPrior"][0]])
+        distance_hp_corner = tensor([self.info["PositionHPPrior"][0], self.info["PositionHPPrior"][1]])
         hp_boxes = []
         pos_hps = stack(list(where(material_ids == max(material_ids))), dim=0).T
+        print(f"shape of domain: {self.inputs[0].shape}" )
+        print(f"shape of hp_box: {size_hp_box}" )
+        print(f"location of hps: {pos_hps}")
         names_inputs = [self.get_name_from_index(i) for i in range(self.inputs.shape[0])]
 
         for idx in tqdm(range(len(pos_hps))):
@@ -171,7 +176,7 @@ class Domain:
                 pos_hp = pos_hps[idx]
                 corner_ll, corner_ur = get_box_corners(pos_hp, size_hp_box, distance_hp_corner, self.inputs.shape[1:], run_name=self.file_name,)
                 tmp_input = self.inputs[:, corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].detach().clone()
-                tmp_input[4] = self.prediction[corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]]
+                tmp_input[4] = self.prediction[corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].clone().detach()
                 tmp_label = self.label[:, corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].detach().clone()
 
                 tmp_mat_ids = stack(list(where(tmp_input == max(material_ids))), dim=0).T
@@ -189,8 +194,9 @@ class Domain:
                 logging.info(
                     f"HP BOX at {pos_hp} is with ({corner_ll}, {corner_ur}) in domain"
                 )
-            except:
-                logging.warning(f"BOX of HP {idx} at {pos_hp} is not in domain")
+            except Exception as e:
+               print(e)
+               logging.warning(f"BOX of HP {idx} at {pos_hp} is not in domain")
                 
         return hp_boxes
 
@@ -215,8 +221,9 @@ class Domain:
 
         return input_all, corner_ll, corner_ur
 
-    def add_hp(self, hp: "HeatPumpBox", prediction_field: tensor):
-        prediction_field = self.reverse_norm(prediction_field, property="Temperature [C]") # for adding to domain
+    def add_hp(self, hp: "HeatPumpBox"):
+        prediction_field = hp.primary_temp_field
+        #prediction_field = self.reverse_norm(prediction_field, property="Temperature [C]") # for adding to domain
         # compose learned fields into large domain with list of ids, pos, orientations
         for i in range(prediction_field.shape[0]):
             for j in range(prediction_field.shape[1]):
@@ -240,7 +247,7 @@ class Domain:
         )
         return x, y
 
-    def plot(self, fields: str = "t", folder: str = "", name: str = "test", format_fig: str = "pgf"):
+    def plot(self, fields: str = "t", folder: str = "", name: str = "test", format_fig: str = "png"):
         properties = expand_property_names(fields)
         n_subplots = len(properties)
         if "t" in fields:
