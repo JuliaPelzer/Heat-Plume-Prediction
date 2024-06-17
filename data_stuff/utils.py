@@ -30,6 +30,7 @@ class SettingsTraining:
     test: bool = False
     case_2hp: bool = False
     visualize: bool = False
+    only_prep: bool = False
     save_inference: bool = False
     problem: str = "2stages"
     notes: str = ""

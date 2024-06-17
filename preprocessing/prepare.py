@@ -17,7 +17,8 @@ def prepare_data_and_paths(settings:SettingsTraining):
     if not settings.dataset_prep.exists() or settings.case == "test": # if test, always want to prepare because the normalization parameters have to match
         #TODO handle case for 2HP where no raw dataset exits
         #print("skip preparing raw dataset as current tests do not have raw dataset in prepare.py")
-        prepare_dataset_for_1st_stage(paths, settings)
+        if not settings.only_prep:
+            prepare_dataset_for_1st_stage(paths, settings)
     print(f"Dataset prepared ({paths.dataset_1st_prep_path})")
 
 

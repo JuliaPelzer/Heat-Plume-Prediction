@@ -153,6 +153,7 @@ if __name__ == "__main__":
     parser.add_argument("--inputs", type=str, default="gksi") #choices=["gki", "gksi", "pksi", "gks", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100", "t", "gkiab", "gksiab", "gkt"]
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=False)
+    parser.add_argument("--only_prep", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
     parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2","turbnet",], default="extend1")
     parser.add_argument("--notes", type=str, default="")

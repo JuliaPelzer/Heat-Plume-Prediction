@@ -72,8 +72,6 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
             name_pic = f"{plot_path}_{current_id}"
 
             x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
-            print(f"mean temp: {x[0][4].mean()}")
-            x = torch.load('/home/zhangxu/test_nn/1HP_NN/runs/1hpnn/iterTest/RUN_4/1.pt', weights_only=True).to(device)
             y = labels[datapoint_id]
             y_out = model(x).to(device)
 

@@ -28,7 +28,7 @@ class Domain:
         self.background_temperature: float = self.info["Inputs"]["Temperature prediction (other HPs) [C]"]["min"]
         self.inputs: tensor = self.load_datapoint(info_path, case="Inputs", file_name=file_name)
         self.label: tensor = self.load_datapoint(info_path, case="Labels", file_name=file_name)
-        self.prediction: tensor = self.inputs[4].clone().detach()
+        self.prediction: tensor = self.inputs[4].clone().detach() #TODO hardcoded
         self.stitching: Stitching = Stitching(stitching_method, self.background_temperature)
         self.label_normed_bool: bool = True
         self.file_name: str = file_name
@@ -109,8 +109,6 @@ class Domain:
 
     def norm(self, data: tensor, property: str = "Temperature [C]"):
         norm_fct, max_val, min_val, mean_val, std_val = self.get_norm_info(property)
-        print(f"{property}norm_info: {self.get_norm_info(property)}" )
-        print(f"current_val {data}")
 
         if norm_fct == "Rescale":
             out_min, out_max = (0, 1)  # TODO Achtung! Hardcoded, values same as in transforms.NormalizeTransform.out_min/max
@@ -166,9 +164,6 @@ class Domain:
         distance_hp_corner = tensor([self.info["PositionHPPrior"][0], self.info["PositionHPPrior"][1]])
         hp_boxes = []
         pos_hps = stack(list(where(material_ids == max(material_ids))), dim=0).T
-        print(f"shape of domain: {self.inputs[0].shape}" )
-        print(f"shape of hp_box: {size_hp_box}" )
-        print(f"location of hps: {pos_hps}")
         names_inputs = [self.get_name_from_index(i) for i in range(self.inputs.shape[0])]
 
         for idx in tqdm(range(len(pos_hps))):
@@ -195,7 +190,6 @@ class Domain:
                     f"HP BOX at {pos_hp} is with ({corner_ll}, {corner_ur}) in domain"
                 )
             except Exception as e:
-               print(e)
                logging.warning(f"BOX of HP {idx} at {pos_hp} is not in domain")
                 
         return hp_boxes

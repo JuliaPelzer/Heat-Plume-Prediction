@@ -49,7 +49,7 @@ class TurbNetG(nn.Module):
 
         self.layer2 = blockUNet(channels  , channels*2, 'layer2', transposed=False, bn=True,  relu=False, dropout=dropout )
         self.layer2b= blockUNet(channels*2, channels*4, 'layer2b',transposed=False, bn=True,  relu=False, dropout=dropout )
-        self.layer3 = blockUNet(channels*4, channels*8, 'layer3', transposed=False, bn=True,  relu=False, dropout=dropout )
+        self.layer3 = blockUNet(channels*4, channels*8, 'layer3', transposed=False, bn=True,  relu=False, dropout=dropout , size=2,pad=0)
         # note the following layer also had a kernel size of 2 in the original version (cf https://arxiv.org/abs/1810.08217)
         # it is now changed to size 4 for encoder/decoder symmetry; to reproduce the old/original results, please change it to 2
         #self.layer4 = blockUNet(channels*4, channels*8, 'layer4', transposed=False, bn=True,  relu=False, dropout=dropout ,  size=4 ) # note, size 4!
@@ -60,7 +60,7 @@ class TurbNetG(nn.Module):
         #self.dlayer6 = blockUNet(channels*8, channels*8, 'dlayer6', transposed=True, bn=True, relu=True, dropout=dropout , size=2,pad=0)
         #self.dlayer5 = blockUNet(channels*16,channels*8, 'dlayer5', transposed=True, bn=True, relu=True, dropout=dropout , size=2,pad=0)
         #self.dlayer4 = blockUNet(channels*16,channels*4, 'dlayer4', transposed=True, bn=True, relu=True, dropout=dropout ) 
-        self.dlayer3 = blockUNet(channels*8, channels*4, 'dlayer3', transposed=True, bn=True, relu=True, dropout=dropout )
+        self.dlayer3 = blockUNet(channels*8, channels*4, 'dlayer3', transposed=True, bn=True, relu=True, dropout=dropout , size=2,pad=0)
         self.dlayer2b= blockUNet(channels*8, channels*2, 'dlayer2b',transposed=True, bn=True, relu=True, dropout=dropout )
         self.dlayer2 = blockUNet(channels*4, channels  , 'dlayer2', transposed=True, bn=True, relu=True, dropout=dropout )
 
