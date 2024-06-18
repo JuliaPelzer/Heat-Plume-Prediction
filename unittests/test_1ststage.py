@@ -1,6 +1,6 @@
 import torch
 
-from data_stuff.transforms import ComposeTransform, SignedDistanceTransform
+from data_stuff.transforms import ComposeTransform, SignedDistanceTransform, RotationTransform
 
 
 def test_sdf_transform():
@@ -25,5 +25,23 @@ def test_sdf_transform():
     assert torch.allclose(data["SDF"], expected, atol=1e-4)
     assert data["SDF"][1,1,0] == 1
 
+def test_rotation_transform():
+    trafo = RotationTransform(180)
+    # Fixture
+    data = {"Pressure Gradient [-]": torch.Tensor([[[1], [1]],[[1], [1]]]),
+            "Pressure Gradient [|]": torch.Tensor([[[0], [0]],[[0], [0]]]),
+            "TEST": torch.Tensor([[[1], [2]],[[3], [4]]])}
+    # Expected result
+    expected = torch.Tensor([[[[-1],[-1]],[[-1],[-1]]],
+                             [[[0],[0]], [[0],[0]]],
+                             [[[4],[3]],[[2],[1]]]])
+    # Actual result
+    data = trafo(data)
+    # Test
+    assert torch.allclose(data["Pressure Gradient [-]"], expected[0])
+    assert torch.allclose(data["Pressure Gradient [|]"], expected[1])
+    assert torch.allclose(data["TEST"], expected[2])
+
 if __name__ == "__main__":
     test_sdf_transform()
+    test_rotation_transform()

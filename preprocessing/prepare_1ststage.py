@@ -13,7 +13,7 @@ from tqdm.auto import tqdm
 
 from data_stuff.transforms import (ComposeTransform, NormalizeTransform,
                              PowerOfTwoTransform, ReduceTo2DTransform, CutLengthTransform,
-                             SignedDistanceTransform, PositionalEncodingTransform, ToTensorTransform)
+                             SignedDistanceTransform, PositionalEncodingTransform, ToTensorTransform, RotationTransform)
 from data_stuff.utils import SettingsTraining
 from preprocessing.prepare_paths import Paths1HP, Paths2HP
 
@@ -34,7 +34,7 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
         info = None
             
     # TODO unsauber, TODO cutlengthtrafo zu länge die in info.yaml gespeichert ist
-    prepare_dataset(paths, settings.inputs, power2trafo=False, cutlengthtrafo=cutlengthtrafo, box_length=settings.len_box,info=info)
+    prepare_dataset(paths, settings.inputs, power2trafo=False, cutlengthtrafo=cutlengthtrafo, box_length=settings.len_box,info=info,augmentation = settings.augmentation)
     
     if settings.case == "train" and not settings.case_2hp:
         # store info of training
@@ -48,7 +48,7 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
                 "duration of whole process in seconds": time_end}, file)
         
 
-def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: bool = True, cutlengthtrafo: bool = False, box_length: int = 256, info:dict = None):
+def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: bool = True, cutlengthtrafo: bool = False, box_length: int = 256, info:dict = None, augmentation: bool = False):
     """
     Create a dataset from the raw pflotran data in raw_data_path.
     The saved dataset is normalized using the mean and standard deviation, which are saved to info.yaml in the new dataset folder.
@@ -72,7 +72,7 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
     dataset_prepared_path.joinpath("Inputs").mkdir(parents=True, exist_ok=True) # TODO
     dataset_prepared_path.joinpath("Labels").mkdir(parents=True, exist_ok=True)
 
-    transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo, cutlengthtrafo=cutlengthtrafo, box_length=box_length)
+    transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=True, cutlengthtrafo=cutlengthtrafo, box_length=box_length) #power2trafo
     inputs = expand_property_names(inputs)
     time_first = "   0 Time  0.00000E+00 y"
     time_final = "   3 Time  5.00000E+00 y"
@@ -86,6 +86,7 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
     tensor_transform = ToTensorTransform()
     output_variables = ["Temperature [C]"]
     data_paths, runs = detect_datapoints(paths.raw_path)
+    n_runs = len(runs)
     total = len(data_paths)
     for data_path, run in tqdm(zip(data_paths, runs), desc="Converting", total=total):
         x = load_data(data_path, time_first, inputs, dims)
@@ -99,7 +100,30 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
         y = tensor_transform(y)
         torch.save(x, os.path.join(dataset_prepared_path, "Inputs", f"{run}.pt"))
         torch.save(y, os.path.join(dataset_prepared_path, "Labels", f"{run}.pt"))
-        
+
+        if augmentation:
+            x = load_data(data_path, time_first, inputs, dims)
+            y = load_data(data_path, time_steady_state, output_variables, dims)
+
+            #get rotated data
+            #rot_angle = np.random.rand()*360
+            rot_angle = np.random.choice([0.25,0.5,0.75])*360
+            rot_transform = RotationTransform(rot_angle)
+            
+            x = rot_transform(x)
+            y = rot_transform(y)
+
+            loc_hp = get_hp_location(x)
+            x = transforms(x, loc_hp=loc_hp)
+            if info is None: calc.add_data(x) 
+            x = tensor_transform(x)
+            y = transforms(y, loc_hp=loc_hp)
+            if info is None: calc.add_data(y)
+            y = tensor_transform(y)
+            torch.save(x, os.path.join(dataset_prepared_path, "Inputs", f"RUN_{n_runs}.pt"))
+            torch.save(y, os.path.join(dataset_prepared_path, "Labels", f"RUN_{n_runs}.pt"))
+            n_runs += 1
+
     if info is not None: 
         info["CellsNumberPrior"] = info["CellsNumber"]
         info["PositionHPPrior"] = info["PositionLastHP"]
@@ -200,6 +224,7 @@ def expand_property_names(properties: str):
         "a": "PE x", # positional encoding: signed distance in x direction
         "b": "PE y", # positional encoding: signed distance in y direction
         "g": "Pressure Gradient [-]",
+        "v": "Pressure Gradient [|]",
         "o": "Original Temperature [C]"
     }
     possible_vars = ','.join(translation.keys())
@@ -254,6 +279,10 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
                     empty_field = torch.ones(list(dimensions_of_datapoint)).float()
                     pressure_grad = get_pressure_gradient(data_path)
                     data[key] = empty_field * pressure_grad[1]
+                elif key == "Pressure Gradient [|]":
+                    empty_field = torch.ones(list(dimensions_of_datapoint)).float()
+                    pressure_grad = get_pressure_gradient(data_path)
+                    data[key] = empty_field * pressure_grad[0] #maybe 2?
                 elif key == "Original Temperature [C]":
                     empty_field = torch.ones(list(dimensions_of_datapoint)).float()
                     data[key] = empty_field * 0 #10.6

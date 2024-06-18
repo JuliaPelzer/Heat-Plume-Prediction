@@ -144,8 +144,13 @@ if __name__ == "__main__":
     parser.add_argument("--notes", type=str, default="")
     parser.add_argument("--len_box", type=int, default=256)
     parser.add_argument("--skip_per_dir", type=int, default=256)
+    parser.add_argument("--augmentation", type=bool, default=False)
+    parser.add_argument("--rotate_inference", type=bool, default=False)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
+
+    if settings.augmentation == True and ('v' not in settings.inputs or 'g' not in settings.inputs):
+        raise ValueError("Augmentation only supported with vg... as input!")
 
     settings = prepare_data_and_paths(settings)
 
