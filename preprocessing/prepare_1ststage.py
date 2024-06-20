@@ -72,7 +72,7 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
     dataset_prepared_path.joinpath("Inputs").mkdir(parents=True, exist_ok=True) # TODO
     dataset_prepared_path.joinpath("Labels").mkdir(parents=True, exist_ok=True)
 
-    transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=power2trafo, cutlengthtrafo=cutlengthtrafo, box_length=box_length)
+    transforms = get_transforms(reduce_to_2D=True, reduce_to_2D_xy=True, power2trafo=True, cutlengthtrafo=cutlengthtrafo, box_length=box_length)
     inputs = expand_property_names(inputs)
     time_first = "   0 Time  0.00000E+00 y"
     time_final = "   3 Time  5.00000E+00 y"
@@ -200,6 +200,7 @@ def expand_property_names(properties: str):
         "a": "PE x", # positional encoding: signed distance in x direction
         "b": "PE y", # positional encoding: signed distance in y direction
         "g": "Pressure Gradient [-]",
+        "v": "Pressure Gradient [|]",
         "o": "Original Temperature [C]"
     }
     possible_vars = ','.join(translation.keys())
@@ -254,6 +255,10 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
                     empty_field = torch.ones(list(dimensions_of_datapoint)).float()
                     pressure_grad = get_pressure_gradient(data_path)
                     data[key] = empty_field * pressure_grad[1]
+                elif key == "Pressure Gradient [|]":
+                    empty_field = torch.ones(list(dimensions_of_datapoint)).float()
+                    pressure_grad = get_pressure_gradient(data_path)
+                    data[key] = empty_field * pressure_grad[0]
                 elif key == "Original Temperature [C]":
                     empty_field = torch.ones(list(dimensions_of_datapoint)).float()
                     data[key] = empty_field * 0 #10.6

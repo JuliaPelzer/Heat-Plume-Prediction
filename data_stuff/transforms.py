@@ -36,9 +36,11 @@ class NormalizeTransform:
         norm = stats["norm"]
         if norm == "Rescale":
             delta = stats["max"] - stats["min"]
-            data[index] = (data[index] - stats["min"]) / delta * (self.out_max - self.out_min) + self.out_min
+            if delta != 0.0: #dont normalize when delta is 0!
+                data[index] = (data[index] - stats["min"]) / delta * (self.out_max - self.out_min) + self.out_min
         elif norm == "Standardize":
-            data[index] = (data[index] - stats["mean"]) / stats["std"]
+            if stats["std"] != 0.0: #dont normalize when std is 0!
+                data[index] = (data[index] - stats["mean"]) / stats["std"]
         elif norm is None:
             pass
         else:
@@ -50,7 +52,8 @@ class NormalizeTransform:
         norm = stats["norm"]
         if norm == "Rescale":
             delta = stats["max"] - stats["min"]
-            data[index] = (data[index] - self.out_min) / (self.out_max - self.out_min) * delta + stats["min"]
+            if delta != 0: #dont renormalize when delta is 0!
+                data[index] = (data[index] - self.out_min) / (self.out_max - self.out_min) * delta + stats["min"]
         elif norm == "Standardize":
             data[index] = data[index] * stats["std"] + stats["mean"]
         elif norm is None:
