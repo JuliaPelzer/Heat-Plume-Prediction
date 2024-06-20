@@ -6,7 +6,7 @@
 #SBATCH --nodelist=simcl1n1
 #SBATCH --time=6:00:00
 
-#module load cuda/11.8.0
+module load cuda/12.2.2
 source /import/sgs.scratch/miliczpl/cnn_env/bin/activate
 
-python main.py --dataset_raw dataset_square_100dp_p_right_higher_freq --inputs vgksi --augmentation True
+python main.py --dataset_raw 1000dp

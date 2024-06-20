@@ -21,7 +21,7 @@ class Paths2HP:
     datasets_boxes_prep_path: pathlib.Path # 2hp-boxes
 
 # Functions for setting paths
-def set_paths_1hpnn(dataset_name: str, inputs:str = "", dataset_prep:str = "", problem:str="2stages", augmentation:bool=False)-> Paths1HP:
+def set_paths_1hpnn(dataset_name: str, inputs:str = "", dataset_prep:str = "", problem:str="2stages")-> Paths1HP:
     paths_file:str = "paths.yaml"
     if not os.path.exists(paths_file):
         raise FileNotFoundError(f"{paths_file} not found")
@@ -37,8 +37,6 @@ def set_paths_1hpnn(dataset_name: str, inputs:str = "", dataset_prep:str = "", p
     dataset_raw_path = default_raw_dir / dataset_name
     if dataset_prep == "":
         dataset_prep = f"{dataset_name} inputs_{inputs}"
-        if augmentation:
-            dataset_prep = f"{dataset_prep} augmented"
     dataset_prepared_full_path = datasets_prepared_dir / dataset_prep
 
     return Paths1HP(dataset_raw_path, dataset_prepared_full_path), destination_dir

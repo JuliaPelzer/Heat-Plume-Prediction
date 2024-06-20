@@ -8,7 +8,7 @@ from typing import Tuple
 import numpy as np
 import torch
 from torch import linalg, nonzero, unsqueeze
-import torchvision.transforms.functional as TF
+
 
 class NormalizeTransform:
     def __init__(self,info:dict,out_range = (0,1)):
@@ -36,11 +36,9 @@ class NormalizeTransform:
         norm = stats["norm"]
         if norm == "Rescale":
             delta = stats["max"] - stats["min"]
-            if delta != 0.0: #dont normalize when delta is 0!
-                data[index] = (data[index] - stats["min"]) / delta * (self.out_max - self.out_min) + self.out_min 
+            data[index] = (data[index] - stats["min"]) / delta * (self.out_max - self.out_min) + self.out_min
         elif norm == "Standardize":
-            if stats["std"] != 0.0: #dont normalize when std is 0!
-                data[index] = (data[index] - stats["mean"]) / stats["std"]
+            data[index] = (data[index] - stats["mean"]) / stats["std"]
         elif norm is None:
             pass
         else:
@@ -52,8 +50,7 @@ class NormalizeTransform:
         norm = stats["norm"]
         if norm == "Rescale":
             delta = stats["max"] - stats["min"]
-            if delta != 0: #dont renormalize when delta is 0!
-                data[index] = (data[index] - self.out_min) / (self.out_max - self.out_min) * delta + stats["min"]
+            data[index] = (data[index] - self.out_min) / (self.out_max - self.out_min) * delta + stats["min"]
         elif norm == "Standardize":
             data[index] = data[index] * stats["std"] + stats["mean"]
         elif norm is None:
@@ -311,35 +308,6 @@ class ToTensorTransform:
                     (result, data[prop].squeeze()[None, ...]), axis=0)
         logging.info("Converted data to torch.Tensor")
         return result
-
-class RotationTransform:
-    """
-    Transform class to rotate data according to provided angle (2D)
-    """
-
-    def __init__(self, angle):
-        self.angle = angle
-
-    def __call__(self, data):
-        logging.info("Start RotationTransform")
-
-        if "Pressure Gradient [-]" in data:
-            grad_x = data["Pressure Gradient [-]"].squeeze()
-            grad_y = data["Pressure Gradient [|]"].squeeze()
-            grad = np.array([grad_x[0][0],grad_y[0][0]])
-            rad = np.radians(self.angle)
-            rot_mat = np.array([[np.cos(rad), -np.sin(rad)],
-                        [np.sin(rad), np.cos(rad)]])
-            new_grad = np.dot(rot_mat, grad)
-            data["Pressure Gradient [-]"] = torch.full(grad_x.shape, new_grad[0]).unsqueeze(dim=-1)
-            data["Pressure Gradient [|]"] = torch.full(grad_y.shape, new_grad[1]).unsqueeze(dim=-1)
-
-        for key in data.keys():
-            if key != "Pressure Gradient [-]" and key != "Pressure Gradient [|]":
-                data[key] = TF.rotate(data[key].squeeze().unsqueeze(0), self.angle).squeeze(0).unsqueeze(dim=-1)
-
-        logging.info("End RotationTransform")
-        return data
 
 
 if __name__ == "__main__":
