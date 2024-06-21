@@ -261,7 +261,8 @@ class Domain:
                 if self.label_normed_bool:
                     self.label = self.reverse_norm(self.label, property)
                     self.label_normed_bool = False
-                plt.imshow(abs(self.prediction.T - squeeze(self.label).T).detach().numpy())
+                domain_temp = self.reverse_norm(self.prediction.clone().detach())
+                plt.imshow(abs(domain_temp.T - squeeze(self.label).T).detach().numpy())
                 plt.gca().invert_yaxis()
                 plt.xlabel("x [cells]")
                 plt.ylabel("y [cells]")

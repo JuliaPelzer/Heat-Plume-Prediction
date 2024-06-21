@@ -48,8 +48,8 @@ class TurbNetG(nn.Module):
         self.layer1.add_module('layer1_conv', nn.Conv2d(in_channels, channels, 4, 2, 1, bias=True))
 
         self.layer2 = blockUNet(channels  , channels*2, 'layer2', transposed=False, bn=True,  relu=False, dropout=dropout )
-        self.layer2b= blockUNet(channels*2, channels*4, 'layer2b',transposed=False, bn=True,  relu=False, dropout=dropout )
-        self.layer3 = blockUNet(channels*4, channels*8, 'layer3', transposed=False, bn=True,  relu=False, dropout=dropout , size=2,pad=0)
+        self.layer2b= blockUNet(channels*2, channels*8, 'layer2b',transposed=False, bn=True,  relu=False, dropout=dropout )
+        #self.layer3 = blockUNet(channels*4, channels*8, 'layer3', transposed=False, bn=True,  relu=False, dropout=dropout , size=2,pad=0)
         # note the following layer also had a kernel size of 2 in the original version (cf https://arxiv.org/abs/1810.08217)
         # it is now changed to size 4 for encoder/decoder symmetry; to reproduce the old/original results, please change it to 2
         #self.layer4 = blockUNet(channels*4, channels*8, 'layer4', transposed=False, bn=True,  relu=False, dropout=dropout ,  size=4 ) # note, size 4!
@@ -60,7 +60,7 @@ class TurbNetG(nn.Module):
         #self.dlayer6 = blockUNet(channels*8, channels*8, 'dlayer6', transposed=True, bn=True, relu=True, dropout=dropout , size=2,pad=0)
         #self.dlayer5 = blockUNet(channels*16,channels*8, 'dlayer5', transposed=True, bn=True, relu=True, dropout=dropout , size=2,pad=0)
         #self.dlayer4 = blockUNet(channels*16,channels*4, 'dlayer4', transposed=True, bn=True, relu=True, dropout=dropout ) 
-        self.dlayer3 = blockUNet(channels*8, channels*4, 'dlayer3', transposed=True, bn=True, relu=True, dropout=dropout , size=2,pad=0)
+        #self.dlayer3 = blockUNet(channels*8, channels*4, 'dlayer3', transposed=True, bn=True, relu=True, dropout=dropout , size=2,pad=0)
         self.dlayer2b= blockUNet(channels*8, channels*2, 'dlayer2b',transposed=True, bn=True, relu=True, dropout=dropout )
         self.dlayer2 = blockUNet(channels*4, channels  , 'dlayer2', transposed=True, bn=True, relu=True, dropout=dropout )
 
@@ -71,8 +71,10 @@ class TurbNetG(nn.Module):
     def forward(self, x):
         out1 = self.layer1(x)
         out2 = self.layer2(out1)
-        out2b= self.layer2b(out2)
-        out3 = self.layer3(out2b)
+        dout2b= self.layer2b(out2)
+        #print(dout2b.shape)
+        #out3 = self.layer3(out2b)
+        #print(out3.shape)
         #out4 = self.layer4(out3)
         #out5 = self.layer5(out4)
         #out6 = self.layer6(out5)
@@ -82,9 +84,9 @@ class TurbNetG(nn.Module):
         #dout5_out4 = torch.cat([dout5, out4], 1)
         #dout4 = self.dlayer4(dout5_out4)
         #dout4_out3 = torch.cat([dout4, out3], 1)
-        dout3 = self.dlayer3(out3)
-        dout3_out2b = torch.cat([dout3, out2b], 1)
-        dout2b = self.dlayer2b(dout3_out2b)
+        #dout3 = self.dlayer3(out3)
+        #dout3_out2b = torch.cat([dout3, out2b], 1)
+        dout2b = self.dlayer2b(dout2b)
         dout2b_out2 = torch.cat([dout2b, out2], 1)
         dout2 = self.dlayer2(dout2b_out2)
         dout2_out1 = torch.cat([dout2, out1], 1)
