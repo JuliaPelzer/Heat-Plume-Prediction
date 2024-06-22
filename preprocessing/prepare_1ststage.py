@@ -28,7 +28,7 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
 
     power2trafo=True
     if settings.case == "test" or settings.case_2hp:
-        power2trafo=False
+        power2trafo=True
         # get info of training
         with open(info_file_path, "r") as file:
             info = yaml.safe_load(file)
@@ -104,9 +104,10 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
         torch.save(y, os.path.join(dataset_prepared_path, "Labels", f"{run}.pt"))
         
     if info is not None:
-        info["CellsNumberPrior"] = info["CellsNumberPrior"]
-        info["PositionHPPrior"] = info["PositionLastHP"]
-        assert info["CellsSize"][:2] == cell_size.tolist()[:2], f"Cell size changed between given info.yaml {info['CellsSize']} and data {cell_size.tolist()}"
+        print("skiperoni")
+        #info["CellsNumberPrior"] = info["CellsNumberPrior"]
+        #info["PositionHPPrior"] = info["PositionLastHP"]
+        #assert info["CellsSize"][:2] == cell_size.tolist()[:2], f"Cell size changed between given info.yaml {info['CellsSize']} and data {cell_size.tolist()}"
     else:
         info = dict()
         means = calc.mean()

@@ -62,7 +62,7 @@ def run(settings: SettingsTraining):
         model = TurbNetG(in_channels=input_channels).float()
 
     if settings.case in ["test", "finetune"]:
-        model.load(settings.model, settings.device)
+        model.load(settings.model, map_location=settings.device)
 
     if settings.case_2hp:
         model.to("cpu")
@@ -120,7 +120,7 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
     elif settings.problem == "turbnet":
         model = TurbNetG(in_channels=in_channels).float()  
 
-    model.load(model_name, settings.device)
+    model.load(model_name, map_location=settings.device)
     model.eval()
 
     data_dir = settings.dataset_prep
