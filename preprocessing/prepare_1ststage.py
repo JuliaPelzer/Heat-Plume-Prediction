@@ -90,10 +90,14 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
     output_variables = ["Temperature [C]"]
     data_paths, runs = detect_datapoints(paths.raw_path)
     total = len(data_paths)
+    prev_loc = np.array([1,2])
     for data_path, run in tqdm(zip(data_paths, runs), desc="Converting", total=total):
         x = load_data(data_path, time_first, inputs, dims)
         y = load_data(data_path, time_steady_state, output_variables, dims)
         loc_hp = get_hp_location(x)
+        if loc_hp != prev_loc:
+            print(f"hp location changed from {prev_loc} to {loc_hp}")
+            prev_loc = loc_hp
         x = transforms(x, loc_hp=loc_hp)
         if info is None: calc.add_data(x) 
         x = tensor_transform(x)
