@@ -22,6 +22,7 @@ if __name__ == "__main__":
     parser.add_argument("--data_prep", type=str, default=None)
     parser.add_argument("--allin1_prepro_n_case", type=str, choices=["gt", "unet", "cdmlp"], default=None, help="Case for preprocessing of allin1")
     parser.add_argument("--inputs", type=str, default="gksi") #e.g. "gki", "gksi100", "ogksi1000_finetune", "t", "lmi", "lmik","lmikp", ...
+    parser.add_argument("--outputs", type=str, default="t") # e.g. "t" for allin1 step2; "xy" for allin1 step1; "xyt" for preparation
     parser.add_argument("--len_box", type=int, default=64) # for 1hp:256, extend:128?
     parser.add_argument("--skip_per_dir", type=int, default=32)
     parser.add_argument("--epochs", type=int, default=100)
@@ -50,7 +51,6 @@ if __name__ == "__main__":
 
         # TODO eingerückt oder nicht??
     ut.make_paths(args) # and check if data / model exists
-    ut.save_notes(args)
     ut.save_yaml(args, args["destination"] / "command_line_arguments.yaml")
 
     # prepare data

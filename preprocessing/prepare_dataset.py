@@ -37,9 +37,9 @@ def prepare_dataset(args:dict, info:dict = None, additional_inputs: torch.Tensor
 
     transforms = get_transforms(problem=args["problem"])
     inputs = expand_property_names(args["inputs"])
+    outputs = expand_property_names(args["outputs"])
     time_init = "   0 Time  0.00000E+00 y"
-    # time_prediction = "   3 Time  5.00000E+00 y"
-    time_prediction = "   4 Time  2.75000E+01 y"
+    time_prediction = "   4 Time  2.75000E+01 y" #
     pflotran_settings = load_yaml(args["data_raw"] / "inputs" / "settings.yaml")
     dims = np.array(pflotran_settings["grid"]["ncells"])
     total_size = np.array(pflotran_settings["grid"]["size"])
@@ -47,8 +47,6 @@ def prepare_dataset(args:dict, info:dict = None, additional_inputs: torch.Tensor
 
     if info is None: calc = WelfordStatistics()
     tensor_transform = ToTensorTransform()
-    output_variables = ["Temperature [C]"]
-    # output_variables = ["Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]"]
     data_paths, runs = load.detect_datapoints(args["data_raw"])
     total = len(data_paths)
     if additional_inputs is None:
@@ -56,7 +54,7 @@ def prepare_dataset(args:dict, info:dict = None, additional_inputs: torch.Tensor
     print_bool = True
     for data_path, run, additional_input in tqdm(zip(data_paths, runs, additional_inputs), desc="Converting", total=total):
         x = load.load_data(data_path, time_init, inputs, dims, additional_input=additional_input, print_bool=print_bool)
-        y = load.load_data(data_path, time_prediction, output_variables, dims, print_bool=print_bool)
+        y = load.load_data(data_path, time_prediction, outputs, dims, print_bool=print_bool)
         print_bool = False
         loc_hp = load.get_hp_location(x)
         x = transforms(x, loc_hp=loc_hp)
@@ -91,7 +89,7 @@ def prepare_dataset(args:dict, info:dict = None, additional_inputs: torch.Tensor
                                 "max": maxs[key],
                                 "norm": get_normalization_type(key),
                                 "index": n}
-                        for n, key in enumerate(output_variables)}
+                        for n, key in enumerate(outputs)}
         
     info["CellsSize"] = cell_size.tolist()
     # change of size possible; order of tensor is in any case the other way around
@@ -106,7 +104,7 @@ def prepare_dataset(args:dict, info:dict = None, additional_inputs: torch.Tensor
     # info["PositionLastHP"] = get_hp_location_from_tensor(x, info)
     save_yaml(info, args["data_prep"]/"info.yaml")
     normalize(args["data_prep"], info, total)
-    save_yaml({"dataset":args["data_raw"].name, "inputs": inputs}, args["data_prep"]/"args.yaml")
+    save_yaml({"dataset":args["data_raw"].name, "inputs": inputs, "outputs": outputs}, args["data_prep"]/"args.yaml")
 
     return info
 
