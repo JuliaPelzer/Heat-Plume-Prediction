@@ -19,18 +19,25 @@ from postprocessing.visu_utils import _aligned_colorbar
 @dataclass
 class DataToVisualize:
     data: np.ndarray
-    name: str
+    category: str
+    physical_property: str
     extent_highs :tuple = (1280,100) # x,y in meters
     imshowargs: Dict = field(default_factory=dict)
     contourfargs: Dict = field(default_factory=dict)
     contourargs: Dict = field(default_factory=dict)
+    vmax: float = None
+    vmin: float = None
 
     def __post_init__(self):
         extent = (0,int(self.extent_highs[0]),int(self.extent_highs[1]),0)
 
         self.imshowargs = {"cmap": "RdBu_r", 
                            "extent": extent,
-                           "interpolation": "nearest"}
+                           "interpolation": "nearest",}
+        if self.vmax is not None:
+            self.imshowargs["vmax"] = self.vmax
+        if self.vmin is not None:
+            self.imshowargs["vmin"] = self.vmin
 
         self.contourfargs = {"levels": np.arange(10.4, 16, 0.25), 
                              "cmap": "RdBu_r", 
@@ -42,14 +49,20 @@ class DataToVisualize:
                             "cmap" : "Pastel1", 
                             "extent": extent}
 
-        if self.name == "Liquid Pressure [Pa]":
-            self.name = "Pressure in [Pa]"
-        elif self.name == "Material ID":
-            self.name = "Position of the heatpump in [-]"
-        elif self.name == "Permeability X [m^2]":
-            self.name = "Permeability in [m$^2$]"
-        elif self.name == "SDF":
-            self.name = "SDF-transformed position in [-]"
+        if self.physical_property == "Liquid Pressure [Pa]":
+            self.physical_property = "Pressure [Pa]"
+        elif self.physical_property == "Material ID":
+            self.physical_property = "Positions of Heat Pumps [-]"
+        elif self.physical_property == "Permeability X [m^2]":
+            self.physical_property = "Permeability [m$^2$]"
+        elif self.physical_property == "SDF":
+            self.physical_property = "SDF-Transformed Positions of Heat Pumps [-]"
+        elif self.physical_property == "MDF":
+            self.physical_property = "MDF-Transformed Positions of Heat Pumps [-]"
+        elif self.physical_property == "Streamlines Fade":
+            self.physical_property = "Streamlines Fade [-]"
+        elif self.physical_property == "Streamlines":
+            self.physical_property = "Streamlines [-]"
 
 def visualizations(model: UNet, dataloader: DataLoader, args: dict, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png"):
     print("Visualizing...") #, end="\r")
@@ -64,7 +77,7 @@ def visualizations(model: UNet, dataloader: DataLoader, args: dict, amount_datap
         norm = dataloader.dataset.dataset.norm
         info = dataloader.dataset.dataset.info
     settings_pic = {"format": pic_format,
-                    "dpi": 600,}
+                    "dpi": 1200,}
     
     if args["problem"] == "extend":
         params = {"start_visu" : 0,
@@ -109,34 +122,38 @@ def visualizations(model: UNet, dataloader: DataLoader, args: dict, amount_datap
 def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, norm: NormalizeTransform):
     # reverse transform for plotting real values
     x = norm.reverse(x.detach().cpu().squeeze(0), "Inputs")
-    y = norm.reverse(y.detach().cpu(),"Labels")[0]
+    if len(y.shape) == 4:
+        y = norm.reverse(y.detach().cpu().squeeze(0),"Labels")
+    else:
+        y = norm.reverse(y.detach().cpu(),"Labels")
     try:
-        y_out = norm.reverse(y_out.detach().cpu()[0],"Labels")[0]
+        y_out = norm.reverse(y_out.detach().cpu().squeeze(0),"Labels")
     except:
-        y_out = norm.reverse(y_out[0],"Labels")[0]
+        y_out = norm.reverse(y_out.squeeze(0),"Labels")
     return x, y, y_out
 
 def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, info: dict, problem: str):
     # prepare data of temperature true, temperature out, error, physical variables (inputs)
-    temp_max = max(y.max(), y_out.max())
-    temp_min = min(y.min(), y_out.min())
+    outs_max = [max(y[idx].max(), y_out[idx].max()) for idx in range(len(y))]
+    outs_min = [min(y[idx].min(), y_out[idx].min()) for idx in range(len(y))]
     extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
 
     required_size = y_out.shape
-    print("required_size", required_size, y.shape, y_out.shape)
-    start_pos = ((y.shape[0] - required_size[0])//2, (y.shape[1] - required_size[1])//2)
-    y_reduced = y[start_pos[0]:start_pos[0]+required_size[0], start_pos[1]:start_pos[1]+required_size[1]]
+    start_pos = ((y.shape[1] - required_size[1])//2, (y.shape[2] - required_size[2])//2)
+    y_reduced = y[:,start_pos[0]:start_pos[0]+required_size[1], start_pos[1]:start_pos[1]+required_size[2]]
 
-    dict_to_plot = {
-        "t_true": DataToVisualize(y_reduced, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-        "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-        "error": DataToVisualize(torch.abs(y_reduced-y_out), "Absolute error in [°C]", extent_highs),
-    }
+    dict_to_plot = {}
+    labels = info["Labels"].keys()
+    for label in labels:
+        index = info["Labels"][label]["index"]
+        print(outs_max[index], outs_min[index])
+        dict_to_plot[f"{label}_true"] = DataToVisualize(y_reduced[index], "Label", label, extent_highs, vmax=outs_max[index], vmin=outs_min[index])
+        dict_to_plot[f"{label}_out"] = DataToVisualize(y_out[index], "Prediction", label, extent_highs, vmax=outs_max[index], vmin=outs_min[index])
+        dict_to_plot[f"{label}_error"] = DataToVisualize(torch.abs(y_reduced[index]-y_out[index]), "Absolute Error", label, extent_highs)
     inputs = info["Inputs"].keys()
     for input in inputs:
-        # if input in ["Permeability X [m^2]", "Preprocessed Temperature [C]", "Liquid X-Velocity [m_per_y]", "Liquid Y-Velocity [m_per_y]"]:
         index = info["Inputs"][input]["index"]
-        dict_to_plot[input] = DataToVisualize(x[index], input, extent_highs)
+        dict_to_plot[input] = DataToVisualize(x[index], "Input", input, extent_highs)
 
     return dict_to_plot
 
@@ -150,7 +167,7 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
         
         for index, (name, datapoint) in enumerate(data.items()):
             plt.sca(axes[index])
-            plt.title(datapoint.name)
+            plt.title(datapoint.category)
             if only_inner:
                 plt.imshow(datapoint.data[100:400,100:400].T, **datapoint.imshowargs)
             else:  
@@ -158,9 +175,9 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
             plt.gca().invert_yaxis()
 
             plt.ylabel("x [m]")
-            _aligned_colorbar()
+            _aligned_colorbar(label=datapoint.physical_property)
 
-        plt.sca(axes[-1])
+        # plt.sca(axes[-1]) # TODO DONT WANT THAT ANYMORE??? FLIPS MY PICS
         plt.xlabel("y [m]")
         plt.tight_layout()
         ext_inner = "_inner" if only_inner else ""
@@ -169,17 +186,16 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
         for (name, datapoint) in data.items():
             fig, _ = plt.subplots(1, 1, sharex=True)
             fig.set_figheight(5)
-            plt.title(datapoint.name)
+            plt.title(datapoint.category)
             if only_inner:
                 plt.imshow(datapoint.data[100:400,100:400].T, **datapoint.imshowargs)
             else:  
                 plt.imshow(datapoint.data.T, **datapoint.imshowargs)
-            plt.gca().invert_yaxis()
+            # plt.gca().invert_yaxis() # TODO DONT WANT THAT ANYMORE!! FLIPS MY PICS
 
             plt.ylabel("x [m]")
-            _aligned_colorbar()
-
             plt.xlabel("y [m]")
+            _aligned_colorbar(label=datapoint.physical_property)
             plt.tight_layout()
             ext_inner = "_inner" if only_inner else ""
             plt.savefig(f"{name_pic}{ext_inner}_{name}.{settings_pic['format']}", **settings_pic)
@@ -194,10 +210,10 @@ def plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, settings_pic:
         try:
             plt.sca(axes[index])
             data[name].data = torch.flip(data[name].data, dims=[1])
-            plt.title("Isolines of "+data[name].name)
+            plt.title("Isolines of "+data[name].category)
             plt.contourf(data[name].data.T, **data[name].contourfargs)
             plt.ylabel("x [m]")
-            _aligned_colorbar(ticks=[11.6, 15.6])
+            _aligned_colorbar(label=data[name].physical_property, ticks=[11.6, 15.6])
         except:
             pass
 
@@ -254,8 +270,8 @@ def plot_avg_error_cellwise(dataloader, summed_error_pic, settings_pic: dict):
     plt.gca().invert_yaxis()
     plt.ylabel("x [m]")
     plt.xlabel("y [m]")
-    plt.title("Cellwise averaged error [°C]")
-    _aligned_colorbar()
+    plt.title("Cellwise Averaged Error")
+    _aligned_colorbar(label="Temperature [°C]")
 
     plt.tight_layout()
     plt.savefig(f"{settings_pic['folder']}/avg_error.{settings_pic['format']}", format=settings_pic['format'])
