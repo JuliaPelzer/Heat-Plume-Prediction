@@ -52,7 +52,7 @@ def init_data(args:dict, seed=1):
             print(f"Length of dataset: {len(dataset_test)}")
         else:
             print(f"Length of dataset: {len(dataset_train)}:{len(dataset_val)}:{len(dataset_test)}")
-        return dataset_test.input_channels, dataloaders
+        return dataset_test.input_channels, dataset_test.output_channels, dataloaders
 
 def load_all_datasets_in_full(args: dict):
     dataloaders = {}

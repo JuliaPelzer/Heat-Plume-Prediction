@@ -19,7 +19,7 @@ def train(args: dict):
     torch.manual_seed(1)
     multiprocessing.set_start_method("spawn", force=True)
 
-    input_channels, dataloaders = init_data(args)
+    input_channels, output_channels, dataloaders = init_data(args)
 
     # model
     if args["problem"] in ["1hp", "2stages", "test"]:
@@ -29,7 +29,7 @@ def train(args: dict):
         # model = Encoder(in_channels=input_channels).float()
     elif args["problem"] in ["allin1"]:
         # model = UNet(in_channels=input_channels, out_channels=1).float()
-        model = UNetNoPad2(in_channels=input_channels, out_channels=1).float()
+        model = UNetNoPad2(in_channels=input_channels, out_channels=output_channels).float()
     model.to(args["device"])
     
     if args["case"] in ["test", "finetune"]:
