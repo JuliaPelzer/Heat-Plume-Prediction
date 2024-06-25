@@ -2,8 +2,10 @@ import csv
 import logging
 import pathlib
 import time
+import numpy as np
 from dataclasses import dataclass
 
+import torch
 from torch.nn import Module, MSELoss, modules
 from torch.optim import Adam, Optimizer
 from torch.utils.data import DataLoader
@@ -15,6 +17,7 @@ from postprocessing.visualization import visualizations
 from data_stuff.utils import SettingsTraining
 from networks.unet import weights_init, UNet
 from networks.unetHalfPad import UNetHalfPad
+from processing.rotation import rotate
 
 @dataclass
 class Solver(object):
@@ -46,6 +49,7 @@ class Solver(object):
             file = open(settings.destination / "log_best_loss_per_epoch.csv", 'w', newline='')
             csv_writer_best = csv.writer(file)
             csv_writer_best.writerow(["epoch", "val loss", "train loss"])
+        info_path = settings.destination / "info.yaml"
 
         start_time = time.perf_counter()
         # initialize tensorboard
@@ -64,11 +68,11 @@ class Solver(object):
                 # Training
                 self.model.train()
                 train_epoch_loss = self.run_epoch(
-                    self.train_dataloader, device)
+                    self.train_dataloader, device, settings.augmentation_n, info_path)
 
                 # Validation
                 self.model.eval()
-                val_epoch_loss = self.run_epoch(self.val_dataloader, device)
+                val_epoch_loss = self.run_epoch(self.val_dataloader, device, 0, '')
 
                 # Logging
                 writer.add_scalar("train_loss", train_epoch_loss, epoch)
@@ -125,26 +129,55 @@ class Solver(object):
         if log_val_epoch:
             file.close()
 
-    def run_epoch(self, dataloader: DataLoader, device: str):
+    def run_epoch(self, dataloader: DataLoader, device: str, augmentation_n: int, info_path: str):
         epoch_loss = 0.0
         for x, y in dataloader:
-            x = x.to(device)
-            y = y.to(device)
+            x_non_rot = x.to(device)
+            y_non_rot = y.to(device)
 
             if self.model.training:
                 self.opt.zero_grad()
 
-            y_pred = self.model(x)
+            y_pred = self.model(x_non_rot)
 
             loss = None
-            loss = self.loss_func(y_pred, y)
+            loss = self.loss_func(y_pred, y_non_rot)
 
             if self.model.training:
                 loss.backward()
                 self.opt.step()
 
             epoch_loss += loss.detach().item()
-        epoch_loss /= len(dataloader)
+
+            for _ in range(augmentation_n):
+                x_rotated = torch.zeros_like(x)
+                y_rotated = torch.zeros_like(y)
+
+                # rotated all inputs, labels in patch with random angle
+                for i in range(x.shape[0]):
+                    #rot_angle = np.random.rand()*360
+                    rot_angle = np.random.choice([0.25,0.5,0.75])*360
+                    x_rotated[i] = rotate(x[i], rot_angle, info_path)
+                    y_rotated[i] = rotate(y[i], rot_angle, info_path)
+
+                x_rotated = x_rotated.to(device)
+                y_rotated = y_rotated.to(device)
+
+                if self.model.training:
+                    self.opt.zero_grad()
+
+                y_pred = self.model(x_rotated)
+
+                loss = None
+                loss = self.loss_func(y_pred, y_rotated)
+
+                if self.model.training:
+                    loss.backward()
+                    self.opt.step()
+
+                epoch_loss += loss.detach().item()
+            
+        epoch_loss /= (1+augmentation_n)*len(dataloader)
         return epoch_loss
 
     def save_lr_schedule(self, path: str):

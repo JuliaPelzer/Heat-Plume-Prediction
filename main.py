@@ -144,6 +144,7 @@ if __name__ == "__main__":
     parser.add_argument("--notes", type=str, default="")
     parser.add_argument("--len_box", type=int, default=256)
     parser.add_argument("--skip_per_dir", type=int, default=256)
+    parser.add_argument("--augmentation_n", type=int, default=0)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 
