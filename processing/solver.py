@@ -49,7 +49,6 @@ class Solver(object):
             file = open(settings.destination / "log_best_loss_per_epoch.csv", 'w', newline='')
             csv_writer_best = csv.writer(file)
             csv_writer_best.writerow(["epoch", "val loss", "train loss"])
-        info_path = settings.destination / "info.yaml"
 
         start_time = time.perf_counter()
         # initialize tensorboard
@@ -68,11 +67,11 @@ class Solver(object):
                 # Training
                 self.model.train()
                 train_epoch_loss = self.run_epoch(
-                    self.train_dataloader, device, settings.augmentation_n, info_path)
+                    self.train_dataloader, device, settings.augmentation_n)
 
                 # Validation
                 self.model.eval()
-                val_epoch_loss = self.run_epoch(self.val_dataloader, device, 0, '')
+                val_epoch_loss = self.run_epoch(self.val_dataloader, device, 0)
 
                 # Logging
                 writer.add_scalar("train_loss", train_epoch_loss, epoch)
@@ -129,7 +128,7 @@ class Solver(object):
         if log_val_epoch:
             file.close()
 
-    def run_epoch(self, dataloader: DataLoader, device: str, augmentation_n: int, info_path: str):
+    def run_epoch(self, dataloader: DataLoader, device: str, augmentation_n: int):
         epoch_loss = 0.0
         for x, y in dataloader:
             x_non_rot = x.to(device)
@@ -157,8 +156,8 @@ class Solver(object):
                 for i in range(x.shape[0]):
                     #rot_angle = np.random.rand()*360
                     rot_angle = np.random.choice([0.25,0.5,0.75])*360
-                    x_rotated[i] = rotate(x[i], rot_angle, info_path)
-                    y_rotated[i] = rotate(y[i], rot_angle, info_path)
+                    x_rotated[i] = rotate(x[i], rot_angle, dataloader.dataset.dataset.info)
+                    y_rotated[i] = rotate(y[i], rot_angle, dataloader.dataset.dataset.info)
 
                 x_rotated = x_rotated.to(device)
                 y_rotated = y_rotated.to(device)

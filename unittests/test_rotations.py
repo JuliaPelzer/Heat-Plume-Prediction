@@ -1,11 +1,18 @@
 import torch
 import os
 import processing.rotation as rt
+import yaml
+
+# function to read YAML file
+def read_yaml(file_path):
+    with open(file_path, 'r') as file:
+        return yaml.safe_load(file)
 
 def test_rotation():
     # Get path to info file
     current_dir = os.path.dirname(os.path.abspath(__file__))
     info_path = os.path.join(current_dir, 'dummy_files', 'info.yaml')
+    info = read_yaml(info_path)
 
     # Input rotation
     # Fixture
@@ -18,7 +25,7 @@ def test_rotation():
                              [[-1,-1], [-1,-1]],
                              [[4,3],[2,1]]])
     # Actual result
-    data = rt.rotate(data,180,info_path)
+    data = rt.rotate(data,180,info)
 
     # Test
     assert torch.allclose(data, expected), "Problem detected in input rotation!"

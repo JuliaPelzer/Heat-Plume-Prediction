@@ -9,10 +9,11 @@ from torch.utils.data import DataLoader, random_split
 from torch.nn import MSELoss
 
 from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits
-from data_stuff.utils import SettingsTraining
+from data_stuff.utils import SettingsTraining, load_yaml
 from networks.unet import UNet, UNetBC
 from networks.unetHalfPad import UNetHalfPad
 from processing.solver import Solver
+import processing.rotation as rt
 from preprocessing.prepare import prepare_data_and_paths
 from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
 from postprocessing.measurements import measure_loss, save_all_measurements
@@ -91,8 +92,8 @@ def run(settings: SettingsTraining):
         # errors = measure_loss(model, dataloaders[which_dataset], settings.device)
     save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver) #, errors)
     if settings.visualize:
-        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
-        times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
+        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format, rotate_inference=settings.rotate_inference)
+        times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device, rotate_inference=settings.rotate_inference)
         plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         print("Visualizations finished")
         
@@ -116,7 +117,12 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
         data = torch.load(datapoint)
         data = torch.unsqueeze(data, 0)
         time_start = time.perf_counter()
-        y_out = model(data.to(settings.device)).to(settings.device)
+
+        if settings.rotate_inference:
+            y_out = rt.rotate_and_infer(data, [1,0], model, load_yaml(settings.destination, 'info'), settings.device).to(settings.device)
+        else:
+            y_out = model(data.to(settings.device)).to(settings.device)
+
         time_end = time.perf_counter()
         y_out = y_out.detach().cpu()
         y_out = torch.squeeze(y_out, 0)
@@ -145,6 +151,7 @@ if __name__ == "__main__":
     parser.add_argument("--len_box", type=int, default=256)
     parser.add_argument("--skip_per_dir", type=int, default=256)
     parser.add_argument("--augmentation_n", type=int, default=0)
+    parser.add_argument("--rotate_inference", type=bool, default=False)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

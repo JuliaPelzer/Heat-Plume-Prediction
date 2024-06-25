@@ -1,16 +1,9 @@
 import torch
 import numpy as np
 import torchvision.transforms.functional as TF
-import yaml
-
-# function to read YAML file
-def read_yaml(file_path):
-    with open(file_path, 'r') as file:
-        return yaml.safe_load(file)
 
 # function to rotate one datapoint counterclockwise
-def rotate(data, angle, info_path):
-    info = read_yaml(info_path)
+def rotate(data, angle, info):
     x_grad_ind = y_grad_ind = -1
     data_out = torch.zeros_like(data)
 
@@ -51,3 +44,19 @@ def get_rotation_angle(a,b):
         angle += 360
     
     return angle
+
+# rotate a datapoint such that direction matches specified direction and return rerotated inference
+def rotate_and_infer(datapoint, grad_vec, model, info, device):
+    # rotate datapoint
+    x_grad_ind = info['Inputs']['Pressure Gradient [-]']['index']
+    y_grad_ind = info['Inputs']['Pressure Gradient [|]']['index']
+    angle = get_rotation_angle([datapoint[x_grad_ind][0][0].item(), datapoint[y_grad_ind][0][0].item()], grad_vec)
+    x = rotate(datapoint, angle, info)
+
+    #get inference
+    x = x.to(device).unsqueeze(0)
+    y_out = model(x).to(device)
+
+    #rotate result back
+    y_out = rotate(y_out.cpu().detach(), 360 - angle, info)
+    return y_out

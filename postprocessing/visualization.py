@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 
 from data_stuff.transforms import NormalizeTransform
 from networks.unet import UNet
+import processing.rotation as rt
 
 # mpl.rcParams.update({'figure.max_open_warning': 0})
 # plt.rcParams['figure.figsize'] = [16, 5]
@@ -53,7 +54,7 @@ class DataToVisualize:
         elif self.name == "SDF":
             self.name = "SDF-transformed position in [-]"
     
-def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png"):
+def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png", rotate_inference: bool = False):
     print("Visualizing...", end="\r")
 
     if amount_datapoints_to_visu > len(dataloader.dataset):
@@ -73,7 +74,11 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
 
             x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
             y = labels[datapoint_id]
-            y_out = model(x).to(device)
+
+            if rotate_inference:
+                y_out = rt.rotate_and_infer(inputs[datapoint_id], [1,0], model, info, device).to(device)
+            else:
+                y_out = model(x).to(device)
 
             x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
             dict_to_plot = prepare_data_to_plot(x, y, y_out, info)
@@ -160,12 +165,13 @@ def plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, settings_pic:
     plt.tight_layout()
     plt.savefig(f"{name_pic}_isolines.{settings_pic['format']}", **settings_pic)
 
-def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str):
+def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, rotate_inference: bool = False):
     '''
     sum inference time (including reverse-norming) and pixelwise error over all datapoints
     '''
     
     norm = dataloader.dataset.dataset.norm
+    info = dataloader.dataset.dataset.info
     model.eval()
 
     current_id = 0
@@ -179,7 +185,12 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str):
             start_time = time.perf_counter()
             x = inputs[datapoint_id].to(device)
             x = torch.unsqueeze(x, 0)
-            y_out = model(x).to(device)
+
+            if rotate_inference:
+                y_out = rt.rotate_and_infer(inputs[datapoint_id], [1,0], model, info, device).to(device)
+            else:
+                y_out = model(x).to(device)
+            
             y = labels[datapoint_id]
 
             # reverse transform for plotting real values
