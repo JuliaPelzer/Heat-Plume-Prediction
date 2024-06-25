@@ -130,3 +130,9 @@ python prepare_2ndstage.py --dataset "dataset_2hps_1fixed_10dp inputs_gki100 box
 - cleaned up merge of extend_plumes and allin1 (Apr. '24): ab1e389973c59, branch allin1_preprocessing
 - functioning allin1 + preprocessing 1st stage + extend plumes (Apr. '24): 9a72b9a8b003e5, branch allin1_preprocessing & 
 - removed "other_models" and interim pics etc, restructure dataset.py, include unittests (Apr. '24): 8a03103c94c, branch allin1_preprocessing
+
+# helpful slurm commands
+- squeue
+- sinfo
+- sbatch -w simcl1n1 <bash_script>.sh //für neuen Job auf simcl1n1
+- scancel <jobid>

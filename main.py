@@ -1,6 +1,7 @@
 import argparse
 import os
 from pathlib import Path
+import torch
 
 import utils.utils_args as ut
 import preprocessing.preprocessing as prep
@@ -34,7 +35,7 @@ if __name__ == "__main__":
     args = vars(args)
 
     os.environ["CUDA_VISIBLE_DEVICES"] = args["device"] if not args["device"]=="cpu" else "" #e.g. "1"
-    args["device"] = f"cuda:{args['device']}" if not args["device"]=="cpu" else "cpu"
+    args["device"] = torch.device(f"cuda:{args['device']}" if not args["device"]=="cpu" else "cpu")
 
 
     cheat = True # read in cla.yaml as settings-file for training
@@ -46,8 +47,9 @@ if __name__ == "__main__":
 
     else: # the normal way
         ut.assertions_args(args)
-        ut.make_paths(args) # and check if data / model exists
 
+        # TODO eingerückt oder nicht??
+    ut.make_paths(args) # and check if data / model exists
     ut.save_notes(args)
     ut.save_yaml(args, args["destination"] / "command_line_arguments.yaml")
 

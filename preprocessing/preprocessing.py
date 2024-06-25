@@ -20,7 +20,7 @@ import utils.utils_args as ua
 def preprocessing(args:dict):
     print("Preparing dataset")
     # handling of case=="test"? TODO
-    if is_unprepared(args["data_prep"]): # or args.case == "test":
+    if is_unprepared(args["data_prep"]):
         if args["problem"] == "2stages":
             exit("2stages not implemented yet, use other branch")
 

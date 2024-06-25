@@ -29,7 +29,7 @@ class Solver(object):
     train_dataloader: DataLoader
     val_dataloader: DataLoader
     loss_func: modules.loss._Loss = MSELoss()
-    learning_rate: float = 1e-3
+    learning_rate: float = 1e-4
     opt: Optimizer = Adam
     finetune: bool = False
     best_model_params: dict = None
@@ -39,8 +39,8 @@ class Solver(object):
         self.opt = self.opt(self.model.parameters(),
                             self.learning_rate, weight_decay=1e-4)
         # contains the epoch and learning rate, when lr changes
-        # self.lr_schedule = {0: self.opt.param_groups[0]["lr"]}
-        self.lr_scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, patience=10, cooldown=10, factor=0.5)
+        self.lr_schedule = {0: self.opt.param_groups[0]["lr"]}
+        # self.lr_scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, patience=10, cooldown=10, factor=0.5)
 
         if not self.finetune:
             self.model.apply(weights_init)
@@ -58,9 +58,9 @@ class Solver(object):
         epochs = tqdm(range(args["epochs"]), desc="epochs", disable=False)
         for epoch in epochs:
             try:
-                # # Set lr according to schedule
-                # if epoch in self.lr_schedule.keys():
-                #     self.opt.param_groups[0]["lr"] = self.lr_schedule[epoch]
+                # Set lr according to schedule
+                if epoch in self.lr_schedule.keys():
+                    self.opt.param_groups[0]["lr"] = self.lr_schedule[epoch]
 
                 # Training
                 self.model.train()
@@ -70,10 +70,10 @@ class Solver(object):
                 # if epoch % 10 == 0:
                 self.model.eval()
                 val_epoch_loss, other_losses_val = self.run_epoch(self.val_dataloader, device)
-                if epoch % 10 == 0:
-                    for metric_name, metric_value in other_losses_val.items():
-                        writer.add_scalar(f"val {metric_name}", metric_value, epoch)
-                    for metric_name, metric_value in other_losses_train.items():
+                # if epoch % 10 == 0:
+                for metric_name, metric_value in other_losses_val.items():
+                    writer.add_scalar(f"val {metric_name}", metric_value, epoch)
+                for metric_name, metric_value in other_losses_train.items():
                         writer.add_scalar(f"train {metric_name}", metric_value, epoch)
 
                 # Logging
@@ -99,7 +99,7 @@ class Solver(object):
                     if True:
                         self.model.save(args["destination"], model_name=f"best_model_e{epoch}.pt")
 
-                self.lr_scheduler.step(val_epoch_loss)
+                # self.lr_scheduler.step(val_epoch_loss)
 
             except KeyboardInterrupt:
                 # model_tmp = UNetHalfPad2(in_channels=len(settings.inputs), out_channels=1) # UNet
@@ -173,8 +173,9 @@ class Solver(object):
                 epoch, lr = line.split(",")
                 self.lr_schedule[int(epoch)] = float(lr)
 
-    def save_metrics(self, destination: pathlib.Path, device: str = "cpu"):
+    def save_metrics(self, destination: pathlib.Path, no_params:int, max_epochs:int, training_time:float, device: str = "cpu"):
         csv_file = open(destination.parent / "measurements_all_metrics.csv", "a")
+        # no. parameters, max. epochs, training time
         csv_writer = csv.writer(csv_file)
 
         self.model.eval()
@@ -192,6 +193,7 @@ class Solver(object):
         row = [destination.name, self.best_model_params["epoch"], train_epoch_loss, val_epoch_loss]
         row.extend(other_losses_train_list)
         row.extend(other_losses_val_list)
+        row.extend([no_params, max_epochs, training_time])
                
         csv_writer.writerow(row)
         csv_file.close()

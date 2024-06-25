@@ -4,6 +4,7 @@ import multiprocessing
 import numpy as np
 import torch
 from torch.nn import MSELoss, L1Loss
+from datetime import datetime
 
 # from postprocessing.measurements import (save_all_measurements)
 from postprocessing.visualization import (infer_all_and_summed_pic, plot_avg_error_cellwise, visualizations)
@@ -27,27 +28,29 @@ def train(args: dict):
         model = UNetHalfPad2(in_channels=input_channels).float()
         # model = Encoder(in_channels=input_channels).float()
     elif args["problem"] in ["allin1"]:
-        model = UNet(in_channels=input_channels, out_channels=1).float()
-        # model = UNetNoPad2(in_channels=input_channels).float()
+        # model = UNet(in_channels=input_channels, out_channels=1).float()
+        model = UNetNoPad2(in_channels=input_channels, out_channels=1).float()
     model.to(args["device"])
-
+    
     if args["case"] in ["test", "finetune"]:
         model.load(args["model"], args["device"])
 
     if args["case"] in ["train", "finetune"]:
-        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=L1Loss(), finetune=(args["case"] == "finetune"))
+        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=MSELoss(), finetune=(args["case"] == "finetune"))
+        training_time = datetime.now()
         try:
-            # solver.load_lr_schedule(args["destination"] / "learning_rate_history.csv")
+            solver.load_lr_schedule(args["destination"] / "learning_rate_history.csv")
             solver.train(args)
         except KeyboardInterrupt:
             logging.warning(f"Manually stopping training early with best model found in epoch {solver.best_model_params['epoch']}.")
         finally:
-            # solver.save_lr_schedule(args["destination"] / "learning_rate_history.csv")
+            solver.save_lr_schedule(args["destination"] / "learning_rate_history.csv")
             print("Training finished")
 
         # save model and train metrics
+        training_time = datetime.now() - training_time
         model.save(args["destination"])
-        solver.save_metrics(args["destination"], args["device"])
+        solver.save_metrics(args["destination"], model.num_of_params(), args["epochs"], training_time, args["device"])
 
     # postprocessing
     # save_all_measurements(args, len(dataloaders["val"].dataset), times={}, solver=solver) #, errors)
