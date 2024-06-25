@@ -59,7 +59,7 @@ def make_model_and_destination_paths(args:dict, models_dir: Path):
         args["model"] = models_dir / args["problem"] / args["model"]
         if not (args["model"] / "model.pt").exists() or not (args["model"] / "info.yaml").exists():
             raise FileNotFoundError(f"model.pt or info.yaml not found in {args['model'].name}")
-        args["destination"] = args["model"] / (args["destination"] + " " + args["case"])
+        args["destination"] = args["model"] / (args["destination"].name + " " + args["case"])
         args["destination"].mkdir(parents=True, exist_ok=True)
 
 def save_notes(args:dict):
