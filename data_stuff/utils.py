@@ -34,7 +34,7 @@ class SettingsTraining:
     problem: str = "2stages"
     notes: str = ""
     skip_per_dir: int = 4
-    len_box: int = 256
+    len_box: int = 640
     net: str = "convLSTM"
     total_time_steps: int = 20
     time_step_to_predict: int = 10
@@ -58,7 +58,7 @@ class SettingsTraining:
             assert self.model != "runs/default", "Please specify model path for testing or finetuning"
 
         if self.destination == "":
-            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " net_"+self.net + "with_temp "# steps_"+str(self.total_time_steps) + " predictBox_"+str(self.time_step_to_predict)
+            self.destination = f"inputs_{self.inputs} case_{self.case} net_{self.net} steps_{self.total_time_steps} box{self.len_box} skip{self.skip_per_dir} loss_abs"#< steps_"+str(self.total_time_steps) + " predictBox_"+str(self.time_step_to_predict)
 
     def save(self):
         save_yaml(self.__dict__, self.destination, "command_line_arguments")

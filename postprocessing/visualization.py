@@ -31,7 +31,7 @@ class DataToVisualize:
     def __post_init__(self):
         #extent = (,int(self.extent_highs[0]),int(self.extent_highs[1]),0)
 
-        self.imshowargs.update({"cmap": "terrain", 
+        self.imshowargs.update({"cmap": "hot", 
                            "extent": self.extent_highs})
 
         self.contourfargs = {"levels": np.arange(10.4, 16, 0.25), 
@@ -102,7 +102,7 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, vi
     for inputs, labels in dataloader:
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
-            name_pic = f"{plot_path}/plots/dp_{current_id}"
+            name_pic = f"{plot_path}/dp_{current_id}"
             x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
             y = labels[datapoint_id]
             y_out = model(x).to(device)
@@ -146,9 +146,7 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
     perm = perm.view(640,64)
     y = y.view(640,64)
     temp_max = max(y.max(), y_out.max())
-    print(f'temp_max: {temp_max}')
     temp_min = min(y.min(), y_out.min())
-    print(f'temp_min: {temp_min}')
     extent_highs = (0,640,64,0)
     #extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
 
@@ -200,8 +198,7 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
     plt.xlabel("y [m]")
     plt.tight_layout()
     plt.savefig(f"{name_pic}.{settings_pic['format']}", **settings_pic)
-
-
+    
 def plot_datafields_convLSTM(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
     # plot datafields (temperature true, temperature out, error, physical variables (inputs))
 

@@ -144,7 +144,7 @@ class DatasetExtend2(Dataset):
         return idx // self.dp_per_run, idx % self.dp_per_run + 1 #depends on which box is taken (front or last)
     
 class DatasetExtendConvLSTM(Dataset):
-    def __init__(self, path:str, total_time_steps:int, time_step_to_predict:int):
+    def __init__(self, path:str, total_time_steps:int = 10, skip_per_dir:int = 64, box_len:int=640):
         Dataset.__init__(self)
         self.path = pathlib.Path(path)
         self.info = self.__load_info()
@@ -158,11 +158,10 @@ class DatasetExtendConvLSTM(Dataset):
         self.input_names.sort()
         self.label_names.sort()
         self.spatial_size = torch.load(self.path / "Inputs" / self.input_names[0]).shape[1:]
-        # self.box_size:int = box_size
-        # self.skip_per_dir:int = skip_per_dir
-        self.dp_per_run:int = self.spatial_size[0] // 2 // 64
-        self.total_time_steps = total_time_steps
-        self.time_step_to_predict = time_step_to_predict
+        self.box_len:int = box_len
+        self.skip_per_dir:int = skip_per_dir
+        self.dp_per_run:int = (self.spatial_size[0] - box_len) // skip_per_dir
+        self.total_time_steps: int = total_time_steps
         print(f"dp_per_run: {self.dp_per_run}, spatial_size: {self.spatial_size}")
 
     @property
@@ -193,8 +192,8 @@ class DatasetExtendConvLSTM(Dataset):
         
         try:
             input = torch.load(self.path / "Inputs" / self.input_names[run_id])
-            input = input[:,64*window_nr:64*window_nr+(self.spatial_size[0]//2),:]        
-            temp = torch.load(self.path / "Labels" / self.input_names[run_id])[:,64*window_nr:64*window_nr+(self.spatial_size[0]//2)] 
+            input = input[:, self.skip_per_dir*window_nr:self.skip_per_dir*window_nr+(self.box_len),:]        
+            temp = torch.load(self.path / "Labels" / self.input_names[run_id])[:, self.skip_per_dir*window_nr:self.skip_per_dir*window_nr+(self.box_len),:] 
         except EOFError as e:
             print(f"Error loading file: {file_path}")
             raise e
