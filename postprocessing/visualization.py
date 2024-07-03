@@ -96,7 +96,7 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, vi
     info = dataloader.dataset.dataset.info
     model.eval()
     settings_pic = {"format": pic_format,
-                    "dpi": 600,}
+                    "dpi": 800,}
 
     current_id = 0
     for inputs, labels in dataloader:

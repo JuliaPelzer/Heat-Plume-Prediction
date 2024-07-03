@@ -163,6 +163,9 @@ class DatasetExtendConvLSTM(Dataset):
         self.dp_per_run:int = (self.spatial_size[0] - box_len) // skip_per_dir
         self.total_time_steps: int = total_time_steps
         print(f"dp_per_run: {self.dp_per_run}, spatial_size: {self.spatial_size}")
+        print(f"self.path: {self.path}")
+        print(f'self.input_names: {self.input_names}')
+        print(f'self.label')
 
     @property
     def input_channels(self):
@@ -183,6 +186,7 @@ class DatasetExtendConvLSTM(Dataset):
     
 
     def __getitem__(self,idx):
+        idx = idx % 3
         run_id, window_nr = self.idx_to_window(idx)
         file_path = self.path / "Inputs" / self.input_names[run_id]
         if not file_path.exists():
@@ -193,7 +197,8 @@ class DatasetExtendConvLSTM(Dataset):
         try:
             input = torch.load(self.path / "Inputs" / self.input_names[run_id])
             input = input[:, self.skip_per_dir*window_nr:self.skip_per_dir*window_nr+(self.box_len),:]        
-            temp = torch.load(self.path / "Labels" / self.input_names[run_id])[:, self.skip_per_dir*window_nr:self.skip_per_dir*window_nr+(self.box_len),:] 
+            temp = torch.load(self.path / "Labels" / self.input_names[run_id])
+            temp = temp[:, self.skip_per_dir*window_nr:self.skip_per_dir*window_nr+(self.box_len),:] 
         except EOFError as e:
             print(f"Error loading file: {file_path}")
             raise e
@@ -206,11 +211,7 @@ class DatasetExtendConvLSTM(Dataset):
         input_slices = torch.tensor_split(input,self.total_time_steps,axis=2)
         temp_slices = torch.tensor_split(temp, self.total_time_steps, axis=2)
         input_seq = torch.cat(input_slices, dim=1)
-        temp_seq = torch.cat(temp_slices, dim=1)
-        with open('/home/hofmanja/test_nn/runs/shapes.txt', 'w') as file:
-            # Write some lines to the file
-            file.write(f"Shape of input: {input_seq.shape}\n")
-            file.write(f'Shape of label: {temp_seq.shape}\n')     
+        temp_seq = torch.cat(temp_slices, dim=1)  
         
         return input_seq, temp_seq
 
