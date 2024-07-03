@@ -143,7 +143,11 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
     # Shape of y_out: torch.Size([64, 64])
     
     perm = x[1]
+    press = x[0]
     perm = perm.view(640,64)
+    press = press.view(640,64)
+    press_max = info['Inputs']['Pressure Gradient [-]']['max']
+    press_min = info['Inputs']['Pressure Gradient [-]']['min']
     y = y.view(640,64)
     temp_max = max(y.max(), y_out.max())
     temp_min = min(y.min(), y_out.min())
@@ -156,6 +160,7 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
         "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]", (576, 640, 0, 64), {"vmax": temp_max, "vmin": temp_min}),
         "error": DataToVisualize(torch.abs(y[-64:]-y_out), "Absolute error in [°C]", (576, 640, 0, 64)),
         "perm" : DataToVisualize(perm,  "Input: Permeabilität", (0,640,64,0)),
+        "press" : DataToVisualize(press, "Input: Pressure Gradient", (0,640,64,0), {"vmax": press_max, "vmin": press_min}),
     }
 
     return dict_to_plot
