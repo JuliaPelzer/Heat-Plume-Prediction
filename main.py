@@ -39,11 +39,12 @@ def init_data(settings: SettingsTraining, seed=1):
     datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     dataloaders = {}
     torch.manual_seed(2809)
+    shuffle = settings.train == True 
     try:
-        dataloaders["train"] = DataLoader(datasets[0], batch_size=50, shuffle=True, num_workers=0)
-        dataloaders["val"] = DataLoader(datasets[1], batch_size=50, shuffle=True, num_workers=0)
+        dataloaders["train"] = DataLoader(datasets[0], batch_size=50, shuffle=shuffle, num_workers=0)
+        dataloaders["val"] = DataLoader(datasets[1], batch_size=50, shuffle=shuffle, num_workers=0)
     except: pass
-    dataloaders["test"] = DataLoader(datasets[2], batch_size=50, shuffle=True, num_workers=0)
+    dataloaders["test"] = DataLoader(datasets[2], batch_size=50, shuffle=shuffle, num_workers=0)
 
     return dataset.input_channels, dataloaders
 
