@@ -97,7 +97,8 @@ class Solver(object):
                         "training time in sec": (time.perf_counter() - start_time),
                     }
 
-                    # todo save model
+                    #save model
+                    self.model.save(settings.destination)
 
                 if log_val_epoch:
                     if epoch in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 15000, 20000, 24999]:
