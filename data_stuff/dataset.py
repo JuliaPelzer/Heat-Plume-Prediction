@@ -206,14 +206,14 @@ class DatasetExtendConvLSTM(Dataset):
             print(f"Unexpected error loading file: {file_path}")
             raise e
         
-        input, temp = input.unsqueeze(1), temp.unsqueeze(1)
-        input = torch.cat((input, temp), dim=0)
-        input_slices = torch.tensor_split(input,self.total_time_steps,axis=2)
+        inputs, temp = input.unsqueeze(1), temp.unsqueeze(1)
+        inputs = torch.cat((inputs, temp), dim=0)
+        input_slices = torch.tensor_split(inputs,self.total_time_steps,axis=2)
         temp_slices = torch.tensor_split(temp, self.total_time_steps, axis=2)
-        input_seq = torch.cat(input_slices, dim=1)
-        temp_seq = torch.cat(temp_slices, dim=1)  
+        input_seq = torch.cat(input_slices, dim=1)[:,:-1]
+        output = torch.cat(temp_slices, dim=1)[:,-1]  
         
-        return input_seq, temp_seq
+        return input_seq, output
 
     def idx_to_window(self, idx):
         run_id = idx // self.dp_per_run

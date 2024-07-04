@@ -23,10 +23,12 @@ from networks.unet import UNet
 class DataToVisualize:
     data: np.ndarray
     name: str
-    extent_highs :tuple = (1280,100) # x,y in meters
+    extent_highs :tuple #= (1280,100) # x,y in meters
     imshowargs: Dict = field(default_factory=dict)
     contourfargs: Dict = field(default_factory=dict)
     contourargs: Dict = field(default_factory=dict)
+    x_lim = (0,640)
+    y_lim = (0,64)
 
     def __post_init__(self):
         #extent = (,int(self.extent_highs[0]),int(self.extent_highs[1]),0)
@@ -109,7 +111,6 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, vi
 
             x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
             
-            
             if vis_entire == True:
                  torch.save(y_out, f"{plot_path}/pred_dp{datapoint_id}_box{box}.pt")
                  torch.save(y, f"{plot_path}/label{datapoint_id}_box{box}.pt")
@@ -118,16 +119,22 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, vi
 
             plot_datafields(dict_to_plot, name_pic, settings_pic)
             
-
             if current_id >= amount_datapoints_to_visu-1:
                 return None
             current_id += 1
 
 def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, norm: NormalizeTransform):
     # reverse transform for plotting real values
-    x_split = torch.split(x, 1, 1)
-    x = torch.cat(x_split[:4], dim=1)
-    x = norm.reverse(x.detach().cpu().squeeze(0), "Inputs")
+    #x_split = torch.split(x, 1, 1)
+    #x = torch.cat(x_split[:4], dim=1)
+    print(f'shape of x: {x.shape}')
+    x1 = norm.reverse(x[0][:4].detach().cpu(), "Inputs")
+    x2 = norm.reverse(x[0][4].detach().cpu().unsqueeze(0), "Labels")
+    print(f'max temp: {x2.max()}')
+    print(f'x1 shape: {x1.shape}')
+    print(f'x2 shape: {x2.shape}')
+    x = torch.cat((x1,x2),dim=0)
+    print(f'shape of x: {x.shape}')
     
     y = y.unsqueeze(0)
     y = norm.reverse(y.detach().cpu(), "Labels")
@@ -143,24 +150,31 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
     # Shape of y_out: torch.Size([64, 64])
     
     perm = x[1]
+    perm = perm.reshape(576,64)
     press = x[0]
-    perm = perm.view(640,64)
-    press = press.view(640,64)
+    press = press.reshape(576,64)
+    temp = x[4]
+    temp = temp.reshape(576,64)
+    print(f'perm shape: {perm.shape}')
+    print(f'press shape: {press.shape}')
+    print(f'temp shape: {temp.shape}')
+    print(f'y shape: {y.shape}')
     press_max = info['Inputs']['Pressure Gradient [-]']['max']
     press_min = info['Inputs']['Pressure Gradient [-]']['min']
-    y = y.view(640,64)
-    temp_max = max(y.max(), y_out.max())
-    temp_min = min(y.min(), y_out.min())
+    #y = y.reshape(64,64)
+    temp_max = max(max(y.max(), y_out.max()), temp.max())
+    temp_min = min(min(y.min(), y_out.min()), temp.min())
     extent_highs = (0,640,64,0)
     #extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
 
     dict_to_plot = {
         
-        "t_true": DataToVisualize(y, "Label: Temperature in [°C]", (0,640,64,0), {"vmax": temp_max, "vmin": temp_min}),
-        "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]", (576, 640, 0, 64), {"vmax": temp_max, "vmin": temp_min}),
-        "error": DataToVisualize(torch.abs(y[-64:]-y_out), "Absolute error in [°C]", (576, 640, 0, 64)),
-        "perm" : DataToVisualize(perm,  "Input: Permeabilität", (0,640,64,0)),
-        "press" : DataToVisualize(press, "Input: Pressure Gradient", (0,640,64,0), {"vmax": press_max, "vmin": press_min}),
+        "t_true": DataToVisualize(y, f"Label: Temperature in [°C]", (576, 640, 64, 0),{"vmax": temp_max, "vmin": temp_min}),
+        "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]",(575,640,64,0), {"vmax": temp_max, "vmin": temp_min}),
+        "error": DataToVisualize(torch.abs(y[-65:]-y_out), "Absolute error in [°C]",(575,640,64,0)),
+        "perm" : DataToVisualize(perm,  "Input: Permeabilität",(0,575,64,0)),
+        "press" : DataToVisualize(press, "Input: Pressure Gradient", (0,575,64,0), {"vmax": press_max, "vmin": press_min}),
+        "temp" : DataToVisualize(temp, "Input: Temperature", ((0,575,64,0)),{"vmax": temp_max, "vmin": temp_min}),
     }
 
     return dict_to_plot
@@ -192,6 +206,8 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
     
     for index, (name, datapoint) in enumerate(data.items()):
         plt.sca(axes[index])
+        axes[index].set_xlim(0,640)
+        axes[index].set_ylim(0,64)
         plt.title(datapoint.name)
         plt.imshow(datapoint.data.T, **datapoint.imshowargs)
         #plt.gca().invert_yaxis()
