@@ -6,6 +6,7 @@ import time
 import torch
 import yaml
 from torch.utils.data import DataLoader, random_split
+from torch.utils.data.sampler import BatchSampler, RandomSampler, SequentialSampler
 from torch.nn import MSELoss, L1Loss
 
 from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, DatasetExtendConvLSTM, get_splits
@@ -35,16 +36,16 @@ def init_data(settings: SettingsTraining, seed=1):
     split_ratios = [0.7, 0.2, 0.1]
     # if settings.case == "test":
     #     split_ratios = [0.0, 0.0, 1.0] 
-
+    
+    # TODO bei test ausschalten
     datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     dataloaders = {}
     torch.manual_seed(2809)
-    shuffle = settings.case == 'train' 
     try:
-        dataloaders["train"] = DataLoader(datasets[0], batch_size=50, shuffle=shuffle, num_workers=0)
-        dataloaders["val"] = DataLoader(datasets[1], batch_size=50, shuffle=shuffle, num_workers=0)
+        dataloaders["train"] = DataLoader(datasets[0], batch_size=50, shuffle=True, num_workers=0)
+        dataloaders["val"] = DataLoader(datasets[1], batch_size=50, shuffle=True, num_workers=0)
     except: pass
-    dataloaders["test"] = DataLoader(datasets[2], batch_size=50, shuffle=shuffle, num_workers=0)
+    dataloaders["test"] = DataLoader(datasets[2], batch_size=1, shuffle=False, num_workers=0)
 
     return dataset.input_channels, dataloaders
 
@@ -109,7 +110,7 @@ def run(settings: SettingsTraining):
             times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
             plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         elif settings.net == "convLSTM":
-            visualizations_convLSTM(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination, amount_datapoints_to_visu=5, pic_format=pic_format, vis_entire = settings.vis_entire_plume, box=settings.time_step_to_predict)
+            visualizations_convLSTM(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination, amount_datapoints_to_visu=40, pic_format=pic_format, vis_entire = settings.vis_entire_plume, box=settings.time_step_to_predict)
             times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
             #plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
             

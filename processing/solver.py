@@ -47,9 +47,11 @@ class Solver(object):
             file = open(settings.destination / "log_loss_per_epoch.csv", 'w', newline='')
             csv_writer = csv.writer(file)
             csv_writer.writerow(["epoch", "val loss", "train loss"])
+            file.flush()
             file = open(settings.destination / "log_best_loss_per_epoch.csv", 'w', newline='')
             csv_writer_best = csv.writer(file)
             csv_writer_best.writerow(["epoch", "val loss", "train loss"])
+            file.flush()
             print(f"wrote in {settings.destination}/log_best_loss_per_epoch.csv")
 
         start_time = time.perf_counter()
@@ -156,11 +158,7 @@ class Solver(object):
 
     def run_epoch(self, dataloader: DataLoader, device: str):
         epoch_loss = 0.0
-        for x, y in dataloader:
-            with open('/home/hofmanja/test_nn/runs/shapes.txt', 'a') as file:
-                # Write some lines to the file
-                file.write(f"Shape of x: {x.shape}\n")
-                file.write(f'Shape of y: {y.shape}\n')    
+        for x, y in dataloader: 
 
             x = x.to(device)
             y = y.to(device)
