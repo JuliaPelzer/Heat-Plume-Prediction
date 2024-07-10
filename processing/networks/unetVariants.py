@@ -170,23 +170,28 @@ class OneSidePadding(nn.Module):
         return result
 
 class UNetNoPad2(UNet):
-    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
+    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5, activation_fct="ReLU"):
         super().__init__()
         features = init_features
+        if activation_fct == "ReLU":
+            activation = nn.ReLU(inplace=True)
+        elif activation_fct == "LeakyReLU":
+            activation = nn.LeakyReLU(inplace=True)
+
         self.encoders = nn.ModuleList()
         self.pools = nn.ModuleList()
         for _ in range(depth):
-            self.encoders.append(self._block(in_channels, features, kernel_size=kernel_size))
+            self.encoders.append(self._block(in_channels, features, kernel_size=kernel_size, activation_fct=activation))
             self.pools.append(nn.MaxPool2d(kernel_size=2, stride=2))
             in_channels = features
             features *= 2
-        self.encoders.append(self._block(in_channels, features, kernel_size=kernel_size))
+        self.encoders.append(self._block(in_channels, features, kernel_size=kernel_size, activation_fct=activation))
 
         self.upconvs = nn.ModuleList()
         self.decoders = nn.ModuleList()
         for _ in range(depth):
             self.upconvs.append(nn.ConvTranspose2d(features, features//2, kernel_size=2, stride=2))
-            self.decoders.append(self._block(features, features//2, kernel_size=kernel_size))
+            self.decoders.append(self._block(features, features//2, kernel_size=kernel_size, activation_fct=activation))
             features = features // 2
 
         self.conv = nn.Conv2d(in_channels=features, out_channels=out_channels, kernel_size=1)
@@ -210,7 +215,7 @@ class UNetNoPad2(UNet):
         return self.conv(x)
 
     @staticmethod
-    def _block(in_channels, features, kernel_size=5):
+    def _block(in_channels, features, kernel_size=5, activation_fct:nn.Module=nn.ReLU()):
         return nn.Sequential(
             nn.Conv2d(
                 in_channels=in_channels,
@@ -219,5 +224,5 @@ class UNetNoPad2(UNet):
                 bias=True,
             ),
             nn.BatchNorm2d(num_features=features),
-            nn.ReLU(inplace=True),
+            activation_fct,
         )

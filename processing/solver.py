@@ -4,6 +4,7 @@ import logging
 import pathlib
 import time
 from dataclasses import dataclass
+import optuna 
 
 from torch import manual_seed, Tensor, log
 from torch.nn import Module, modules, MSELoss, L1Loss, KLDivLoss, HuberLoss, SmoothL1Loss
@@ -36,8 +37,7 @@ class Solver(object):
     metrics: dict = None
 
     def __post_init__(self):
-        self.opt = self.opt(self.model.parameters(),
-                            self.learning_rate, weight_decay=1e-4)
+        # self.opt = self.opt(self.model.parameters(), self.learning_rate, weight_decay=1e-4) # TODO already done in optuna case
         # contains the epoch and learning rate, when lr changes
         self.lr_schedule = {0: self.opt.param_groups[0]["lr"]}
         # self.lr_scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, patience=10, cooldown=10, factor=0.5)
@@ -47,7 +47,7 @@ class Solver(object):
         
         self.metrics: dict = {"MSE": MSELoss(), "MAE": L1Loss(), "KLD": KLD_log(), "Huber": HuberLoss(), "SmoothL1": SmoothL1Loss()}
 
-    def train(self, args: dict):
+    def train(self, trial, args: dict): # TODO rm trial for not optuna
         manual_seed(0)
         start_time = time.perf_counter()
         # initialize tensorboard
@@ -96,18 +96,18 @@ class Solver(object):
                         "training time in sec": (time.perf_counter() - start_time),
                     }
 
-                    if True:
+                    if False:
                         self.model.save(args["destination"], model_name=f"best_model_e{epoch}.pt")
+                
+                trial.report(val_epoch_loss, epoch)
+
+                # Handle pruning based on the intermediate value.
+                if trial.should_prune():
+                    raise optuna.exceptions.TrialPruned()
 
                 # self.lr_scheduler.step(val_epoch_loss)
 
             except KeyboardInterrupt:
-                # model_tmp = UNetHalfPad2(in_channels=len(settings.inputs), out_channels=1) # UNet
-                # model_tmp.load_state_dict(self.best_model_params["state_dict"])
-                # model_tmp.to(settings.device)
-                # model_tmp.save(settings.destination, model_name=f"interim_model_e{epoch}.pt")
-                # visualizations(model_tmp, self.val_dataloader, settings.device, plot_path=settings.destination / f"plot_val_interim_e{epoch}", amount_datapoints_to_visu=2, pic_format="png")
-
                 try:
                     new_lr = float(input("\nNew learning rate: "))
                 except ValueError as e:
@@ -121,6 +121,8 @@ class Solver(object):
         self.model.load_state_dict(self.best_model_params["state_dict"]) #self.model = 
         self.opt.load_state_dict(self.best_model_params["optimizer"]) #self.opt =
         print(f"Best model was found in epoch {self.best_model_params['epoch']}.")
+
+        return val_epoch_loss
 
     def run_epoch(self, dataloader: DataLoader, device: str):
         epoch_loss = 0.0
