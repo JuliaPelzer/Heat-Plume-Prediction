@@ -88,11 +88,8 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
                 return None
             current_id += 1
 
-def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, vis_entire: bool, box: int, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png"):
+def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, vis_entire: bool, box: int, dp_to_visu: np.array = inf, plot_path: str = "default", pic_format: str = "png"):
     print("Visualizing...", end="\r")
-
-    if amount_datapoints_to_visu > len(dataloader.dataset):
-        amount_datapoints_to_visu = len(dataloader.dataset)
 
     norm = dataloader.dataset.dataset.norm
     info = dataloader.dataset.dataset.info
@@ -101,27 +98,29 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, vi
                     "dpi": 800,}
 
     current_id = 0
-    for inputs, labels in dataloader:
-        len_batch = inputs.shape[0]
-        for datapoint_id in range(len_batch):
-            name_pic = f"{plot_path}/dp_{current_id}"
-            x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
-            y = labels[datapoint_id]
-            y_out = model(x).to(device)
+    batch_id = 1
+    printed = 0
+    print(f'dp_to_visu: {dp_to_visu}')
+    for batch_id, (inputs, labels) in enumerate(dataloader, start=0):
+        for dp_in_batch in range(dataloader.batch_size):
+            datapoint_id = batch_id * dataloader.batch_size + dp_in_batch
+            if datapoint_id in dp_to_visu:
+                name_pic = f"{plot_path}/dp_new2_{datapoint_id}"
+                x = torch.unsqueeze(inputs[dp_in_batch].to(device), 0)
+                y = labels[dp_in_batch]
+                y_out = model(x).to(device)
 
-            x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
-            
-            if vis_entire == True:
-                 torch.save(y_out, f"{plot_path}/pred_dp{datapoint_id}_box{box}.pt")
-                 torch.save(y, f"{plot_path}/label{datapoint_id}_box{box}.pt")
-             
-            dict_to_plot = prepare_data_to_plot_convLSTM(x, y.squeeze(), y_out.squeeze(), info)
+                x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
+                
+                dict_to_plot = prepare_data_to_plot_convLSTM(x, y.squeeze(), y_out.squeeze(), info)
 
-            plot_datafields(dict_to_plot, name_pic, settings_pic)
-            
-            if current_id >= amount_datapoints_to_visu-1:
+                plot_datafields(dict_to_plot, name_pic, settings_pic)
+                printed += 1
+
+            if printed >= len(dp_to_visu):
                 return None
-            current_id += 1
+            
+            
 
 def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, norm: NormalizeTransform):
     # reverse transform for plotting real values
@@ -151,7 +150,7 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
     press = press.reshape(640,64)
     temp = x[4]
     temp = temp.reshape(640,64)
-    print(f'shape of temp: {temp.shape}')
+    temp = temp[:576]
     press_max = info['Inputs']['Pressure Gradient [-]']['max']
     press_min = info['Inputs']['Pressure Gradient [-]']['min']
     #y = y.reshape(64,64)
@@ -163,7 +162,7 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
     dict_to_plot = {        
         "press" : DataToVisualize(press, "Input: Pressure Gradient", (0,640,64,0), {"vmax": press_max, "vmin": press_min}),
         "perm" : DataToVisualize(perm,  "Input: Permeabilität",(0,640,64,0)),
-        "temp" : DataToVisualize(temp, "Input: Temperature", ((0,640,64,0)),{"vmax": temp_max, "vmin": temp_min}),
+        "temp" : DataToVisualize(temp, "Input: Temperature", ((0,576,64,0)),{"vmax": temp_max, "vmin": temp_min}),
         "t_true": DataToVisualize(y, f"Label: Temperature in [°C]", (576, 640, 64, 0),{"vmax": temp_max, "vmin": temp_min}),
         "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]",(575,640,64,0), {"vmax": temp_max, "vmin": temp_min}),
         "error": DataToVisualize(torch.abs(y[-65:]-y_out), "Absolute error in [°C]",(575,640,64,0)),
@@ -211,6 +210,7 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
     plt.xlabel("y [m]")
     plt.tight_layout()
     plt.savefig(f"{name_pic}.{settings_pic['format']}", **settings_pic)
+
     
 def plot_datafields_convLSTM(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
     # plot datafields (temperature true, temperature out, error, physical variables (inputs))

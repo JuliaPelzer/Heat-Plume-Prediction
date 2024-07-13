@@ -66,6 +66,9 @@ class ConvLSTM(nn.Module):
         self.convLSTMcell = ConvLSTMCell(in_channels, out_channels, 
         kernel_size, padding, activation, frame_size)
 
+        self.convLSTMcell2 = ConvLSTMCell(in_channels-1, out_channels, 
+        kernel_size, padding, activation, frame_size)
+
     def forward(self, X):
 
         # X is a frame sequence (batch_size, num_channels, seq_len, height, width)
@@ -86,11 +89,24 @@ class ConvLSTM(nn.Module):
         height, width, device='cuda')
 
         # Unroll over time steps
-        for time_step in range(seq_len):
+        for time_step in range(seq_len-1):
 
             H, C = self.convLSTMcell(X[:,:,time_step], H, C)
 
             output[:,:,time_step] = H
+            # if time_step == 0:
+            #     print(f'Normal___')
+            #     print(f'Shape of X[:,:,time_step]: {X[:,:,time_step].shape}')
+            #     print(f'Shape of H: {H.shape}')
+            #     print(f'Shape of C: {C.shape}')
+        
+        time_step = seq_len-1
+        # print(f'Variant____')
+        # print(f'Shape of X[:,:,time_step]: {X[:,:,time_step].shape}')
+        # print(f'Shape of H: {H.shape}')
+        # print(f'Shape of C: {C.shape}')
+        H, C = self.convLSTMcell2(X[:,:-1,time_step], H, C)
+        output[:,:,time_step] = H
 
         return output
 

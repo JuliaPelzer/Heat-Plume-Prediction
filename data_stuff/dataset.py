@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, Subset
 from torch._utils import _accumulate
 from typing import List,Optional,Sequence
 import matplotlib.pyplot as plt
-
+import re
 from data_stuff.transforms import NormalizeTransform
 
 
@@ -155,8 +155,11 @@ class DatasetExtendConvLSTM(Dataset):
             self.input_names.append(filename)
         for filename in os.listdir(self.path / "Labels"):
             self.label_names.append(filename)
-        self.input_names.sort()
-        self.label_names.sort()
+
+        #sort so that 'RUN_2' comes before 'RUN_10'
+        self.input_names = sorted(self.input_names, key=self.natural_sort_key)
+        self.label_names = sorted(self.label_names, key=self.natural_sort_key)
+
         print(self.label_names)
         self.spatial_size = torch.load(self.path / "Inputs" / self.input_names[0]).shape[1:]
         self.box_len:int = box_len
@@ -195,20 +198,14 @@ class DatasetExtendConvLSTM(Dataset):
 
         input, temp = input.unsqueeze(1), temp.unsqueeze(1)
         input = torch.cat((input, temp), dim=0)
-        input_slices = torch.tensor_split(input,self.total_time_steps,axis=2)
+        input_slices = torch.tensor_split(input,self.total_time_steps,axis=2) # produces array
+        input_seq = torch.cat(input_slices, dim=1) # concatenates array elements to form a tensor
         temp_slices = torch.tensor_split(temp, self.total_time_steps, axis=2)
-        input_seq = torch.cat(input_slices, dim=1)
-        # print('Before________')    
-        # print(f'Shape of input_seq: {input_seq.shape}')
-        # print(f'max of input_seq: {input_seq[-1,-64:].max()}')
-        # print(f'min of input_seq: {input_seq[-1,-64:].min()}')
+        
 
-        # set last temp-square to 0
+        # set last temp-square to mean
         input_seq[-1,-1] = input_seq[-1].mean() #torch.zeros_like(input_seq[0,-64:])
-        # print('After__________')
-        # print(f'Shape of input_seq: {input_seq.shape}')
-        # print(f'max of input_seq: {input_seq.max()}')
-        # print(f'min of input_seq: {input_seq.min()}')
+        
         output = torch.cat(temp_slices, dim=1)[:,-1]  
         
         return input_seq, output
@@ -217,6 +214,9 @@ class DatasetExtendConvLSTM(Dataset):
         run_id = idx // self.dp_per_run
         window = idx % self.dp_per_run
         return run_id, window
+    
+    def natural_sort_key(self,s):
+        return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
     
 def get_splits(n, splits):
     splits = [int(n * s) for s in splits[:-1]]

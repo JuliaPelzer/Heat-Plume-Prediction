@@ -5,7 +5,7 @@ import numpy as np
 import time
 import torch
 import yaml
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, random_split, Subset
 from torch.utils.data.sampler import BatchSampler, RandomSampler, SequentialSampler
 from torch.nn import MSELoss, L1Loss
 
@@ -25,6 +25,8 @@ def init_data(settings: SettingsTraining, seed=1):
     elif settings.problem == "extend1":
         dataset = DatasetExtend1(settings.dataset_prep, box_size=settings.len_box)
     elif settings.problem == "extend2":
+        if settings.case == 'test':
+            settings.skip_per_dir = 64
         if settings.net == "convLSTM":
             dataset = DatasetExtendConvLSTM(settings.dataset_prep, total_time_steps=settings.total_time_steps, skip_per_dir=settings.skip_per_dir, box_len=settings.len_box)
         else:
@@ -34,18 +36,22 @@ def init_data(settings: SettingsTraining, seed=1):
     generator = torch.Generator().manual_seed(seed)
 
     split_ratios = [0.7, 0.2, 0.1]
-    # if settings.case == "test":
-    #     split_ratios = [0.0, 0.0, 1.0] 
     
-    # TODO bei test ausschalten
-    datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
+    split1, split2, split3 = get_splits(len(dataset), split_ratios)
+    datasets = []
+    # datasets.append(Subset(dataset, range(split1)))
+    # datasets.append(Subset(dataset, range(split1, split1+split2)))
+    # datasets.append(Subset(dataset, range(split1+split2,len(dataset))))
+    datasets.append(Subset(dataset, range(split3+split2,len(dataset))))
+    datasets.append(Subset(dataset, range(split3,split3+split2)))
+    datasets.append(Subset(dataset, range(split3)))
     dataloaders = {}
     torch.manual_seed(2809)
     try:
         dataloaders["train"] = DataLoader(datasets[0], batch_size=50, shuffle=True, num_workers=0)
         dataloaders["val"] = DataLoader(datasets[1], batch_size=50, shuffle=True, num_workers=0)
     except: pass
-    dataloaders["test"] = DataLoader(datasets[2], batch_size=1, shuffle=False, num_workers=0)
+    dataloaders["test"] = DataLoader(datasets[2], batch_size=10, shuffle=False, num_workers=0)
 
     return dataset.input_channels, dataloaders
 
@@ -98,11 +104,10 @@ def run(settings: SettingsTraining):
     which_dataset = "val"
     pic_format = "png"
     times["time_end"] = time.perf_counter()
+    dp_to_visu = np.array([25,26,28,29])
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"
-    if settings.vis_entire_plume == True:
-        settings.visualize = True
     save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver) #, errors)
     if settings.visualize:
         if settings.net == "CNN":
@@ -110,7 +115,7 @@ def run(settings: SettingsTraining):
             times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
             plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         elif settings.net == "convLSTM":
-            visualizations_convLSTM(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination, amount_datapoints_to_visu=40, pic_format=pic_format, vis_entire = settings.vis_entire_plume, box=settings.time_step_to_predict)
+            visualizations_convLSTM(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination, dp_to_visu=dp_to_visu, pic_format=pic_format, vis_entire = settings.vis_entire_plume, box=settings.time_step_to_predict)
             times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
             #plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
             
@@ -166,11 +171,10 @@ if __name__ == "__main__":
     parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2",], default="extend2")
     parser.add_argument("--notes", type=str, default="")
     parser.add_argument("--len_box", type=int, default=640)
-    parser.add_argument("--skip_per_dir", type=int, default=64)
+    parser.add_argument("--skip_per_dir", type=int, default=32)
     parser.add_argument("--net", type=str, choices=["CNN", "convLSTM"], default="convLSTM")
     parser.add_argument("--total_time_steps", type=int, default=10)
     parser.add_argument("--time_step_to_predict", type=int, default=10)
-    parser.add_argument("--vis_entire_plume", type=bool, default=False)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

@@ -19,8 +19,7 @@ from preprocessing.prepare_paths import Paths1HP, Paths2HP
 
 def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, info_file: str = "info.yaml"):
     time_begin = time.perf_counter()
-    info_file_path = settings.model / info_file
-
+    info_file_path = settings.dataset_raw / settings.model / info_file
     if settings.problem == "extend1":
         cutlengthtrafo=True
     else:

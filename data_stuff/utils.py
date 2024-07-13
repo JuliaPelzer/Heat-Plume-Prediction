@@ -58,16 +58,16 @@ class SettingsTraining:
             assert self.model != "runs/default", "Please specify model path for testing or finetuning"
 
         if self.destination == "":
-            self.destination = f"inputs_{self.inputs} case_{self.case} net_{self.net} steps_{self.total_time_steps} box{self.len_box} skip{self.skip_per_dir} loss_abs"#< steps_"+str(self.total_time_steps) + " predictBox_"+str(self.time_step_to_predict)
+            self.destination = f"case_{self.case} net_{self.net} steps_{self.total_time_steps} box{self.len_box} skip{self.skip_per_dir} add_cell"
 
     def save(self):
         save_yaml(self.__dict__, self.destination, "command_line_arguments")
         
     def make_destination_path(self, destination_dir: pathlib.Path):
         if self.destination == "":
-            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_"+self.case + " net_"+self.net + " steps_"+str(self.total_time_steps) + " predictBox_"+str(self.time_step_to_predict)
+            self.destination = f"case_{self.case} net_{self.net} steps_{self.total_time_steps} box{self.len_box} skip{self.skip_per_dir} add_cell"
         self.destination = destination_dir / self.destination
-        self.destination.mkdir(exist_ok=True)
+        self.destination.mkdir(parents=True, exist_ok=True)
 
     def make_model_path(self, destination_dir: pathlib.Path):
         self.model = destination_dir / self.model
