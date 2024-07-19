@@ -69,7 +69,8 @@ def run(settings: SettingsTraining):
         model = UNet(in_channels=input_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         if settings.net == "convLSTM":
-            model = Seq2Seq(num_channels=input_channels, frame_size=(1280//(settings.total_time_steps*2),64 )).float()
+            print(f"num_channels: {input_channels}")
+            model = Seq2Seq(num_channels=input_channels, frame_size=(1280//(settings.total_time_steps*2),64 ), last_cell_mode=settings.last_cell_mode).float()
         else:
             model = UNetHalfPad(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
@@ -104,7 +105,7 @@ def run(settings: SettingsTraining):
     which_dataset = "val"
     pic_format = "png"
     times["time_end"] = time.perf_counter()
-    dp_to_visu = np.array([25,26,28,29])
+    dp_to_visu = np.array(np.arange(1,90,3))
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"
@@ -175,6 +176,7 @@ if __name__ == "__main__":
     parser.add_argument("--net", type=str, choices=["CNN", "convLSTM"], default="convLSTM")
     parser.add_argument("--total_time_steps", type=int, default=10)
     parser.add_argument("--time_step_to_predict", type=int, default=10)
+    parser.add_argument("--last_cell_mode", type=str, choices=["none", "perm", "perm+avg_temp"])
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

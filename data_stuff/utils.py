@@ -22,6 +22,7 @@ class SettingsTraining:
     inputs: str
     device: str
     epochs: int
+    last_cell_mode: str
     destination: pathlib.Path = ""
     dataset_prep: str = ""
     case: str = "train"
@@ -58,14 +59,14 @@ class SettingsTraining:
             assert self.model != "runs/default", "Please specify model path for testing or finetuning"
 
         if self.destination == "":
-            self.destination = f"case_{self.case} net_{self.net} steps_{self.total_time_steps} box{self.len_box} skip{self.skip_per_dir} add_cell"
+            self.destination = f"case_{self.case} net_{self.net} steps_{self.total_time_steps} box{self.len_box} skip{self.skip_per_dir} last_cell_mode_{self.last_cell_mode}"
 
     def save(self):
         save_yaml(self.__dict__, self.destination, "command_line_arguments")
         
     def make_destination_path(self, destination_dir: pathlib.Path):
         if self.destination == "":
-            self.destination = f"case_{self.case} net_{self.net} steps_{self.total_time_steps} box{self.len_box} skip{self.skip_per_dir} add_cell"
+            self.destination = f"case_{self.case} net_{self.net} steps_{self.total_time_steps} box{self.len_box} skip{self.skip_per_dir} last_cell_mode_{self.last_cel_mode}"
         self.destination = destination_dir / self.destination
         self.destination.mkdir(parents=True, exist_ok=True)
 

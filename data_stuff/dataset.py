@@ -160,7 +160,6 @@ class DatasetExtendConvLSTM(Dataset):
         self.input_names = sorted(self.input_names, key=self.natural_sort_key)
         self.label_names = sorted(self.label_names, key=self.natural_sort_key)
 
-        print(self.label_names)
         self.spatial_size = torch.load(self.path / "Inputs" / self.input_names[0]).shape[1:]
         self.box_len:int = box_len
         self.skip_per_dir:int = skip_per_dir

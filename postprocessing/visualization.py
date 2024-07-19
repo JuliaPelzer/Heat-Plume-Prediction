@@ -29,11 +29,12 @@ class DataToVisualize:
     contourargs: Dict = field(default_factory=dict)
     x_lim = (0,640)
     y_lim = (0,64)
+    cmap: str = "hot"
 
     def __post_init__(self):
         #extent = (,int(self.extent_highs[0]),int(self.extent_highs[1]),0)
 
-        self.imshowargs.update({"cmap": "hot", 
+        self.imshowargs.update({"cmap": self.cmap, 
                            "extent": self.extent_highs})
 
         self.contourfargs = {"levels": np.arange(10.4, 16, 0.25), 
@@ -105,7 +106,7 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, vi
         for dp_in_batch in range(dataloader.batch_size):
             datapoint_id = batch_id * dataloader.batch_size + dp_in_batch
             if datapoint_id in dp_to_visu:
-                name_pic = f"{plot_path}/dp_new2_{datapoint_id}"
+                name_pic = f"{plot_path}/dp_{datapoint_id}"
                 x = torch.unsqueeze(inputs[dp_in_batch].to(device), 0)
                 y = labels[dp_in_batch]
                 y_out = model(x).to(device)
@@ -150,7 +151,7 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
     press = press.reshape(640,64)
     temp = x[4]
     temp = temp.reshape(640,64)
-    temp = temp[:576]
+    #temp = temp[:576]
     press_max = info['Inputs']['Pressure Gradient [-]']['max']
     press_min = info['Inputs']['Pressure Gradient [-]']['min']
     #y = y.reshape(64,64)
@@ -159,10 +160,11 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
     extent_highs = (0,640,64,0)
     #extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
 
-    dict_to_plot = {        
-        "press" : DataToVisualize(press, "Input: Pressure Gradient", (0,640,64,0), {"vmax": press_max, "vmin": press_min}),
-        "perm" : DataToVisualize(perm,  "Input: Permeabilität",(0,640,64,0)),
-        "temp" : DataToVisualize(temp, "Input: Temperature", ((0,576,64,0)),{"vmax": temp_max, "vmin": temp_min}),
+    dict_to_plot = {     
+        "sdf" : DataToVisualize(x[2].reshape(640,64), "Input: Signed Distance Function", (0,640,64,0), cmap="viridis"), 
+        "press" : DataToVisualize(press, "Input: Pressure Gradient", (0,640,64,0), {"vmax": press_max, "vmin": press_min}, cmap="viridis"),
+        "perm" : DataToVisualize(perm,  "Input: Permeabilität",(0,640,64,0), cmap="viridis"),
+        "temp" : DataToVisualize(temp, "Input: Temperature in [°C]", ((0,576,64,0)),{"vmax": temp_max, "vmin": temp_min}),
         "t_true": DataToVisualize(y, f"Label: Temperature in [°C]", (576, 640, 64, 0),{"vmax": temp_max, "vmin": temp_min}),
         "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]",(575,640,64,0), {"vmax": temp_max, "vmin": temp_min}),
         "error": DataToVisualize(torch.abs(y[-65:]-y_out), "Absolute error in [°C]",(575,640,64,0)),

@@ -19,7 +19,7 @@ class ConvLSTMCell(nn.Module):
         
         # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
         self.conv = nn.Conv2d(
-            in_channels=in_channels + out_channels, 
+            in_channels=in_channels+32, 
             out_channels=4 * out_channels, 
             kernel_size=kernel_size, 
             stride=1,
@@ -39,7 +39,6 @@ class ConvLSTMCell(nn.Module):
         # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
         i_conv, f_conv, C_conv, o_conv = torch.chunk(conv_output, chunks=4, dim=1)
 
-
         input_gate = torch.sigmoid(i_conv + self.W_ci * C_prev )
         forget_gate = torch.sigmoid(f_conv + self.W_cf * C_prev )
 
@@ -56,18 +55,22 @@ class ConvLSTMCell(nn.Module):
 class ConvLSTM(nn.Module):
 
     def __init__(self, in_channels, out_channels, 
-    kernel_size, padding, activation, frame_size):
+    kernel_size, padding, activation, frame_size, last_cell_mode):
 
         super(ConvLSTM, self).__init__()
 
         self.out_channels = out_channels
+        self.last_cell_mode:str = last_cell_mode
 
         # We will unroll this over time steps
-        self.convLSTMcell = ConvLSTMCell(in_channels, out_channels, 
+        self.convLSTMcell1 = ConvLSTMCell(in_channels, out_channels, 
         kernel_size, padding, activation, frame_size)
 
-        self.convLSTMcell2 = ConvLSTMCell(in_channels-1, out_channels, 
-        kernel_size, padding, activation, frame_size)
+        if self.last_cell_mode != "none":
+            in_channels_last_cell = in_channels if self.last_cell_mode == "perm+avg_temp" else in_channels-1
+            print(f"in_channels_last_cell: {in_channels_last_cell}")
+            self.convLSTMcell2 = ConvLSTMCell(in_channels_last_cell, out_channels, 
+            kernel_size, padding, activation, frame_size)
 
     def forward(self, X):
 
@@ -81,7 +84,7 @@ class ConvLSTM(nn.Module):
         height, width, device='cuda')
         
         # Initialize Hidden State
-        H = torch.zeros(batch_size, self.out_channels, 
+        H = torch.zeros(batch_size, self.out_channels,
         height, width, device='cuda')
 
         # Initialize Cell Input
@@ -89,31 +92,24 @@ class ConvLSTM(nn.Module):
         height, width, device='cuda')
 
         # Unroll over time steps
-        for time_step in range(seq_len-1):
+        nr_convLSTMcell1 = seq_len if self.last_cell_mode == "perm+avg_temp" else seq_len-1
+        for time_step in range(nr_convLSTMcell1):
 
-            H, C = self.convLSTMcell(X[:,:,time_step], H, C)
+            H, C = self.convLSTMcell1(X[:,:,time_step], H, C)
 
             output[:,:,time_step] = H
-            # if time_step == 0:
-            #     print(f'Normal___')
-            #     print(f'Shape of X[:,:,time_step]: {X[:,:,time_step].shape}')
-            #     print(f'Shape of H: {H.shape}')
-            #     print(f'Shape of C: {C.shape}')
-        
-        time_step = seq_len-1
-        # print(f'Variant____')
-        # print(f'Shape of X[:,:,time_step]: {X[:,:,time_step].shape}')
-        # print(f'Shape of H: {H.shape}')
-        # print(f'Shape of C: {C.shape}')
-        H, C = self.convLSTMcell2(X[:,:-1,time_step], H, C)
-        output[:,:,time_step] = H
+
+        if self.last_cell_mode == "perm":
+            time_step = seq_len-1
+            H, C = self.convLSTMcell2(X[:,:-1,time_step], H, C)
+            output[:,:,time_step] = H
 
         return output
 
 class Seq2Seq(nn.Module):
 
-    def __init__(self, num_channels, frame_size, num_kernels=32, kernel_size=3, padding=1,
-    activation='relu', num_layers=3):
+    def __init__(self, num_channels, frame_size, last_cell_mode, num_kernels=32, kernel_size=3, padding=1,
+    activation='relu', num_layers=1):
 
         super(Seq2Seq, self).__init__()
 
@@ -124,7 +120,7 @@ class Seq2Seq(nn.Module):
             "convlstm1", ConvLSTM(
                 in_channels=num_channels, out_channels=num_kernels,
                 kernel_size=kernel_size, padding=padding, 
-                activation=activation, frame_size=frame_size)
+                activation=activation, frame_size=frame_size, last_cell_mode=last_cell_mode)
         )
 
         self.sequential.add_module(
@@ -138,7 +134,7 @@ class Seq2Seq(nn.Module):
                 f"convlstm{l}", ConvLSTM(
                     in_channels=num_kernels, out_channels=num_kernels,
                     kernel_size=kernel_size, padding=padding, 
-                    activation=activation, frame_size=frame_size)
+                    activation=activation, frame_size=frame_size, last_cell_mode=last_cell_mode)
                 )
                 
             self.sequential.add_module(
@@ -153,6 +149,7 @@ class Seq2Seq(nn.Module):
     def forward(self, X):
 
         # Forward propagation through all the layers
+        print(f"Input shape: {X.shape}")
         output = self.sequential(X)
 
         # Return only the last output frame
