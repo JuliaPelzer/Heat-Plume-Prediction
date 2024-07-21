@@ -12,6 +12,7 @@ from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2
 from data_stuff.utils import SettingsTraining, load_yaml
 from networks.unet import UNet, UNetBC
 from networks.unetHalfPad import UNetHalfPad
+from networks.equivariantCNN import EquivariantCNN
 from processing.solver import Solver
 import processing.rotation as rt
 from preprocessing.prepare import prepare_data_and_paths
@@ -31,12 +32,12 @@ def init_data(settings: SettingsTraining, seed=1):
 
     split_ratios = [0.7, 0.2, 0.1]
     # if settings.case == "test":
-    #     split_ratios = [0.0, 0.0, 1.0] 
-
+    #     split_ratios = [0.0, 0.0, 1.0]
+        
     datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     dataloaders = {}
     try:
-        dataloaders["train"] = DataLoader(datasets[0], batch_size=50, shuffle=True, num_workers=0)
+        dataloaders["train"] = DataLoader(rt.augment_data(datasets[0], settings.augmentation_n), batch_size=50, shuffle=True, num_workers=0)
         dataloaders["val"] = DataLoader(datasets[1], batch_size=50, shuffle=True, num_workers=0)
     except: pass
     dataloaders["test"] = DataLoader(datasets[2], batch_size=50, shuffle=True, num_workers=0)
@@ -54,7 +55,10 @@ def run(settings: SettingsTraining):
     input_channels, dataloaders = init_data(settings)
     # model
     if settings.problem == "2stages":
-        model = UNet(in_channels=input_channels).float()
+        if settings.use_ecnn:
+            model = EquivariantCNN(in_channels=input_channels).float()
+        else:
+            model = UNet(in_channels=input_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         model = UNetHalfPad(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
@@ -66,7 +70,7 @@ def run(settings: SettingsTraining):
         loss_fn = MSELoss()
         # training
         finetune = True if settings.case == "finetune" else False
-        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn, finetune=finetune)
+        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn, finetune=finetune, use_ecnn=settings.use_ecnn)
         try:
             solver.load_lr_schedule(settings.destination / "learning_rate_history.csv", settings.case_2hp)
             times["time_initializations"] = time.perf_counter()
@@ -152,6 +156,7 @@ if __name__ == "__main__":
     parser.add_argument("--skip_per_dir", type=int, default=256)
     parser.add_argument("--augmentation_n", type=int, default=0)
     parser.add_argument("--rotate_inference", type=bool, default=False)
+    parser.add_argument("--use_ecnn", type=bool, default=False)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

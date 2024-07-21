@@ -49,6 +49,7 @@ def measure_len_width_1K_isoline(data: Dict[str, "DataToVisualize"]):
     plt.close("all")
     return lengths, widths
 
+#rotation not implemented as currently not part of workflow
 def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: modules.loss._Loss = MSELoss()):
 
     norm = dataloader.dataset.dataset.norm

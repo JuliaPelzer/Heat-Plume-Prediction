@@ -8,6 +8,7 @@ def read_yaml(file_path):
     with open(file_path, 'r') as file:
         return yaml.safe_load(file)
 
+#please note rotate is a special case of rotate_w_gradient (only has scalar fields)
 def test_rotation():
     # Get path to info file
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -25,7 +26,7 @@ def test_rotation():
                              [[-1,-1], [-1,-1]],
                              [[4,3],[2,1]]])
     # Actual result
-    data = rt.rotate(data,180,info)
+    data = rt.rotate_w_gradient(data,180,info)
 
     # Test
     assert torch.allclose(data, expected), "Problem detected in input rotation!"
@@ -38,7 +39,7 @@ def test_rotation():
     # Expected result
     expected = torch.Tensor([[[4,3],[2,1]]])
     # Actual result
-    data = rt.rotate(data,180,info_path)
+    data = rt.rotate_w_gradient(data,180,info_path)
     
     # Test
     assert torch.allclose(data, expected), "Problem detected in label rotation!"

@@ -55,6 +55,44 @@ class SimulationDataset(Dataset):
     
     def get_run_id(self, index):
         return self.input_names[index]
+    
+class TrainDataset(Dataset):
+    def __init__(self, path):
+        Dataset.__init__(self)
+        self.path = path
+        self.info = self.__load_info()
+        self.norm = NormalizeTransform(self.info)
+
+        self.inputs = []
+        self.labels = []
+
+    @property
+    def input_channels(self):
+        return len(self.info["Inputs"])
+
+    @property
+    def output_channels(self):
+        return len(self.info["Labels"])
+
+    def __load_info(self):
+        with open(self.path.joinpath("info.yaml"), "r") as f:
+            info = yaml.safe_load(f)
+        return info
+
+    def __len__(self):
+        return len(self.inputs)
+
+    def __getitem__(self, index):
+        input = self.inputs[index]
+        label = self.labels[index]
+        return input, label
+    
+    def add_item(self, input, label):
+        self.inputs.append(input)
+        self.labels.append(label)
+
+    def get_run_id(self, index):
+        return f'!!!CURRENTLY UNSUPPORTED IN TRAININGSDATA!!! Index: {index}'
 
 class DatasetExtend1(Dataset):
     def __init__(self, path:str, box_size:int=64):

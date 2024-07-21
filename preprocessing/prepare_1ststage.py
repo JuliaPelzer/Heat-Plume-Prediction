@@ -201,6 +201,7 @@ def expand_property_names(properties: str):
         "b": "PE y", # positional encoding: signed distance in y direction
         "g": "Pressure Gradient [-]",
         "v": "Pressure Gradient [|]",
+        "m": "Pressure Magnitude",
         "o": "Original Temperature [C]"
     }
     possible_vars = ','.join(translation.keys())
@@ -219,6 +220,8 @@ def get_normalization_type(property:str):
     types = {
         "default": "Rescale", #Standardize
         # "Material ID": "Rescale",
+        "Pressure Gradient [-]":None,
+        "Pressure Gradient [|]":None,
         "SDF": None,
         "PE x": None,
         "PE y": None,
@@ -254,11 +257,20 @@ def load_data(data_path: str, time: str, variables: dict, dimensions_of_datapoin
                 elif key == "Pressure Gradient [-]":
                     empty_field = torch.ones(list(dimensions_of_datapoint)).float()
                     pressure_grad = get_pressure_gradient(data_path)
-                    data[key] = empty_field * pressure_grad[1]
+                    # normalize direction
+                    pressure_magnitude = np.linalg.norm(np.array(pressure_grad[:2]))
+                    data[key] = empty_field * pressure_grad[1]/pressure_magnitude
                 elif key == "Pressure Gradient [|]":
                     empty_field = torch.ones(list(dimensions_of_datapoint)).float()
                     pressure_grad = get_pressure_gradient(data_path)
-                    data[key] = empty_field * pressure_grad[0]
+                    # normalize direction
+                    pressure_magnitude = np.linalg.norm(np.array(pressure_grad[:2]))
+                    data[key] = empty_field * pressure_grad[0]/pressure_magnitude
+                elif key == "Pressure Magnitude":
+                    empty_field = torch.ones(list(dimensions_of_datapoint)).float()
+                    pressure_grad = get_pressure_gradient(data_path)
+                    pressure_magnitude = np.linalg.norm(np.array(pressure_grad[:2]))
+                    data[key] = empty_field * pressure_magnitude
                 elif key == "Original Temperature [C]":
                     empty_field = torch.ones(list(dimensions_of_datapoint)).float()
                     data[key] = empty_field * 0 #10.6
