@@ -105,7 +105,7 @@ def run(settings: SettingsTraining):
     which_dataset = "val"
     pic_format = "png"
     times["time_end"] = time.perf_counter()
-    dp_to_visu = np.array(np.arange(1,90,3))
+    dp_to_visu = np.array(np.arange(1,40))
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"
@@ -116,7 +116,7 @@ def run(settings: SettingsTraining):
             times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
             plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         elif settings.net == "convLSTM":
-            visualizations_convLSTM(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination, dp_to_visu=dp_to_visu, pic_format=pic_format, vis_entire = settings.vis_entire_plume, box=settings.time_step_to_predict)
+            visualizations_convLSTM(model, dataloaders[which_dataset], settings.device, last_cell_mode=settings.last_cell_mode, plot_path=settings.destination, dp_to_visu=dp_to_visu, pic_format=pic_format)
             times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
             #plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
             

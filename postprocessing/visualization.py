@@ -89,7 +89,7 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
                 return None
             current_id += 1
 
-def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, vis_entire: bool, box: int, dp_to_visu: np.array = inf, plot_path: str = "default", pic_format: str = "png"):
+def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, last_cell_mode: str, dp_to_visu: np.array = inf, plot_path: str = "default", pic_format: str = "png"):
     print("Visualizing...", end="\r")
 
     norm = dataloader.dataset.dataset.norm
@@ -113,7 +113,7 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, vi
 
                 x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
                 
-                dict_to_plot = prepare_data_to_plot_convLSTM(x, y.squeeze(), y_out.squeeze(), info)
+                dict_to_plot = prepare_data_to_plot_convLSTM(x, y.squeeze(), y_out.squeeze(), info, last_cell_mode)
 
                 plot_datafields(dict_to_plot, name_pic, settings_pic)
                 printed += 1
@@ -139,7 +139,7 @@ def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, no
 
     return x, y, y_out
 
-def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, info: dict):
+def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, info: dict, last_cell_mode:str):
     # prepare data of temperature true, temperature out, error, physical variables (inputs)
     # Shape of x: torch.Size([4, 10, 64, 64])
     # Shape of y: torch.Size([10, 64, 64])
@@ -149,8 +149,15 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
     perm = perm.reshape(640,64)
     press = x[0]
     press = press.reshape(640,64)
-    temp = x[4]
-    temp = temp.reshape(640,64)
+    if last_cell_mode in ["none", "perm"]:
+        temp = x[4][:-1]
+        print(f'shape of temp: {temp.shape}')
+        temp = temp.reshape(576,64)
+        extent = (0,576,64,0)
+    else:
+        temp = x[4]
+        temp = temp.reshape(640,64)
+        extent = (0,640,64,0)
     #temp = temp[:576]
     press_max = info['Inputs']['Pressure Gradient [-]']['max']
     press_min = info['Inputs']['Pressure Gradient [-]']['min']
@@ -164,7 +171,7 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
         "sdf" : DataToVisualize(x[2].reshape(640,64), "Input: Signed Distance Function", (0,640,64,0), cmap="viridis"), 
         "press" : DataToVisualize(press, "Input: Pressure Gradient", (0,640,64,0), {"vmax": press_max, "vmin": press_min}, cmap="viridis"),
         "perm" : DataToVisualize(perm,  "Input: Permeabilität",(0,640,64,0), cmap="viridis"),
-        "temp" : DataToVisualize(temp, "Input: Temperature in [°C]", ((0,576,64,0)),{"vmax": temp_max, "vmin": temp_min}),
+        "temp" : DataToVisualize(temp, "Input: Temperature in [°C]", extent,{"vmax": temp_max, "vmin": temp_min}),
         "t_true": DataToVisualize(y, f"Label: Temperature in [°C]", (576, 640, 64, 0),{"vmax": temp_max, "vmin": temp_min}),
         "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]",(575,640,64,0), {"vmax": temp_max, "vmin": temp_min}),
         "error": DataToVisualize(torch.abs(y[-65:]-y_out), "Absolute error in [°C]",(575,640,64,0)),
