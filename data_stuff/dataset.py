@@ -65,6 +65,7 @@ class TrainDataset(Dataset):
 
         self.inputs = []
         self.labels = []
+        self.run_ids = []
 
     @property
     def input_channels(self):
@@ -87,12 +88,13 @@ class TrainDataset(Dataset):
         label = self.labels[index]
         return input, label
     
-    def add_item(self, input, label):
+    def add_item(self, input, label, run_id):
         self.inputs.append(input)
         self.labels.append(label)
+        self.run_ids.append(run_id)
 
     def get_run_id(self, index):
-        return f'!!!CURRENTLY UNSUPPORTED IN TRAININGSDATA!!! Index: {index}'
+        return self.run_ids[index]
 
 class DatasetExtend1(Dataset):
     def __init__(self, path:str, box_size:int=64):

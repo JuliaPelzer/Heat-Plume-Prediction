@@ -46,18 +46,21 @@ def get_rotation_angle(a,b):
 def augment_data(dataset,  augmentation_n):
     inputs = [dataset[i][0] for i in range(len(dataset))]
     labels = [dataset[i][1] for i in range(len(dataset))]
+    run_ids = [dataset.dataset.get_run_id(i) for i in range(len(dataset))]
     
     augmented_dataset = TrainDataset(dataset.dataset.path)
 
     for i in range(len(dataset)):
-        augmented_dataset.add_item(inputs[i], labels[i])
+        augmented_dataset.add_item(inputs[i], labels[i], run_ids[i])
 
     
     for i in range(len(dataset)):
         for _ in range(augmentation_n):
-            #rot_angle = np.random.rand()*360
-            rot_angle = np.random.choice([0.25,0.5,0.75])*360
-            augmented_dataset.add_item(rotate(inputs[i], rot_angle), rotate(labels[i], rot_angle))
+            rot_angle = np.random.rand()*360
+            #rot_angle = np.random.choice([0.25,0.5,0.75])*360
+            augmented_dataset.add_item(rotate(inputs[i], rot_angle), rotate(labels[i], rot_angle), run_ids[i] + f'_rot_{rot_angle}')
+        # for rot_angle in [90,180,270]:
+        #     augmented_dataset.add_item(rotate(inputs[i], rot_angle), rotate(labels[i], rot_angle), run_ids[i] + f'_rot_{rot_angle}')
 
     return Subset(augmented_dataset, list(range(len(augmented_dataset))))
 
