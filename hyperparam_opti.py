@@ -7,7 +7,7 @@ import torch.optim as optim
 import optuna
 from optuna.trial import TrialState
 
-from torch.nn import MSELoss
+from torch.nn import MSELoss, L1Loss
 from processing.solver import Solver
 import utils.utils_args as ut
 import preprocessing.preprocessing as prep
@@ -15,35 +15,70 @@ from processing.networks.unetVariants import UNetNoPad2
 from main import read_cla
 from preprocessing.data_init import init_data, load_all_datasets_in_full
 from postprocessing.visualization import visualizations
+from postprocessing.measurements import measure_losses_paper24
 
+def objective(trial):
 
-def define_model(trial, input_channels, output_channels):
-    # We optimize the number of layers, hidden units and dropout ratio in each layer.
-    depth = trial.suggest_int("depth", 1, 3)
-    init_features = trial.suggest_categorical("init_features", [8, 16, 32, 64, 128])
-    kernel_size = trial.suggest_int("kernel_size", 3, 5)
-    activation = trial.suggest_categorical("activation", ["ReLU"]) #, "LeakyReLU"])
+    args["data_prep"] = None # !!
+    ut.make_paths(args) # and check if data / model exists
+    ut.save_yaml(args, args["destination"] / "command_line_arguments.yaml")
+    
+    # # prepare data
+    # prep.preprocessing(args) # and save info.yaml in model folder
 
-    return UNetNoPad2(in_channels=input_channels, out_channels=output_channels, init_features=init_features, depth=depth, kernel_size=kernel_size, activation_fct = activation).float()
+    args["inputs"] = trial.suggest_categorical("input_vars", ["pki", "ki"])
+    args["len_box"] = trial.suggest_categorical("len_box", [512]) #256]) #, 
+    # if args["len_box"] == 256:
+    #     args["skip_per_dir"] = trial.suggest_categorical("skip_per_dir", [16, 32])
+    if args["len_box"] == 512:
+        args["skip_per_dir"] = trial.suggest_categorical("skip_per_dir", [8, 8])
 
-def objective_velo(trial):
+    # Get the dataset.
+    input_channels, output_channels, dataloaders = init_data(args)
 
-    args["inputs"] = trial.suggest_categorical("input_vars", ["pk", "ki"]) # "pki"
-    args["skip_per_dir"] = trial.suggest_categorical("skip_per_dir", [8, 16, 32, 64])
-    args["len_box"] = trial.suggest_categorical("len_box", [64, 128, 256, 512])
+    # Generate the model.
+    depth = trial.suggest_int("depth", 3, 4) #optimized with optuna between 1 and 3
+    # if args["len_box"] == 256:
+    #     init_features = trial.suggest_categorical("init_features", [32])
+    if args["len_box"] == 512:
+        init_features = trial.suggest_categorical("init_features", [8, 16])
+    kernel_size = trial.suggest_int("kernel_size", 5, 5)
+    activation = trial.suggest_categorical("activation", ["ReLU"]) #practical reasoning: dont allow negative values (Leaky ReLU)
 
-    return objective(trial, args)
+    model = UNetNoPad2(in_channels=input_channels, out_channels=output_channels, init_features=init_features, depth=depth, kernel_size=kernel_size, activation_fct = activation).float()
+    model.to(args["device"])
+
+    # Generate the optimizers.
+    optimizer_name = trial.suggest_categorical("optimizer", ["Adam"]) #, "RMSprop"]) #optimized, "SGD"])
+    optimizer = getattr(optim, optimizer_name)(model.parameters(), lr=1e-4)
+
+    # Training of the model.
+    solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=MSELoss(), opt=optimizer, learning_rate=1e-4)
+    try:
+        training_time = datetime.now()
+        solver.load_lr_schedule(args["destination"] / "learning_rate_history.csv")
+        loss = solver.train(trial, args)
+        training_time = datetime.now() - training_time
+        solver.save_lr_schedule(args["destination"] / "learning_rate_history.csv")
+        model.save(args["destination"], model_name = f"model_trial_{trial.number}.pt")
+        solver.save_metrics(args["destination"], model.num_of_params(), args["epochs"], training_time, args["device"])
+
+        dataloader = load_all_datasets_in_full(args)["val"]
+        visualizations(model, dataloader, args, plot_path=args["destination"] / f"trial{trial.number}_val", amount_datapoints_to_visu=1, pic_format="png")
+    except Exception as e:
+        print(f"Training failed with exception: {e}")
+        loss = 1
+
+    try:
+        metrics = measure_losses_paper24(model, dataloaders, args)
+        ut.save_yaml(metrics, args["destination"] / f"metrics_trial_{trial.number}.yaml")
+    except:
+        print("Could not measure losses")
+        pass
+
+    return loss
 
 def objective_Temp(trial):
-
-    # args["inputs"] = trial.suggest_categorical("input_vars", ["ixycdk", "ixyck", "ixydk", "icdk", "xycdk", "ixycd", "xycd"])
-    args["inputs"] = trial.suggest_categorical("input_vars", ["xydk"])
-    args["skip_per_dir"] = trial.suggest_categorical("skip_per_dir", [8, 16, 32, 64])
-    args["len_box"] = trial.suggest_categorical("len_box", [64, 128, 256, 512])
-
-    return objective(trial, args)
-
-def objective(trial, args: dict):
 
     args["data_prep"] = None # !!
     ut.make_paths(args) # and check if data / model exists
@@ -52,19 +87,28 @@ def objective(trial, args: dict):
     # prepare data
     prep.preprocessing(args) # and save info.yaml in model folder
 
+    args["inputs"] = trial.suggest_categorical("input_vars", ["ixydk", "xydk"])
+    args["len_box"] = trial.suggest_categorical("len_box", [64, 128, 256, 512, 1280])
+    args["skip_per_dir"] = trial.suggest_categorical("skip_per_dir", [8, 16, 32, 64, 128])
+
     # Get the dataset.
     input_channels, output_channels, dataloaders = init_data(args)
 
     # Generate the model.
-    model = define_model(trial, input_channels, output_channels)
+    depth = trial.suggest_int("depth", 3,4) #optimized with optuna between 1 and 3
+    init_features = trial.suggest_categorical("init_features", [16,32])
+    kernel_size = trial.suggest_int("kernel_size", 4,5)
+    activation = trial.suggest_categorical("activation", ["ReLU"]) #practical reasoning: dont allow negative values (Leaky ReLU)
+
+    model = UNetNoPad2(in_channels=input_channels, out_channels=output_channels, init_features=init_features, depth=depth, kernel_size=kernel_size, activation_fct = activation).float()
     model.to(args["device"])
 
     # Generate the optimizers.
-    optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "RMSprop", "SGD"])
+    optimizer_name = trial.suggest_categorical("optimizer", ["Adam"]) #, "RMSprop"]) #optimized, "SGD"])
     optimizer = getattr(optim, optimizer_name)(model.parameters(), lr=1e-4)
 
     # Training of the model.
-    solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=MSELoss(), opt=optimizer, learning_rate=1e-4)
+    solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=L1Loss(), opt=optimizer, learning_rate=1e-4)
     try:
         training_time = datetime.now()
         solver.load_lr_schedule(args["destination"] / "learning_rate_history.csv")
@@ -97,12 +141,12 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default=None) # required for testing or finetuning
     parser.add_argument("--destination", type=str, default=None)
     parser.add_argument("--visualize", type=bool, default=True)
-    parser.add_argument("--device", type=str, default="3", help="cuda device number or 'cpu'")
+    parser.add_argument("--device", type=str, default="1", help="cuda device number or 'cpu'")
     parser.add_argument("--notes", type=str, default=None)
     args = parser.parse_args()
     args = vars(args)
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = args["device"] if not args["device"]=="cpu" else "" #e.g. "1"
+    # os.environ["CUDA_VISIBLE_DEVICES"] = args["device"] if not args["device"]=="cpu" else "" #e.g. "1"
     args["device"] = torch.device(f"cuda:{args['device']}" if not args["device"]=="cpu" else "cpu")
     DEVICE = args["device"]
 
@@ -111,7 +155,7 @@ if __name__ == "__main__":
     args = read_cla(args["destination"])
     args["destination"] = current_destination # just to make sure that nothing is overwritten
     
-    study = optuna.create_study(direction="minimize", storage=f"sqlite:///runs/allin1/{args['destination'].name}/trials.db", study_name="allin1_Temp", load_if_exists=True)
+    study = optuna.create_study(direction="minimize", storage=f"sqlite:///runs/allin1/{args['destination'].name}/trials.db", study_name="allin1_T_MAE_real_L1", load_if_exists=True)
     study.optimize(objective_Temp, n_trials=25)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
