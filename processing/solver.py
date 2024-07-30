@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass
 
 from torch.nn import Module, MSELoss, modules
-from torch.optim import Adam, Optimizer
+from torch.optim import Adam, Optimizer, RMSprop
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch import manual_seed

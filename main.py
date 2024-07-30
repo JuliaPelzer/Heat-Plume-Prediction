@@ -13,7 +13,9 @@ from data_stuff.utils import SettingsTraining
 from networks.unet import UNet, UNetBC
 from networks.unetHalfPad import UNetHalfPad
 from networks.turbnet import TurbNetG
+from networks.turbnetnoskip import TurbNetNoSkipG
 from processing.solver import Solver
+from processing.finetune import tune_nn
 from preprocessing.prepare import prepare_data_and_paths
 from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
 from postprocessing.measurements import measure_loss, save_all_measurements
@@ -31,8 +33,8 @@ def init_data(settings: SettingsTraining, seed=1):
     generator = torch.Generator().manual_seed(seed)
 
     split_ratios = [0.7, 0.2, 0.1]
-    # if settings.case == "test":
-    #     split_ratios = [0.0, 0.0, 1.0] 
+    if settings.case == "test":
+        split_ratios = [0.0, 0.0, 1.0] 
 
     datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     dataloaders = {}
@@ -47,6 +49,10 @@ def init_data(settings: SettingsTraining, seed=1):
 
 def run(settings: SettingsTraining):
     multiprocessing.set_start_method("spawn", force=True)
+
+    if settings.case in ["finetune"]:
+        tune_nn(settings)
+        return
     
     times = {}
     times["time_begin"] = time.perf_counter()
@@ -60,6 +66,8 @@ def run(settings: SettingsTraining):
         model = UNetHalfPad(in_channels=input_channels).float()
     elif settings.problem == "turbnet":
         model = TurbNetG(in_channels=input_channels).float()
+    elif settings.problem == "turb-ni":
+        model = TurbNetNoSkipG(in_channels=input_channels).float()
 
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, map_location=settings.device)
@@ -155,7 +163,7 @@ if __name__ == "__main__":
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--only_prep", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
-    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2","turbnet",], default="extend1")
+    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2","turbnet","turb-no",], default="extend1")
     parser.add_argument("--notes", type=str, default="")
     parser.add_argument("--len_box", type=int, default=256)
     parser.add_argument("--skip_per_dir", type=int, default=256)

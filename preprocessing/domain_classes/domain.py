@@ -5,6 +5,7 @@ import shutil
 import sys
 from math import cos, sin
 from tqdm.auto import tqdm
+import matplotlib.patches as patches
 
 import matplotlib.pyplot as plt
 import yaml
@@ -32,6 +33,7 @@ class Domain:
         self.stitching: Stitching = Stitching(stitching_method, self.background_temperature)
         self.label_normed_bool: bool = True
         self.file_name: str = file_name
+
         
         if problem == "2stages": 
             if (self.get_input_field_from_name("Permeability X [m^2]").max() > 1
@@ -161,6 +163,7 @@ class Domain:
         # TODO decide: get hp_boxes based on grad_p or based on v or get squared boxes around hp
         material_ids = self.get_input_field_from_name("Material ID")
         size_hp_box = tensor([self.info["CellsNumberPrior"][0],self.info["CellsNumberPrior"][1],])
+        # try switching around here
         distance_hp_corner = tensor([self.info["PositionHPPrior"][0], self.info["PositionHPPrior"][1]])
         hp_boxes = []
         pos_hps = stack(list(where(material_ids == max(material_ids))), dim=0).T
@@ -181,7 +184,7 @@ class Domain:
                         if (tmp_pos[1:2] != distance_hp_corner).all():
                             tmp_input[tmp_pos[0], tmp_pos[1], tmp_pos[2]] = 0
 
-                tmp_hp = HeatPumpBox(id=idx, pos=pos_hp, orientation=0, inputs=tmp_input, names=names_inputs, dist_corner_hp=distance_hp_corner, label=tmp_label, device=device,)
+                tmp_hp = HeatPumpBox(id=idx, pos=pos_hp, orientation=0, inputs=tmp_input, names=names_inputs,corner_ll=corner_ll,corner_ur=corner_ur, dist_corner_hp=distance_hp_corner, label=tmp_label, device=device,)
                 if "SDF" in self.info["Inputs"]:
                     tmp_hp.recalc_sdf(self.info)
 
@@ -241,35 +244,47 @@ class Domain:
         )
         return x, y
 
-    def plot(self, fields: str = "t", folder: str = "", name: str = "test", format_fig: str = "png"):
+    def plot(self, fields: str = "t", folder: str = "", name: str = "test", format_fig: str = "png", corner_ll: tensor = None, corner_ur: tensor = None):
         properties = expand_property_names(fields)
         n_subplots = len(properties)
+        plt.rcParams.update({'font.size': 22})
         if "t" in fields:
             n_subplots += 2
         plt.subplots(n_subplots, 1, sharex=True, figsize=(20, 3 * (n_subplots)))
         idx = 1
         for property in properties:
-            plt.subplot(n_subplots, 1, idx)
+            ax = plt.subplot(n_subplots, 1, idx)
             if property == "Temperature [C]":
-                plt.imshow(self.prediction.detach().numpy().T)
+                if corner_ll is not None:
+                    x = corner_ll[0]
+                    y = corner_ll[1]
+                    width = corner_ur[0] - corner_ll[0]
+                    height = corner_ur[1] - corner_ll[1]
+                    rect = patches.Rectangle((x, y), width, height, linewidth=1, edgecolor='g', facecolor='none')
+                    ax.add_patch(rect)
+                plt.imshow(self.prediction.detach().numpy().T, cmap="RdBu_r")
                 plt.gca().invert_yaxis()
                 plt.xlabel("x [cells]")
                 plt.ylabel("y [cells]")
-                _aligned_colorbar(label=f"Predicted {property}")
+                _aligned_colorbar(label="Predicted")
                 idx += 1
+                #for presentation
+                #plt.savefig(f"{folder}/{name}.{format_fig}", format=format_fig)
+                #logging.warning(f"Saving plot to {folder}/{name}.{format_fig}")
+                #return
                 plt.subplot(n_subplots, 1, idx)
                 if self.label_normed_bool:
                     self.label = self.reverse_norm(self.label, property)
                     self.label_normed_bool = False
                 domain_temp = self.reverse_norm(self.prediction.clone().detach())
-                plt.imshow(abs(domain_temp.T - squeeze(self.label).T).detach().numpy())
+                plt.imshow(abs(domain_temp.T - squeeze(self.label).T).detach().numpy(), cmap="RdBu_r")
                 plt.gca().invert_yaxis()
                 plt.xlabel("x [cells]")
                 plt.ylabel("y [cells]")
-                _aligned_colorbar(label=f"Absolute error in {property}")
+                _aligned_colorbar(label="Absolute error")
                 idx += 1
                 plt.subplot(n_subplots, 1, idx)
-                plt.imshow(self.label.detach().numpy().T)
+                plt.imshow(self.label.detach().numpy().T, cmap="RdBu_r")
             # elif property == "Original Temperature [C]":
             #     field = self.prediction_1HPNN
             #     property = "1st Prediction of Temperature [C]"
@@ -277,11 +292,11 @@ class Domain:
             else:
                 field = self.get_input_field_from_name(property)
                 field = self.reverse_norm(field, property)
-                plt.imshow(field.detach().numpy().T)
+                plt.imshow(field.detach().numpy().T, cmap="RdBu_r")
             plt.gca().invert_yaxis()
             plt.xlabel("x [cells]")
             plt.ylabel("y [cells]")
-            _aligned_colorbar(label=property)
+            _aligned_colorbar(label="Label")
             idx += 1
         plt.savefig(f"{folder}/{name}.{format_fig}", format=format_fig)
         logging.warning(f"Saving plot to {folder}/{name}.{format_fig}")

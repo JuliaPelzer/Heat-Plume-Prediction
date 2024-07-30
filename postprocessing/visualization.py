@@ -113,30 +113,40 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
 
 def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
     # plot datafields (temperature true, temperature out, error, physical variables (inputs))
-
+    plt.rcParams.update({'font.size': 10})
     num_subplots = len(data)
     fig, axes = plt.subplots(num_subplots, 1)
-
     if num_subplots == 1:
         fig.set_figheight(10)
     else:
-        fig.set_figheight(num_subplots * 1.5)
+        #make 1.5 for boxes
+        example = list(data.items())[0][1].data.shape
+        if example[0]/example[1] > 4:
+            fig.set_figheight(num_subplots * 1.5)
+        else:
+            fig.set_figheight(num_subplots * 3)
     
     for index, (name, datapoint) in enumerate(data.items()):
         if num_subplots == 1:
             plt.sca(axes)
         else:
             plt.sca(axes[index])
+        #plt.title(datapoint.name,fontsize= 18)
         plt.title(datapoint.name)
+        
+        if datapoint.name == "Position of the heatpump in [-]":
+            points = np.argwhere(datapoint.data.T == 2)
+            extended = np.array(points,dtype=int)*5
+            plt.scatter(extended[1, :], extended[0, :], color='red', s=5, marker='o') 
         # if name in ["t_true", "t_out"]:  
         #     with warnings.catch_warnings():
         #         warnings.simplefilter("ignore")
 
         #         CS = plt.contour(torch.flip(datapoint.data, dims=[1]).T, **datapoint.contourargs)
         #     plt.clabel(CS, inline=1, fontsize=10)
-        plt.imshow(datapoint.data.T, **datapoint.imshowargs)
-        plt.gca().invert_yaxis()
+        plt.imshow(datapoint.data.T ,**datapoint.imshowargs)
 
+        plt.gca().invert_yaxis()
         plt.ylabel("x [m]")
         _aligned_colorbar()
 
@@ -147,6 +157,8 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
     plt.xlabel("y [m]")
     plt.tight_layout()
     plt.savefig(f"{name_pic}.{settings_pic['format']}", **settings_pic)
+    plt.clf()
+    plt.cla()
 
 def plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
     # plot isolines of temperature fields
@@ -223,7 +235,8 @@ def plot_avg_error_cellwise(dataloader, summed_error_pic, settings_pic: dict):
     plt.tight_layout()
     plt.savefig(f"{settings_pic['folder']}/avg_error.{settings_pic['format']}", format=settings_pic['format'])
 
-def _aligned_colorbar(*args, **kwargs):
+def _aligned_colorbar(pad=0.05,*args,**kwargs):
     cax = make_axes_locatable(plt.gca()).append_axes(
-        "right", size=0.3, pad=0.05)
-    plt.colorbar(*args, cax=cax, **kwargs)
+        "right", size=0.3, pad=pad)
+    cbar = plt.colorbar(*args, cax=cax, **kwargs)
+    #disable if more than 2 ticks

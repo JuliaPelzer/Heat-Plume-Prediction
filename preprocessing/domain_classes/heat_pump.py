@@ -14,7 +14,7 @@ from networks.unet import UNet, UNetBC
 
 
 class HeatPumpBox:
-    def __init__(self, id, pos, orientation, inputs, names, dist_corner_hp=None, label=None, device="cpu"):
+    def __init__(self, id, pos, orientation, inputs, names,corner_ll,corner_ur, dist_corner_hp=None, label=None, device="cpu"):
         self.id: str = id  # RUN_{ID}
         self.pos: list = tensor([int(pos[0]), int(pos[1])])  # (x,y), cell-ids
         self.orientation: float = float(orientation)
@@ -25,6 +25,8 @@ class HeatPumpBox:
         self.other_temp_field: tensor = (ones(self.inputs[0].shape) * 10.6).to(device)  # input for 2HP-NN
         self.output: tensor = (None)  # temperature field
         self.label = label.to(device)
+        self.corner_ll: tensor = corner_ll
+        self.corner_ur: tensor = corner_ur
         assert (self.pos[0] >= 0 and self.pos[1] >= 0), f"Heat pump position at {self.pos} is outside of domain"
 
     def recalc_sdf(self, info):
