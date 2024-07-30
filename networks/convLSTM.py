@@ -32,8 +32,7 @@ class ConvLSTMCell(nn.Module):
 
     def forward(self, X, H_prev, C_prev):
 
-        # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
-        
+        # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch    
         conv_output = self.conv(torch.cat([X, H_prev], dim=1))
 
         # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
@@ -73,6 +72,8 @@ class ConvLSTM(nn.Module):
             kernel_size, padding, activation, frame_size)
 
     def forward(self, X):
+        if self.last_cell_mode == "none":
+            X = X[:,:,:-1]
 
         # X is a frame sequence (batch_size, num_channels, seq_len, height, width)
 
@@ -92,9 +93,8 @@ class ConvLSTM(nn.Module):
         height, width, device='cuda')
 
         # Unroll over time steps
-        nr_convLSTMcell1 = seq_len if self.last_cell_mode == "perm+avg_temp" else seq_len-1
+        nr_convLSTMcell1 = seq_len-1 if self.last_cell_mode == "perm" else seq_len
         for time_step in range(nr_convLSTMcell1):
-
             H, C = self.convLSTMcell1(X[:,:,time_step], H, C)
 
             output[:,:,time_step] = H
@@ -149,7 +149,6 @@ class Seq2Seq(nn.Module):
     def forward(self, X):
 
         # Forward propagation through all the layers
-        print(f"Input shape: {X.shape}")
         output = self.sequential(X)
 
         # Return only the last output frame

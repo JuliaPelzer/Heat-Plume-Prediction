@@ -39,9 +39,7 @@ def init_data(settings: SettingsTraining, seed=1):
     
     split1, split2, split3 = get_splits(len(dataset), split_ratios)
     datasets = []
-    # datasets.append(Subset(dataset, range(split1)))
-    # datasets.append(Subset(dataset, range(split1, split1+split2)))
-    # datasets.append(Subset(dataset, range(split1+split2,len(dataset))))
+
     datasets.append(Subset(dataset, range(split3+split2,len(dataset))))
     datasets.append(Subset(dataset, range(split3,split3+split2)))
     datasets.append(Subset(dataset, range(split3)))
@@ -69,7 +67,7 @@ def run(settings: SettingsTraining):
         model = UNet(in_channels=input_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         if settings.net == "convLSTM":
-            print(f"num_channels: {input_channels}")
+            #model.load(settings.model, settings.device)
             model = Seq2Seq(num_channels=input_channels, frame_size=(1280//(settings.total_time_steps*2),64 ), last_cell_mode=settings.last_cell_mode).float()
         else:
             model = UNetHalfPad(in_channels=input_channels).float()
@@ -105,7 +103,7 @@ def run(settings: SettingsTraining):
     which_dataset = "val"
     pic_format = "png"
     times["time_end"] = time.perf_counter()
-    dp_to_visu = np.array(np.arange(1,40))
+    dp_to_visu = np.array(np.arange(49,50))
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"
@@ -117,7 +115,7 @@ def run(settings: SettingsTraining):
             plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         elif settings.net == "convLSTM":
             visualizations_convLSTM(model, dataloaders[which_dataset], settings.device, last_cell_mode=settings.last_cell_mode, plot_path=settings.destination, dp_to_visu=dp_to_visu, pic_format=pic_format)
-            times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
+            #times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
             #plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
             
         print("Visualizations finished")
@@ -158,7 +156,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
         
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_raw", type=str, default="dataset_medium_100dp_vary_perm", help="Name of the raw dataset (without inputs)")
+    parser.add_argument("--dataset_raw", type=str, default="ep_medium_1000dp_only_vary_dist", help="Name of the raw dataset (without inputs)")
     parser.add_argument("--dataset_prep", type=str, default="")
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--epochs", type=int, default=10000)

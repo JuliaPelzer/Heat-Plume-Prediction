@@ -101,7 +101,6 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, la
     current_id = 0
     batch_id = 1
     printed = 0
-    print(f'dp_to_visu: {dp_to_visu}')
     for batch_id, (inputs, labels) in enumerate(dataloader, start=0):
         for dp_in_batch in range(dataloader.batch_size):
             datapoint_id = batch_id * dataloader.batch_size + dp_in_batch
@@ -128,7 +127,7 @@ def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, no
     #x_split = torch.split(x, 1, 1)
     #x = torch.cat(x_split[:4], dim=1)
     x1 = norm.reverse(x[0][:4].detach().cpu(), "Inputs")
-    x2 = norm.reverse(x[0][4].detach().cpu().unsqueeze(0), "Labels")
+    x2 = norm.reverse(x[0][-1].detach().cpu().unsqueeze(0), "Labels")
     x = torch.cat((x1,x2),dim=0)
 
     
@@ -140,42 +139,60 @@ def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, no
     return x, y, y_out
 
 def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, info: dict, last_cell_mode:str):
-    # prepare data of temperature true, temperature out, error, physical variables (inputs)
-    # Shape of x: torch.Size([4, 10, 64, 64])
-    # Shape of y: torch.Size([10, 64, 64])
-    # Shape of y_out: torch.Size([64, 64])
     
-    perm = x[1]
-    perm = perm.reshape(640,64)
-    press = x[0]
-    press = press.reshape(640,64)
-    if last_cell_mode in ["none", "perm"]:
-        temp = x[4][:-1]
-        print(f'shape of temp: {temp.shape}')
+    if x.shape[0] < 5:
+        perm = x[0]
+        perm = perm.reshape(640,64)
+        sdf = x[1].reshape(640,64)
+        temp = x[-1][:-1]
         temp = temp.reshape(576,64)
         extent = (0,576,64,0)
-    else:
-        temp = x[4]
-        temp = temp.reshape(640,64)
-        extent = (0,640,64,0)
-    #temp = temp[:576]
-    press_max = info['Inputs']['Pressure Gradient [-]']['max']
-    press_min = info['Inputs']['Pressure Gradient [-]']['min']
-    #y = y.reshape(64,64)
-    temp_max = max(max(y.max(), y_out.max()), temp.max())
-    temp_min = min(min(y.min(), y_out.min()), temp.min())
-    extent_highs = (0,640,64,0)
-    #extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
+        
+        temp_max = max(max(y.max(), y_out.max()), temp.max())
+        temp_min = min(min(y.min(), y_out.min()), temp.min())
+        extent_highs = (0,640,64,0)
 
-    dict_to_plot = {     
-        "sdf" : DataToVisualize(x[2].reshape(640,64), "Input: Signed Distance Function", (0,640,64,0), cmap="viridis"), 
-        "press" : DataToVisualize(press, "Input: Pressure Gradient", (0,640,64,0), {"vmax": press_max, "vmin": press_min}, cmap="viridis"),
-        "perm" : DataToVisualize(perm,  "Input: Permeabilität",(0,640,64,0), cmap="viridis"),
-        "temp" : DataToVisualize(temp, "Input: Temperature in [°C]", extent,{"vmax": temp_max, "vmin": temp_min}),
-        "t_true": DataToVisualize(y, f"Label: Temperature in [°C]", (576, 640, 64, 0),{"vmax": temp_max, "vmin": temp_min}),
-        "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]",(575,640,64,0), {"vmax": temp_max, "vmin": temp_min}),
-        "error": DataToVisualize(torch.abs(y[-65:]-y_out), "Absolute error in [°C]",(575,640,64,0)),
-    }
+        dict_to_plot = {     
+            "sdf" : DataToVisualize(sdf, "Input: Signed Distance Function", (0,640,64,0), cmap="viridis"), 
+            #"press" : DataToVisualize(press, "Input: Pressure Gradient", (0,640,64,0), {"vmax": press_max, "vmin": press_min}, cmap="viridis"),
+            "perm" : DataToVisualize(perm,  "Input: Permeabilität",(0,640,64,0), cmap="viridis"),
+            "temp" : DataToVisualize(temp, "Input: Temperature in [°C]", extent,{"vmax": temp_max, "vmin": temp_min}),
+            "t_true": DataToVisualize(y, f"Label: Temperature in [°C]", (576, 640, 64, 0),{"vmax": temp_max, "vmin": temp_min}),
+            "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]",(575,640,64,0), {"vmax": temp_max, "vmin": temp_min}),
+            "error": DataToVisualize(torch.abs(y[-65:]-y_out), "Absolute error in [°C]",(575,640,64,0)),
+        }
+
+    else:
+
+        perm = x[1]
+        perm = perm.reshape(640,64)
+        press = x[0]
+        press = press.reshape(640,64)
+        if last_cell_mode in ["none", "perm"]:
+            temp = x[-1][:-1]
+            print(f'shape of temp: {temp.shape}')
+            temp = temp.reshape(576,64)
+            extent = (0,576,64,0)
+        else:
+            temp = x[4]
+            temp = temp.reshape(640,64)
+            extent = (0,640,64,0)
+        #press_max = info['Inputs']['Pressure Gradient [-]']['max'] #TODO wieder einfügen für anderen ds
+        #press_min = info['Inputs']['Pressure Gradient [-]']['min'] #TODO wieder einfügen für anderen ds
+        temp_max = max(max(y.max(), y_out.max()), temp.max())
+        temp_min = min(min(y.min(), y_out.min()), temp.min())
+        extent_highs = (0,640,64,0)
+        #extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
+
+        dict_to_plot = {     
+            "sdf" : DataToVisualize(x[2].reshape(640,64), "Input: Signed Distance Function", (0,640,64,0), cmap="viridis"), 
+            #"press" : DataToVisualize(press, "Input: Pressure Gradient", (0,640,64,0), {"vmax": press_max, "vmin": press_min}, cmap="viridis"),
+            "perm" : DataToVisualize(perm,  "Input: Permeabilität",(0,640,64,0), cmap="viridis"),
+            "temp" : DataToVisualize(temp, "Input: Temperature in [°C]", extent,{"vmax": temp_max, "vmin": temp_min}),
+            "t_true": DataToVisualize(y, f"Label: Temperature in [°C]", (576, 640, 64, 0),{"vmax": temp_max, "vmin": temp_min}),
+            "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]",(575,640,64,0), {"vmax": temp_max, "vmin": temp_min}),
+            "error": DataToVisualize(torch.abs(y[-65:]-y_out), "Absolute error in [°C]",(575,640,64,0)),
+        }
 
     return dict_to_plot
 

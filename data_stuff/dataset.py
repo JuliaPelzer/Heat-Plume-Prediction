@@ -148,6 +148,7 @@ class DatasetExtendConvLSTM(Dataset):
         Dataset.__init__(self)
         self.path = pathlib.Path(path)
         self.info = self.__load_info()
+        self.input_indices = [value['index'] for _, value in self.info['Inputs'].items()]
         self.norm = NormalizeTransform(self.info)
         self.input_names = []
         self.label_names = []
@@ -190,11 +191,14 @@ class DatasetExtendConvLSTM(Dataset):
         file_path_inputs = self.path / "Inputs" / self.input_names[run_id]
         file_path_labels = self.path / "Labels" / self.input_names[run_id]
 
+        
         input = torch.load(file_path_inputs)
-        input = input[:, self.skip_per_dir*window_nr:self.skip_per_dir*window_nr+(self.box_len),:]        
+        with open('/home/hofmanja/1HP_NN/shapes.txt', 'w') as file:
+            file.write(f'Shape of input: {input.shape}\n')
+            
+        input = input[:, self.skip_per_dir*window_nr:self.skip_per_dir*window_nr+(self.box_len),:]
         temp = torch.load(file_path_labels)
         temp = temp[:, self.skip_per_dir*window_nr:self.skip_per_dir*window_nr+(self.box_len),:] 
-
         input, temp = input.unsqueeze(1), temp.unsqueeze(1)
         input = torch.cat((input, temp), dim=0)
         input_slices = torch.tensor_split(input,self.total_time_steps,axis=2) # produces array
@@ -206,7 +210,7 @@ class DatasetExtendConvLSTM(Dataset):
         input_seq[-1,-1] = input_seq[-1].mean() #torch.zeros_like(input_seq[0,-64:])
         
         output = torch.cat(temp_slices, dim=1)[:,-1]  
-        
+
         return input_seq, output
 
     def idx_to_window(self, idx):
