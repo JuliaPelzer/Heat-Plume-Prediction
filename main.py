@@ -12,7 +12,7 @@ from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2
 from data_stuff.utils import SettingsTraining, load_yaml
 from networks.unet import UNet, UNetBC
 from networks.unetHalfPad import UNetHalfPad
-from networks.equivariantCNN import EquivariantCNN
+from networks.equivariantCNN import G_UNet
 from processing.solver import Solver
 import processing.rotation as rt
 from preprocessing.prepare import prepare_data_and_paths
@@ -56,7 +56,7 @@ def run(settings: SettingsTraining):
     # model
     if settings.problem == "2stages":
         if settings.use_ecnn:
-            model = EquivariantCNN(in_channels=input_channels).float()
+            model = G_UNet(in_channels=input_channels).float()
         else:
             model = UNet(in_channels=input_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
