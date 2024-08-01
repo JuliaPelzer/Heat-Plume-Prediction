@@ -22,7 +22,8 @@ class SettingsTraining:
     inputs: str
     device: str
     epochs: int
-    last_cell_mode: str
+    prev_boxes: int
+    extend: int
     destination: pathlib.Path = ""
     dataset_prep: str = ""
     case: str = "train"
@@ -37,8 +38,6 @@ class SettingsTraining:
     skip_per_dir: int = 4
     len_box: int = 640
     net: str = "convLSTM"
-    total_time_steps: int = 20
-    time_step_to_predict: int = 10
     vis_entire_plume: bool = False
     
     def __post_init__(self):
@@ -59,14 +58,14 @@ class SettingsTraining:
             assert self.model != "runs/default", "Please specify model path for testing or finetuning"
 
         if self.destination == "":
-            self.destination = f"case_{self.case} net_{self.net} steps_{self.total_time_steps} box{self.len_box} skip{self.skip_per_dir} last_cell_mode_{self.last_cell_mode} 2"
+            self.destination = f"inputs_{self.inputs} case_{self.case} prev_{self.prev_boxes} extend_{self.extend} skip_{self.skip_per_dir}"
 
     def save(self):
         save_yaml(self.__dict__, self.destination, "command_line_arguments")
         
     def make_destination_path(self, destination_dir: pathlib.Path):
         if self.destination == "":
-            self.destination = f"case_{self.case} net_{self.net} steps_{self.total_time_steps} box{self.len_box} skip{self.skip_per_dir} last_cell_mode_{self.last_cel_mode} 2"
+            self.destination = f"inputs_{self.inputs} case_{self.case} prev_{self.prev_boxes} extend_{self.extend} skip_{self.skip_per_dir}"
         self.destination = destination_dir / self.destination
         self.destination.mkdir(parents=True, exist_ok=True)
 

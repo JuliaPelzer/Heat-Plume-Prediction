@@ -144,7 +144,7 @@ class DatasetExtend2(Dataset):
         return idx // self.dp_per_run, idx % self.dp_per_run + 1 #depends on which box is taken (front or last)
     
 class DatasetExtendConvLSTM(Dataset):
-    def __init__(self, path:str, total_time_steps:int = 10, skip_per_dir:int = 64, box_len:int=640):
+    def __init__(self, path:str, prev_steps:int, extend:int, skip_per_dir:int, ):
         Dataset.__init__(self)
         self.path = pathlib.Path(path)
         self.info = self.__load_info()
@@ -162,10 +162,11 @@ class DatasetExtendConvLSTM(Dataset):
         self.label_names = sorted(self.label_names, key=self.natural_sort_key)
 
         self.spatial_size = torch.load(self.path / "Inputs" / self.input_names[0]).shape[1:]
-        self.box_len:int = box_len
+        self.total_nr_steps = prev_steps + extend
+        self.extend = extend
+        self.box_len:int = (self.total_nr_steps) * self.spatial_size[1]
         self.skip_per_dir:int = skip_per_dir
-        self.dp_per_run:int = (self.spatial_size[0] - box_len) // skip_per_dir
-        self.total_time_steps: int = total_time_steps
+        self.dp_per_run:int = (self.spatial_size[0] - self.box_len) // skip_per_dir
        
 
     @property
@@ -193,23 +194,22 @@ class DatasetExtendConvLSTM(Dataset):
 
         
         input = torch.load(file_path_inputs)
-        with open('/home/hofmanja/1HP_NN/shapes.txt', 'w') as file:
-            file.write(f'Shape of input: {input.shape}\n')
-            
         input = input[:, self.skip_per_dir*window_nr:self.skip_per_dir*window_nr+(self.box_len),:]
+
         temp = torch.load(file_path_labels)
         temp = temp[:, self.skip_per_dir*window_nr:self.skip_per_dir*window_nr+(self.box_len),:] 
+
         input, temp = input.unsqueeze(1), temp.unsqueeze(1)
         input = torch.cat((input, temp), dim=0)
-        input_slices = torch.tensor_split(input,self.total_time_steps,axis=2) # produces array
+        input_slices = torch.tensor_split(input,self.total_nr_steps,axis=2) # produces array
         input_seq = torch.cat(input_slices, dim=1) # concatenates array elements to form a tensor
-        temp_slices = torch.tensor_split(temp, self.total_time_steps, axis=2)
+        temp_slices = torch.tensor_split(temp, self.total_nr_steps, axis=2)
         
 
         # set last temp-square to mean
         input_seq[-1,-1] = input_seq[-1].mean() #torch.zeros_like(input_seq[0,-64:])
         
-        output = torch.cat(temp_slices, dim=1)[:,-1]  
+        output = torch.cat(temp_slices, dim=1)[:,-self.extend:]  
 
         return input_seq, output
 

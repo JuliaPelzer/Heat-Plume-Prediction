@@ -28,7 +28,8 @@ def init_data(settings: SettingsTraining, seed=1):
         if settings.case == 'test':
             settings.skip_per_dir = 64
         if settings.net == "convLSTM":
-            dataset = DatasetExtendConvLSTM(settings.dataset_prep, total_time_steps=settings.total_time_steps, skip_per_dir=settings.skip_per_dir, box_len=settings.len_box)
+            # delete total_time_steps and len_box and add prev and extend
+            dataset = DatasetExtendConvLSTM(settings.dataset_prep, prev_steps=settings.prev_boxes, extend=settings.extend , skip_per_dir=settings.skip_per_dir)
         else:
             dataset = DatasetExtend2(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
         settings.inputs += "T"
@@ -67,8 +68,8 @@ def run(settings: SettingsTraining):
         model = UNet(in_channels=input_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         if settings.net == "convLSTM":
-            #model.load(settings.model, settings.device)
-            model = Seq2Seq(num_channels=input_channels, frame_size=(1280//(settings.total_time_steps*2),64 ), last_cell_mode=settings.last_cell_mode).float()
+            
+            model = Seq2Seq(num_channels=input_channels, frame_size=(64,64), prev_boxes = settings.prev_boxes, extend=settings.extend).float()
         else:
             model = UNetHalfPad(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
@@ -115,8 +116,8 @@ def run(settings: SettingsTraining):
             plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         elif settings.net == "convLSTM":
             visualizations_convLSTM(model, dataloaders[which_dataset], settings.device, last_cell_mode=settings.last_cell_mode, plot_path=settings.destination, dp_to_visu=dp_to_visu, pic_format=pic_format)
-            #times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
-            #plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
+            times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
+            plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
             
         print("Visualizations finished")
         
@@ -172,9 +173,8 @@ if __name__ == "__main__":
     parser.add_argument("--len_box", type=int, default=640)
     parser.add_argument("--skip_per_dir", type=int, default=32)
     parser.add_argument("--net", type=str, choices=["CNN", "convLSTM"], default="convLSTM")
-    parser.add_argument("--total_time_steps", type=int, default=10)
-    parser.add_argument("--time_step_to_predict", type=int, default=10)
-    parser.add_argument("--last_cell_mode", type=str, choices=["none", "perm", "perm+avg_temp"])
+    parser.add_argument("--prev_boxes", type=int)
+    parser.add_argument("--extend", type=int)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

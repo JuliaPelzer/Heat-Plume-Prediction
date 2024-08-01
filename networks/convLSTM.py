@@ -17,13 +17,22 @@ class ConvLSTMCell(nn.Module):
         elif activation == "relu":
             self.activation = torch.relu
         
+        self.filters = 32
+        
         # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
-        self.conv = nn.Conv2d(
+        self.conv1 = nn.Conv2d(
             in_channels=in_channels+out_channels, 
-            out_channels=4 * out_channels, 
+            out_channels=self.filters, 
             kernel_size=kernel_size, 
             stride=1,
-            padding=padding)           
+            padding=padding)     
+
+        self.conv2 = nn.Conv2d(
+            in_channels=self.filters,
+            out_channels= 4*out_channels,
+            kernel_size=kernel_size,
+            stride=1,
+            padding=padding)      
 
         # Initialize weights for Hadamard Products
         self.W_ci = nn.Parameter(torch.Tensor(out_channels, *frame_size))
@@ -33,7 +42,8 @@ class ConvLSTMCell(nn.Module):
     def forward(self, X, H_prev, C_prev):
 
         # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch    
-        conv_output = self.conv(torch.cat([X, H_prev], dim=1))
+        conv_output = self.conv1(torch.cat([X, H_prev], dim=1))
+        conv_output = self.conv2(conv_output)
 
         # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
         i_conv, f_conv, C_conv, o_conv = torch.chunk(conv_output, chunks=4, dim=1)
@@ -54,26 +64,21 @@ class ConvLSTMCell(nn.Module):
 class ConvLSTM(nn.Module):
 
     def __init__(self, in_channels, out_channels, 
-    kernel_size, padding, activation, frame_size, last_cell_mode):
+    kernel_size, padding, activation, frame_size, prev_boxes, extend):
 
         super(ConvLSTM, self).__init__()
 
         self.out_channels = out_channels
-        self.last_cell_mode:str = last_cell_mode
+        self.prev_boxes = prev_boxes
+        self.extend = extend
 
         # We will unroll this over time steps
-        self.convLSTMcell1 = ConvLSTMCell(in_channels, out_channels, 
-        kernel_size, padding, activation, frame_size)
+        self.convLSTMcell1 = ConvLSTMCell(in_channels, out_channels, kernel_size, padding, activation, frame_size)
 
-        if self.last_cell_mode != "none":
-            in_channels_last_cell = in_channels if self.last_cell_mode == "perm+avg_temp" else in_channels-1
-            print(f"in_channels_last_cell: {in_channels_last_cell}")
-            self.convLSTMcell2 = ConvLSTMCell(in_channels_last_cell, out_channels, 
-            kernel_size, padding, activation, frame_size)
+        # initialize last cel
+        self.convLSTMcell2 = ConvLSTMCell(in_channels-1, out_channels, kernel_size, padding, activation, frame_size)
 
     def forward(self, X):
-        if self.last_cell_mode == "none":
-            X = X[:,:,:-1]
 
         # X is a frame sequence (batch_size, num_channels, seq_len, height, width)
 
@@ -81,26 +86,21 @@ class ConvLSTM(nn.Module):
         batch_size, _, seq_len, height, width = X.size()
 
         # Initialize output
-        output = torch.zeros(batch_size, self.out_channels, seq_len, 
-        height, width, device='cuda')
+        output = torch.zeros(batch_size, self.out_channels, seq_len,  height, width, device='cuda')
         
         # Initialize Hidden State
-        H = torch.zeros(batch_size, self.out_channels,
-        height, width, device='cuda')
+        H = torch.zeros(batch_size, self.out_channels, height, width, device='cuda')
 
         # Initialize Cell Input
-        C = torch.zeros(batch_size,self.out_channels, 
-        height, width, device='cuda')
+        C = torch.zeros(batch_size,self.out_channels, height, width, device='cuda')
 
         # Unroll over time steps
-        nr_convLSTMcell1 = seq_len-1 if self.last_cell_mode == "perm" else seq_len
-        for time_step in range(nr_convLSTMcell1):
+        for time_step in range(self.prev_boxes):
             H, C = self.convLSTMcell1(X[:,:,time_step], H, C)
 
             output[:,:,time_step] = H
 
-        if self.last_cell_mode == "perm":
-            time_step = seq_len-1
+        for time_step in range(self.prev_boxes, self.prev_boxes+self.extend):
             H, C = self.convLSTMcell2(X[:,:-1,time_step], H, C)
             output[:,:,time_step] = H
 
@@ -108,19 +108,21 @@ class ConvLSTM(nn.Module):
 
 class Seq2Seq(nn.Module):
 
-    def __init__(self, num_channels, frame_size, last_cell_mode, num_kernels=32, kernel_size=3, padding=1,
+    def __init__(self, num_channels, frame_size, prev_boxes, extend, num_kernels=32, kernel_size=3, padding=1,
     activation='relu', num_layers=1):
 
         super(Seq2Seq, self).__init__()
 
         self.sequential = nn.Sequential()
+        self.prev_boxes = prev_boxes
+        self.extend = extend
 
         # Add First layer (Different in_channels than the rest)
         self.sequential.add_module(
             "convlstm1", ConvLSTM(
                 in_channels=num_channels, out_channels=num_kernels,
                 kernel_size=kernel_size, padding=padding, 
-                activation=activation, frame_size=frame_size, last_cell_mode=last_cell_mode)
+                activation=activation, frame_size=frame_size, prev_boxes=prev_boxes, extend=extend)
         )
 
         self.sequential.add_module(
@@ -134,7 +136,7 @@ class Seq2Seq(nn.Module):
                 f"convlstm{l}", ConvLSTM(
                     in_channels=num_kernels, out_channels=num_kernels,
                     kernel_size=kernel_size, padding=padding, 
-                    activation=activation, frame_size=frame_size, last_cell_mode=last_cell_mode)
+                    activation=activation, frame_size=frame_size)
                 )
                 
             self.sequential.add_module(
@@ -151,10 +153,15 @@ class Seq2Seq(nn.Module):
         # Forward propagation through all the layers
         output = self.sequential(X)
 
-        # Return only the last output frame
-        output = self.conv(output[:,:,-1])
+
+        # decode result
+        batch_size, _ , _, height, width = output.size()
+        new_output = torch.zeros(batch_size, 1, self.extend, height, width, device='cuda')
+
+        for pred_box in range(self.extend):
+            new_output[:,:,pred_box] = self.conv(output[:,:,self.prev_boxes+pred_box])
         
-        return nn.Sigmoid()(output)
+        return nn.Sigmoid()(new_output)
     
     def save(self, path:pathlib.Path, model_name: str = "model.pt"):
         save(self.state_dict(), path/model_name)

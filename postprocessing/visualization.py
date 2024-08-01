@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 
 from data_stuff.transforms import NormalizeTransform
 from networks.unet import UNet
+from networks.convLSTM import Seq2Seq
 
 # mpl.rcParams.update({'figure.max_open_warning': 0})
 # plt.rcParams['figure.figsize'] = [16, 5]
@@ -292,7 +293,7 @@ def plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, settings_pic:
     plt.tight_layout()
     plt.savefig(f"{name_pic}_isolines.{settings_pic['format']}", **settings_pic)
 
-def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str):
+def infer_all_and_summed_pic(model, dataloader: DataLoader, device: str):
     '''
     sum inference time (including reverse-norming) and pixelwise error over all datapoints
     '''

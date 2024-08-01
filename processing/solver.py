@@ -64,6 +64,7 @@ class Solver(object):
 
         epochs = tqdm(range(settings.epochs), desc="epochs", disable=False)
         for epoch in epochs:
+            print(f'epoch: {epoch}')
             try:
                 # Set lr according to schedule
                 if epoch in self.lr_schedule.keys():
