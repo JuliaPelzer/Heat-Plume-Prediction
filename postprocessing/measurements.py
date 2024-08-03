@@ -70,7 +70,7 @@ def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: mo
         y = norm.reverse(y.detach().cpu(),"Labels")
         y_pred = norm.reverse(y_pred.detach().cpu(),"Labels")
         mse_closs += loss_func(y_pred, y).detach().item()
-        mae_closs = torch.mean(torch.abs(y_pred - y)).detach().item()
+        mae_closs += torch.mean(torch.abs(y_pred - y)).detach().item()
         
     mse_loss /= len(dataloader)
     mse_closs /= len(dataloader)
