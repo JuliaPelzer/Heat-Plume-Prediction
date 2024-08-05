@@ -3,7 +3,7 @@ from torch import save, tensor, cat, load, equal
 import pathlib
 
 class UNet(nn.Module):
-    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
+    def __init__(self, in_channels=2, out_channels=1, init_features=16, depth=3, kernel_size=5):
         super().__init__()
         features = init_features
         padding_mode =  "zeros"            
