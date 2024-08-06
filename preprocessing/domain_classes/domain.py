@@ -10,7 +10,7 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import yaml
 from torch import long as torch_long
-from torch import max, ones, save, squeeze, stack, tensor, where, cat, load
+from torch import max, ones, save, squeeze, stack, tensor, where, cat, load, zeros
 import torch
 
 from postprocessing.visualization import _aligned_colorbar
@@ -159,12 +159,17 @@ class Domain:
             std_val = self.info["Labels"][property]["std"]
         return norm_fct, max_val, min_val, mean_val, std_val
 
-    def extract_hp_boxes(self, device:str = "cpu") -> list:
+    def extract_hp_boxes(self, device:str = "cpu",size_hp:tensor = None, distance_hp:tensor = None) -> list:
         # TODO decide: get hp_boxes based on grad_p or based on v or get squared boxes around hp
         material_ids = self.get_input_field_from_name("Material ID")
-        size_hp_box = tensor([self.info["CellsNumberPrior"][0],self.info["CellsNumberPrior"][1],])
-        # try switching around here
-        distance_hp_corner = tensor([self.info["PositionHPPrior"][0], self.info["PositionHPPrior"][1]])
+        if distance_hp is None:
+            distance_hp_corner = tensor([self.info["PositionHPPrior"][1], self.info["PositionHPPrior"][0]])
+        else:
+            distance_hp_corner = distance_hp
+        if size_hp is None:
+            size_hp_box = tensor([self.info["CellsNumberPrior"][0],self.info["CellsNumberPrior"][1],])
+        else:
+            size_hp_box = size_hp
         hp_boxes = []
         pos_hps = stack(list(where(material_ids == max(material_ids))), dim=0).T
         names_inputs = [self.get_name_from_index(i) for i in range(self.inputs.shape[0])]
@@ -172,10 +177,37 @@ class Domain:
         for idx in tqdm(range(len(pos_hps))):
             try:
                 pos_hp = pos_hps[idx]
-                corner_ll, corner_ur = get_box_corners(pos_hp, size_hp_box, distance_hp_corner, self.inputs.shape[1:], run_name=self.file_name,)
-                tmp_input = self.inputs[:, corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].detach().clone()
-                tmp_input[4] = self.prediction[corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].clone().detach()
-                tmp_label = self.label[:, corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].detach().clone()
+                corner_ll = (pos_hp - distance_hp_corner) # corner lower left
+                corner_ur = (pos_hp + size_hp_box - distance_hp_corner)
+                if (corner_ll > [0,0]).all() and (corner_ur < self.size).all():
+                    tmp_input = self.inputs[:, corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].detach().clone()
+                    tmp_input[4] = self.prediction[corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].clone().detach()
+                    tmp_label = self.label[:, corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].detach().clone()
+                else:
+                    offset_ll = [0,0]
+                    for i in range(len(corner_ll)):
+                        if corner_ll[i] < 0:
+                            offset_ll[i] = corner_ll[i] * -1
+                            corner_ll[i] = 0
+                    offset_ur = [0,0]
+                    for i in range(len(corner_ur)):
+                        if corner_ur[i] > self.size[i]:
+                            offset_ur[i] = corner_ur[i] - self.size[i]
+                            corner_ur[i] = self.size[i] - 0
+                    part_input = self.inputs[:, corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].detach().clone()
+                    part_label = self.label[:, corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].detach().clone()
+                    tmp_input = zeros(part_input.shape[0],size_hp_box[0],size_hp_box[1])
+                    for input in range(part_input.shape[0]):
+                        tmp_input[input] = ones(size_hp_box[0],size_hp_box[1]) * min(part_input[input]).item()
+                    tmp_label = zeros(part_label.shape[0],size_hp_box[0],size_hp_box[1])
+                    for label in range(part_label.shape[0]):
+                        tmp_label[label] = ones(size_hp_box[0],size_hp_box[1]) * min(part_label[label]).item()
+                    if (offset_ll == [0,0]):
+                        tmp_input[:,  : offset_ur[0], : offset_ur[1]] = part_input.clone().detach()
+                        tmp_label[:, : offset_ur[0], : offset_ur[1]] = part_label.clone().detach()
+                    else:
+                        tmp_input[:, offset_ll[0] :, offset_ll[1] :] = part_input.clone().detach()
+                        tmp_label[:, offset_ll[0] :, offset_ll[1] :] = part_label.clone().detach()
 
                 tmp_mat_ids = stack(list(where(tmp_input == max(material_ids))), dim=0).T
                 if len(tmp_mat_ids) > 1:
@@ -192,8 +224,10 @@ class Domain:
                 logging.info(
                     f"HP BOX at {pos_hp} is with ({corner_ll}, {corner_ur}) in domain"
                 )
+
             except Exception as e:
-               logging.warning(f"BOX of HP {idx} at {pos_hp} is not in domain")
+                print(e)
+                logging.warning(f"BOX of HP {idx} at {pos_hp} is not in domain")
                 
         return hp_boxes
 
