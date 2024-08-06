@@ -141,13 +141,23 @@ def apply_iterative(model: UNet, settings: SettingsTraining, domain, run_id, inf
     avg_time_inference_all = 0
     #plot inital domain
     domain.plot("t",settings.destination / run_id ,"domain_step_init")
-    for current in range(len(single_hps)):
+    hp_pos = []
+    for hp in single_hps:
+        hp_pos.append(hp.pos)
+
+    hp_pos_sorted = sorted(hp_pos, key=lambda x:x[0].item())
+    print(len(hp_pos_sorted))
+
+    for current, pos in enumerate(hp_pos_sorted):
         # visualization purpose
         dict_to_plot = {}
         name_pic = settings.destination / run_id / str(current)
         data_path_temp = settings.destination/ "dataset" /str(current) 
 
-        hp = single_hps[current]
+        hp = single_hps[0]
+        for tmp_hp in single_hps:
+            if pos[0] == tmp_hp.pos[0] and pos[1] == tmp_hp.pos[1]:
+                hp = tmp_hp
         
         #apply NN
         time_start_run_1hp = time.perf_counter()
@@ -156,10 +166,6 @@ def apply_iterative(model: UNet, settings: SettingsTraining, domain, run_id, inf
         time_inference = time.perf_counter() - time_start_run_1hp
         avg_time_inference_all += time_inference
 
-        hp.inputs[4] = single_hps[current].primary_temp_field.clone().detach()
-        inputs = stack([hp.inputs[0],hp.inputs[1],hp.inputs[2],hp.inputs[3], hp.inputs[4]])
-        if save:
-            hp.save(run_id=run_id, dir=data_path_temp, inputs_all=inputs,)
         #plot inputs
         extent_highs = (np.array(info["CellsSize"][:2]) * single_hps[current].inputs.shape[-2:])
         inputs = single_hps[current].inputs.clone().detach()
@@ -181,10 +187,16 @@ def apply_iterative(model: UNet, settings: SettingsTraining, domain, run_id, inf
         # plot 
         plot_datafields(dict_to_plot, name_pic, settings_pic)
 
+        current_pred = single_hps[current].primary_temp_field.clone().detach()
+        inputs = stack([hp.inputs[0],hp.inputs[1],hp.inputs[2],hp.inputs[3], current_pred])
+        if save:
+            hp.save(run_id=run_id, dir=data_path_temp, inputs_all=inputs,)
+
         #update domain
         domain.plot("t",settings.destination / run_id ,f"domain_step_pre_{current}",corner_ll=single_hps[current].corner_ll,corner_ur=single_hps[current].corner_ur)
         domain.add_hp(single_hps[current])
         domain.plot("t",settings.destination / run_id ,f"domain_step_{current}",corner_ll=single_hps[current].corner_ll,corner_ur=single_hps[current].corner_ur)
+        domain.inputs[4] = domain.prediction.clone().detach()
         single_hps = domain.extract_hp_boxes("cpu")
 
     domain.plot("t",settings.destination / run_id ,f"domain_step_final")
