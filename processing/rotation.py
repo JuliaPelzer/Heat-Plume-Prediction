@@ -1,8 +1,8 @@
 import torch
 import numpy as np
 import torchvision.transforms.functional as TF
-from data_stuff.dataset import TrainDataset
-from torch.utils.data import Subset
+from itertools import product, repeat
+import math
 
 # function to rotate one datapoint counterclockwise (with pressure)
 def rotate(data, angle):
@@ -16,7 +16,9 @@ def rotate(data, angle):
 # rotate a datapoint such that direction matches specified direction and return rerotated inference (with pressure)
 def rotate_and_infer(datapoint, grad_vec, model, info, device):
     p_ind = info['Inputs']['Liquid Pressure [Pa]']['index']
-    angle = get_rotation_angle([datapoint[p_ind][1][1].item() - datapoint[p_ind][2][1].item(), datapoint[p_ind][1][1].item() - datapoint[p_ind][1][2].item()], grad_vec)
+    center = int(datapoint[p_ind].shape[0]/2)
+    angle = get_rotation_angle([datapoint[p_ind][center][center].item() - datapoint[p_ind][center + 1][center].item(), 
+                                datapoint[p_ind][center][center].item() - datapoint[p_ind][center][center + 1].item()], grad_vec)
     x = rotate(datapoint, angle)
 
     #get inference
@@ -42,28 +44,54 @@ def get_rotation_angle(a,b):
     
     return angle
 
-# augment data by adding rotated datapoints
-def augment_data(dataset,  augmentation_n):
-    inputs = [dataset[i][0] for i in range(len(dataset))]
-    labels = [dataset[i][1] for i in range(len(dataset))]
-    run_ids = [dataset.dataset.get_run_id(i) for i in range(len(dataset))]
+#build mask to cut out circular field from input, based on:
+#https://quva-lab.github.io/escnn/api/escnn.nn.html?highlight=maskmodule#escnn.nn.MaskModule
+def build_mask_gauss(
+        s,
+        dim: int = 2,
+        margin: float = 0.0,
+        sigma: float = 2.0,
+        dtype=torch.float32,
+):
+    mask = torch.zeros(1, 1, *repeat(s, dim), dtype=dtype)
+    c = (s-1) / 2
+    t = (c - margin/100.*c)**2
+    for k in product(range(s), repeat=dim):
+        r = sum((x - c)**2 for x in k)
+        if r > t:
+            mask[(..., *k)] = math.exp((t - r) / sigma**2)
+        else:
+            mask[(..., *k)] = 1.
+    return mask
+
+#build mask to cut out circular field from input, based on:
+#https://quva-lab.github.io/escnn/api/escnn.nn.html?highlight=maskmodule#escnn.nn.MaskModule
+#returns tensor with just 0 and 1
+def build_mask(
+        s,
+        dim: int = 2,
+        dtype=torch.float32,
+):
+    mask = torch.zeros(1, 1, *repeat(s, dim), dtype=dtype)
+    c = (s-1) / 2  # Center of the tensor
+    r_max = c**2  # Maximum radius squared for the circle to fit
+
+    for k in product(range(s), repeat=dim):
+        r = sum((x - c)**2 for x in k)
+        if r <= r_max:
+            mask[(..., *k)] = 1.  # Inside the circle
+        else:
+            mask[(..., *k)] = 0.  # Outside the circle
+    return mask
+
+#cut out circular field of data
+def mask_tensor(data):
+    data_out = torch.zeros_like(data)
+    mask = build_mask(data.shape[1], dtype = data.dtype)
+    for i in range(data.shape[0]):
+        data_out[i] = data[i]*mask
     
-    augmented_dataset = TrainDataset(dataset.dataset.path)
-
-    for i in range(len(dataset)):
-        augmented_dataset.add_item(inputs[i], labels[i], run_ids[i])
-
-    
-    for i in range(len(dataset)):
-        for _ in range(augmentation_n):
-            rot_angle = np.random.rand()*360
-            #rot_angle = np.random.choice([0.25,0.5,0.75])*360
-            augmented_dataset.add_item(rotate(inputs[i], rot_angle), rotate(labels[i], rot_angle), run_ids[i] + f'_rot_{rot_angle}')
-        # for rot_angle in [90,180,270]:
-        #     augmented_dataset.add_item(rotate(inputs[i], rot_angle), rotate(labels[i], rot_angle), run_ids[i] + f'_rot_{rot_angle}')
-
-    return Subset(augmented_dataset, list(range(len(augmented_dataset))))
-
+    return data_out
 
 # FUNCTIONS TO USE IN COMBINATION WITH GRADIENT, ARTIFACTS OF EARLIER TINKERING ===> UNSUPPORTED!
 

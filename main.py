@@ -8,13 +8,13 @@ import yaml
 from torch.utils.data import DataLoader, random_split
 from torch.nn import MSELoss
 
-from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits
+from data_stuff.dataset import SimulationDataset, TrainDataset, DatasetExtend1, DatasetExtend2, get_splits
 from data_stuff.utils import SettingsTraining, load_yaml
 from networks.unet import UNet, UNetBC
 from networks.unetHalfPad import UNetHalfPad
 from networks.equivariantCNN import G_UNet
 from processing.solver import Solver
-import processing.rotation as rt
+from processing.rotation import rotate_and_infer
 from preprocessing.prepare import prepare_data_and_paths
 from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
 from postprocessing.measurements import measure_loss, save_all_measurements
@@ -37,10 +37,10 @@ def init_data(settings: SettingsTraining, seed=1):
     datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     dataloaders = {}
     try:
-        dataloaders["train"] = DataLoader(rt.augment_data(datasets[0], settings.augmentation_n), batch_size=50, shuffle=True, num_workers=0)
-        dataloaders["val"] = DataLoader(datasets[1], batch_size=50, shuffle=True, num_workers=0)
+        dataloaders["train"] = DataLoader(TrainDataset.augment_data(datasets[0], settings.augmentation_n, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
+        dataloaders["val"] = DataLoader(TrainDataset.augment_data(datasets[1], 0, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
     except: pass
-    dataloaders["test"] = DataLoader(datasets[2], batch_size=50, shuffle=True, num_workers=0)
+    dataloaders["test"] = DataLoader(TrainDataset.augment_data(datasets[2], 0, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
 
     return dataset.input_channels, dataloaders
 
@@ -123,7 +123,7 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
         time_start = time.perf_counter()
 
         if settings.rotate_inference:
-            y_out = rt.rotate_and_infer(data, [1,0], model, load_yaml(settings.destination, 'info'), settings.device).to(settings.device)
+            y_out = rotate_and_infer(data, [1,0], model, load_yaml(settings.destination, 'info'), settings.device).to(settings.device)
         else:
             y_out = model(data.to(settings.device)).to(settings.device)
 
@@ -157,6 +157,8 @@ if __name__ == "__main__":
     parser.add_argument("--augmentation_n", type=int, default=0)
     parser.add_argument("--rotate_inference", type=bool, default=False)
     parser.add_argument("--use_ecnn", type=bool, default=False)
+    parser.add_argument("--mask", type=bool, default=False)
+    parser.add_argument("--rotate_inputs", type=int, default=0)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

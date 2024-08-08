@@ -38,6 +38,8 @@ class SettingsTraining:
     augmentation_n: int = 0
     rotate_inference: bool = False
     use_ecnn: bool = False
+    mask: bool = False
+    rotate_inputs: int = 0
     
     def __post_init__(self):
         if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:
@@ -57,7 +59,7 @@ class SettingsTraining:
             assert self.model != "runs/default", "Please specify model path for testing or finetuning"
 
         if self.destination == "":
-            self.destination = self.dataset_raw + " inputs_" + self.inputs + " case_" + self.case + " augmentation_n_" + str(self.augmentation_n) + " box_"+str(self.len_box) + " skip_"+str(self.skip_per_dir) + " rotate_inference_" + str(self.rotate_inference) + " use_ecnn_" + str(self.use_ecnn)
+            self.destination = self.dataset_raw + " inputs_" + self.inputs + " rotate_inputs_ " + str(self.rotate_inputs) + " mask_" + str(self.mask) + " case_" + self.case + " augmentation_n_" + str(self.augmentation_n) + " box_"+str(self.len_box) + " skip_"+str(self.skip_per_dir) + " rotate_inference_" + str(self.rotate_inference) + " use_ecnn_" + str(self.use_ecnn)
 
     def save(self):
         save_yaml(self.__dict__, self.destination, "command_line_arguments")

@@ -7,8 +7,10 @@ from torch import default_generator, randperm, Generator
 from torch.utils.data import Dataset, Subset
 from torch._utils import _accumulate
 from typing import List,Optional,Sequence
+import numpy as np
 
 from data_stuff.transforms import NormalizeTransform
+from processing.rotation import mask_tensor, rotate
 
 
 class SimulationDataset(Dataset):
@@ -95,6 +97,31 @@ class TrainDataset(Dataset):
 
     def get_run_id(self, index):
         return self.run_ids[index]
+    
+    # augment data by adding rotated datapoints
+    @staticmethod
+    def augment_data(dataset, augmentation_n = 0, mask = False, angle = 0):
+        if mask:
+            inputs = [rotate(mask_tensor(dataset[i][0]),angle) for i in range(len(dataset))]
+            labels = [rotate(mask_tensor(dataset[i][1]),angle) for i in range(len(dataset))]
+        else:
+            inputs = [rotate(dataset[i][0],angle) for i in range(len(dataset))]
+            labels = [rotate(dataset[i][1],angle) for i in range(len(dataset))]
+
+        run_ids = [dataset.dataset.get_run_id(i) for i in range(len(dataset))]
+        
+        augmented_dataset = TrainDataset(dataset.dataset.path)
+
+        for i in range(len(dataset)):
+            augmented_dataset.add_item(inputs[i], labels[i], run_ids[i])
+        
+        for i in range(len(dataset)):
+            for _ in range(augmentation_n):
+                rot_angle = np.random.rand()*360
+                #rot_angle = np.random.choice([0.25,0.5,0.75])*360
+                augmented_dataset.add_item(rotate(inputs[i], rot_angle), rotate(labels[i], rot_angle), run_ids[i] + f'_rot_{rot_angle}')
+
+        return Subset(augmented_dataset, list(range(len(augmented_dataset))))
 
 class DatasetExtend1(Dataset):
     def __init__(self, path:str, box_size:int=64):
