@@ -23,7 +23,7 @@ from ray.train import RunConfig
 from ray.tune.search.optuna import OptunaSearch
 from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits
 
-def tune_nn(settings: SettingsTraining, num_samples=150, max_num_epochs=100, gpus_per_trial=1, ):
+def tune_nn(settings: SettingsTraining, num_samples=150, max_num_epochs=40, gpus_per_trial=1, ):
     if settings.problem == "turbnet":
         config = {
             "features_exp": tune.choice(range(2,9)),
@@ -35,7 +35,7 @@ def tune_nn(settings: SettingsTraining, num_samples=150, max_num_epochs=100, gpu
         config = {
             "features": tune.choice([2**i for i in range(4,9)]),
             "lr": tune.loguniform(1e-5, 1e-3),
-            "depth": tune.choice([3]),
+            "depth": tune.choice([2,3]),
             "kernel_size": tune.choice([3,5]),
             "weight_decay": tune.loguniform(1e-5, 1e-3),
         }
@@ -82,6 +82,7 @@ def tune_nn(settings: SettingsTraining, num_samples=150, max_num_epochs=100, gpu
 
 
 def train_mnist(config,settings=None):
+    torch.cuda.empty_cache()
     input_channels, dataloaders = init_data(settings)
     if settings.problem == "turbnet":
         model = TurbNetG(in_channels=input_channels,channelExponent=config["features_exp"],dropout=config["dropout"]).float()
@@ -158,9 +159,9 @@ def init_data(settings: SettingsTraining, seed=1):
     datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     dataloaders = {}
     try:
-        dataloaders["train"] = DataLoader(datasets[0], batch_size=50, shuffle=True, num_workers=0)
-        dataloaders["val"] = DataLoader(datasets[1], batch_size=50, shuffle=True, num_workers=0)
+        dataloaders["train"] = DataLoader(datasets[0], batch_size=20, shuffle=True, num_workers=1)
+        dataloaders["val"] = DataLoader(datasets[1], batch_size=20, shuffle=True, num_workers=1)
     except: pass
-    dataloaders["test"] = DataLoader(datasets[2], batch_size=50, shuffle=True, num_workers=0)
+    dataloaders["test"] = DataLoader(datasets[2], batch_size=20, shuffle=True, num_workers=1)
 
     return dataset.input_channels, dataloaders
