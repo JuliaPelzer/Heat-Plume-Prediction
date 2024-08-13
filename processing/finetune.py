@@ -23,21 +23,21 @@ from ray.train import RunConfig
 from ray.tune.search.optuna import OptunaSearch
 from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits
 
-def tune_nn(settings: SettingsTraining, num_samples=150, max_num_epochs=40, gpus_per_trial=1, ):
+def tune_nn(settings: SettingsTraining, num_samples=150, max_num_epochs=88, gpus_per_trial=1, ):
     if settings.problem == "turbnet":
         config = {
-            "features_exp": tune.choice(range(2,9)),
-            "lr": tune.loguniform(1e-5, 1e-3),
+            "features_exp": tune.choice(range(2,8)),
+            "lr": tune.choice(1e-5,7e-4,5e-4,3e-4,1e-4,7e-3,5e-3,3e-3, 1e-3),
             "dropout": tune.choice([0.0,0.1,0.2,0.3,0.4,0.5]),
-            "weight_decay": tune.loguniform(1e-5, 1e-3),
+            "weight_decay": tune.choice(1e-5,7e-4,5e-4,3e-4,1e-4,7e-3,5e-3,3e-3, 1e-3),
         }
     else:
         config = {
-            "features": tune.choice([2**i for i in range(4,9)]),
-            "lr": tune.loguniform(1e-5, 1e-3),
+            "features": tune.choice([2**i for i in range(4,8)]),
+            "lr": tune.choice([1e-5,7e-4,5e-4,3e-4,1e-4,7e-3,5e-3,3e-3, 1e-3]),
             "depth": tune.choice([2,3]),
             "kernel_size": tune.choice([3,5]),
-            "weight_decay": tune.loguniform(1e-5, 1e-3),
+            "weight_decay": tune.choice([1e-5,7e-4,5e-4,3e-4,1e-4,7e-3,5e-3,3e-3, 1e-3]),
         }
     scheduler = ASHAScheduler(
         metric="loss",

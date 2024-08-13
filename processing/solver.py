@@ -29,7 +29,7 @@ class Solver(object):
 
     def __post_init__(self):
         self.opt = self.opt(self.model.parameters(),
-                            self.learning_rate, weight_decay=1e-4)
+                            self.learning_rate, weight_decay=3e-4)
         # contains the epoch and learning rate, when lr changes
         self.lr_schedule = {0: self.opt.param_groups[0]["lr"]}
 
