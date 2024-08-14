@@ -204,11 +204,11 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
         plt.imshow(datapoint.data.T, **datapoint.imshowargs)
         #plt.gca().invert_yaxis()
 
-        plt.ylabel("x [m]")
+        plt.ylabel("x [cells]")
         _aligned_colorbar()
 
     plt.sca(axes[-1])
-    plt.xlabel("y [m]")
+    plt.xlabel("y [cells]")
     plt.tight_layout()
     plt.savefig(f"{name_pic}.{settings_pic['format']}", **settings_pic)
 
