@@ -152,10 +152,17 @@ class DatasetExtendConvLSTM(Dataset):
         self.norm = NormalizeTransform(self.info)
         self.input_names = []
         self.label_names = []
+        self.inputs = []
+        self.labels = []
         for filename in os.listdir(self.path / "Inputs"):
             self.input_names.append(filename)
+            file_path = self.path / "Inputs" / filename
+            self.inputs.append(torch.load(file_path))
+            
         for filename in os.listdir(self.path / "Labels"):
             self.label_names.append(filename)
+            file_path = self.path / "Labels" / filename
+            self.labels.append(torch.load(file_path))
 
         #sort so that 'RUN_2' comes before 'RUN_10'
         self.input_names = sorted(self.input_names, key=self.natural_sort_key)
@@ -187,16 +194,16 @@ class DatasetExtendConvLSTM(Dataset):
     
     
     def __getitem__(self,idx):
-        #idx = idx % 3
+        idx = idx % 10
         run_id, window_nr = self.idx_to_window(idx)
-        file_path_inputs = self.path / "Inputs" / self.input_names[run_id]
-        file_path_labels = self.path / "Labels" / self.input_names[run_id]
+        # file_path_inputs = self.path / "Inputs" / self.input_names[run_id]
+        # file_path_labels = self.path / "Labels" / self.input_names[run_id]
 
         
-        input = torch.load(file_path_inputs)
+        input = self.inputs[run_id]
         input = input[:, self.skip_per_dir*window_nr:self.skip_per_dir*window_nr+(self.box_len),:]
 
-        temp = torch.load(file_path_labels)
+        temp = self.labels[run_id]
         temp = temp[:, self.skip_per_dir*window_nr:self.skip_per_dir*window_nr+(self.box_len),:] 
 
         input, temp = input.unsqueeze(1), temp.unsqueeze(1)
