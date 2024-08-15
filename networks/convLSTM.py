@@ -7,8 +7,7 @@ import pathlib
 # Original ConvLSTM cell as proposed by Shi et al.
 class ConvLSTMCell(nn.Module):
 
-    def __init__(self, in_channels, out_channels, 
-    kernel_size, padding, activation, frame_size):
+    def __init__(self, in_channels, out_channels, activation, frame_size):
 
         super(ConvLSTMCell, self).__init__()  
 
@@ -17,22 +16,39 @@ class ConvLSTMCell(nn.Module):
         elif activation == "relu":
             self.activation = torch.relu
         
-        self.filters = 32
-        
-        # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
-        self.conv1 = nn.Conv2d(
-            in_channels=in_channels+out_channels, 
-            out_channels=self.filters, 
-            kernel_size=kernel_size, 
-            stride=1,
-            padding=padding)     
+        self.nr_features = [16, 32, 64, 64, out_channels]
+        self.kernel_sizes = [3, 5, 5, 5, 5]
 
-        self.conv2 = nn.Conv2d(
-            in_channels=self.filters,
-            out_channels= 4*out_channels,
-            kernel_size=kernel_size,
+        layers = []
+        
+        layers.append(nn.Conv2d(
+            in_channels=in_channels + out_channels, 
+            out_channels=self.nr_features[0], 
+            kernel_size=self.kernel_sizes[0], 
             stride=1,
-            padding=padding)      
+            padding='same'
+        ))
+
+        for i in range(1, len(self.nr_features) - 1):
+            # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
+            layers.append(nn.Conv2d(
+                in_channels=self.nr_features[i-1],
+                out_channels=self.nr_features[i],
+                kernel_size=self.kernel_sizes[i],
+                stride=1,
+                padding='same'
+            ))
+
+        layers.append(nn.Conv2d(
+            in_channels=self.nr_features[-1],
+            out_channels=4 * out_channels,
+            kernel_size=self.kernel_sizes[-1],
+            stride=1,
+            padding='same'
+        ))
+
+        # Create a Sequential container with the layers
+        self.conv = nn.Sequential(*layers)
 
         # Initialize weights for Hadamard Products
         self.W_ci = nn.Parameter(torch.Tensor(out_channels, *frame_size))
@@ -41,9 +57,13 @@ class ConvLSTMCell(nn.Module):
 
     def forward(self, X, H_prev, C_prev):
 
-        # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch    
-        conv_output = self.conv1(torch.cat([X, H_prev], dim=1))
-        conv_output = self.conv2(conv_output)
+        # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch   
+        
+        conv_output = self.conv[0](torch.cat([X, H_prev], dim=1))
+        conv_output.to('cuda')
+        
+        for i in range(1, len(self.conv)):
+            conv_output = self.conv[i](conv_output)
 
         # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
         i_conv, f_conv, C_conv, o_conv = torch.chunk(conv_output, chunks=4, dim=1)
@@ -63,8 +83,7 @@ class ConvLSTMCell(nn.Module):
 
 class ConvLSTM(nn.Module):
 
-    def __init__(self, in_channels, out_channels, 
-    kernel_size, padding, activation, frame_size, prev_boxes, extend):
+    def __init__(self, in_channels, out_channels, activation, frame_size, prev_boxes, extend):
 
         super(ConvLSTM, self).__init__()
 
@@ -73,10 +92,10 @@ class ConvLSTM(nn.Module):
         self.extend = extend
 
         # We will unroll this over time steps
-        self.convLSTMcell1 = ConvLSTMCell(in_channels, out_channels, kernel_size, padding, activation, frame_size)
+        self.convLSTMcell1 = ConvLSTMCell(in_channels, out_channels, activation, frame_size)
 
         # initialize last cel
-        self.convLSTMcell2 = ConvLSTMCell(in_channels-1, out_channels, kernel_size, padding, activation, frame_size)
+        self.convLSTMcell2 = ConvLSTMCell(in_channels-1, out_channels, activation, frame_size)
 
     def forward(self, X):
 
@@ -108,7 +127,7 @@ class ConvLSTM(nn.Module):
 
 class Seq2Seq(nn.Module):
 
-    def __init__(self, num_channels, frame_size, prev_boxes, extend, num_kernels=32, kernel_size=3, padding=1,
+    def __init__(self, num_channels, frame_size, prev_boxes, extend, num_kernels=64,
     activation='relu', num_layers=1):
 
         super(Seq2Seq, self).__init__()
@@ -120,8 +139,7 @@ class Seq2Seq(nn.Module):
         # Add First layer (Different in_channels than the rest)
         self.sequential.add_module(
             "convlstm1", ConvLSTM(
-                in_channels=num_channels, out_channels=num_kernels,
-                kernel_size=kernel_size, padding=padding, 
+                in_channels=num_channels, out_channels=num_kernels,  
                 activation=activation, frame_size=frame_size, prev_boxes=prev_boxes, extend=extend)
         )
 
@@ -135,7 +153,6 @@ class Seq2Seq(nn.Module):
             self.sequential.add_module(
                 f"convlstm{l}", ConvLSTM(
                     in_channels=num_kernels, out_channels=num_kernels,
-                    kernel_size=kernel_size, padding=padding, 
                     activation=activation, frame_size=frame_size)
                 )
                 
@@ -146,7 +163,7 @@ class Seq2Seq(nn.Module):
         # Add Convolutional Layer to predict output frame
         self.conv = nn.Conv2d(
             in_channels=num_kernels, out_channels=1,
-            kernel_size=kernel_size, stride=1, padding=padding)
+            kernel_size=5, stride=1, padding='same')
 
     def forward(self, X):
 
