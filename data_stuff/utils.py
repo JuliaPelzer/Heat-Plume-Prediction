@@ -39,6 +39,7 @@ class SettingsTraining:
     len_box: int = 640
     net: str = "convLSTM"
     vis_entire_plume: bool = False
+    overfit: int = 0
     
     def __post_init__(self):
         if self.case in ["finetune", "finetuning", "Finetune", "Finetuning"]:
@@ -57,15 +58,22 @@ class SettingsTraining:
         if self.case in ["test", "finetune"]:
             assert self.model != "runs/default", "Please specify model path for testing or finetuning"
 
+        if self.overfit == 0:
+            self.overfit_str = ""
+        else:
+            self.overfit_str = f' overfit_{self.overfit}'
+
         if self.destination == "":
-            self.destination = f"inputs_{self.inputs} case_{self.case} prev_{self.prev_boxes} extend_{self.extend} skip_{self.skip_per_dir}"
+            self.destination = f"inputs_{self.inputs} case_{self.case} prev_{self.prev_boxes} extend_{self.extend} skip_{self.skip_per_dir} more conv{self.overfit_str}"
+
+        
 
     def save(self):
         save_yaml(self.__dict__, self.destination, "command_line_arguments")
         
     def make_destination_path(self, destination_dir: pathlib.Path):
         if self.destination == "":
-            self.destination = f"inputs_{self.inputs} case_{self.case} prev_{self.prev_boxes} extend_{self.extend} skip_{self.skip_per_dir}"
+            self.destination = f"inputs_{self.inputs} case_{self.case} prev_{self.prev_boxes} extend_{self.extend} skip_{self.skip_per_dir} more conv{self.overfit_str}"
         self.destination = destination_dir / self.destination
         self.destination.mkdir(parents=True, exist_ok=True)
 

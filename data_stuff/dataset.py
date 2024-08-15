@@ -144,7 +144,7 @@ class DatasetExtend2(Dataset):
         return idx // self.dp_per_run, idx % self.dp_per_run + 1 #depends on which box is taken (front or last)
     
 class DatasetExtendConvLSTM(Dataset):
-    def __init__(self, path:str, prev_steps:int, extend:int, skip_per_dir:int, ):
+    def __init__(self, path:str, prev_steps:int, extend:int, skip_per_dir:int, overfit:int):
         Dataset.__init__(self)
         self.path = pathlib.Path(path)
         self.info = self.__load_info()
@@ -174,7 +174,7 @@ class DatasetExtendConvLSTM(Dataset):
         self.box_len:int = (self.total_nr_steps) * self.spatial_size[1]
         self.skip_per_dir:int = skip_per_dir
         self.dp_per_run:int = (self.spatial_size[0] - self.box_len) // skip_per_dir
-       
+        self.overfit = overfit
 
     @property
     def input_channels(self):
@@ -194,7 +194,8 @@ class DatasetExtendConvLSTM(Dataset):
     
     
     def __getitem__(self,idx):
-        idx = idx % 10
+        if self.overfit > 0:
+            idx = idx % self.overfit
         run_id, window_nr = self.idx_to_window(idx)
         # file_path_inputs = self.path / "Inputs" / self.input_names[run_id]
         # file_path_labels = self.path / "Labels" / self.input_names[run_id]

@@ -28,7 +28,7 @@ def init_data(settings: SettingsTraining, seed=1):
         if settings.case == 'test':
             settings.skip_per_dir = 64
         if settings.net == "convLSTM":
-            dataset = DatasetExtendConvLSTM(settings.dataset_prep, prev_steps=settings.prev_boxes, extend=settings.extend , skip_per_dir=settings.skip_per_dir)
+            dataset = DatasetExtendConvLSTM(settings.dataset_prep, prev_steps=settings.prev_boxes, extend=settings.extend , skip_per_dir=settings.skip_per_dir, overfit=settings.overfit)
         else:
             dataset = DatasetExtend2(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
         settings.inputs += "T"
@@ -103,7 +103,7 @@ def run(settings: SettingsTraining):
     which_dataset = "val"
     pic_format = "png"
     times["time_end"] = time.perf_counter()
-    dp_to_visu = np.array(np.arange(0,50))
+    dp_to_visu = np.arange(50)
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"
@@ -172,8 +172,9 @@ if __name__ == "__main__":
     parser.add_argument("--len_box", type=int, default=640)
     parser.add_argument("--skip_per_dir", type=int, default=32)
     parser.add_argument("--net", type=str, choices=["CNN", "convLSTM"], default="convLSTM")
-    parser.add_argument("--prev_boxes", type=int)
-    parser.add_argument("--extend", type=int)
+    parser.add_argument("--prev_boxes", type=int, default=1)
+    parser.add_argument("--extend", type=int, default=2)
+    parser.add_argument("--overfit", type=int, default=0)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 
