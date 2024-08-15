@@ -5,6 +5,9 @@ datasets_prepared/
 nerf/
 WIP_rnn/
 
+# exclude wandb
+wandb/
+
 # exclude for now
 runs/
 *.out
