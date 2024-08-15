@@ -1,1 +1,0 @@
-{"train_loss": 9.005431274999864e-05, "_timestamp": 1723627813.1132393, "_runtime": 88.07249236106873, "_step": 604, "val_loss": 0.001455951831303537, "learning rate": 0.0001, "val RMSE": 0.036435338024582695, "train RMSE": 0.008018370472245889, "epoch found": 172, "best val_loss": 0.0013275338569656014, "best train_loss": 6.429426503018476e-05, "_wandb": {"runtime": 87}}

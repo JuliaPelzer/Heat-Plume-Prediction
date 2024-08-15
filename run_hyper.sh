@@ -9,4 +9,4 @@
 #module load cuda/12.2.2
 source /import/sgs.scratch/miliczpl/cnn_env/bin/activate
 
-python main_hyperparam.py --use_ecnn True --dataset_raw dataset_square_100dp_p_right_higher_freq --inputs pksi --augmentation_n 0 --epochs 200
+python main_hyperparam.py --mask True --dataset_raw dataset_square_1000dp_p_random_dir --inputs pksi --augmentation_n 4 --epochs 1000

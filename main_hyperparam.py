@@ -27,10 +27,10 @@ sweep_config = {
     }
 parameters_dict = {
     'depth': {
-        'values': [2,3,4]
+        'values': [3] #2,3,4
         },
     'rotation_n': {
-          'values': [2,4,8]
+          'values': [4] #2,4,8
         }}
 sweep_config['parameters'] = parameters_dict
 sweep_id = wandb.sweep(sweep_config, entity='1hpnn', project="hyperparam_opt_test")
@@ -103,6 +103,9 @@ def run_eval(config = None):
             finally:
                 solver.save_lr_schedule(settings.destination / "learning_rate_history.csv")
                 print("Training finished")
+
+        #save model
+        model.save(settings.destination)
         
         times["time_end"] = time.perf_counter()    
         print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
