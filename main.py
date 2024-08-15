@@ -93,7 +93,10 @@ def run(settings: SettingsTraining):
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"
-        # errors = measure_loss(model, dataloaders[which_dataset], settings.device)
+        errors = measure_loss(model, dataloaders[which_dataset], settings.device, rotate_inference=settings.rotate_inference)
+        print('----------------------------------------------------------------------------------')
+        print(errors)
+        print('----------------------------------------------------------------------------------')
     save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver) #, errors)
     if settings.visualize:
         visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format, rotate_inference=settings.rotate_inference)
@@ -102,7 +105,7 @@ def run(settings: SettingsTraining):
         print("Visualizations finished")
         
     print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
-
+    
     return model
 
 def save_inference(model_name:str, in_channels: int, settings: SettingsTraining):

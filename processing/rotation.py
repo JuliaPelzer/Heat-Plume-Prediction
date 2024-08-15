@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import torchvision.transforms.functional as TF
+from torchvision.transforms import InterpolationMode
 from itertools import product, repeat
 import math
 
@@ -9,7 +10,7 @@ def rotate(data, angle):
     data_out = torch.zeros_like(data)
     # rotate all scalar fields
     for i in range(data.shape[0]):
-        data_out[i] = TF.rotate(data[i].unsqueeze(0), angle).squeeze(0)
+        data_out[i] = TF.rotate(data[i].unsqueeze(0), angle).squeeze(0) #interpolation = InterpolationMode.BILINEAR
     
     return data_out
 
@@ -28,6 +29,25 @@ def rotate_and_infer(datapoint, grad_vec, model, info, device):
     #rotate result back
     y_out = rotate(y_out.cpu().detach(), 360 - angle)
     return y_out
+
+# rotate a datapoint such that direction matches specified direction and return rerotated inference (with pressure)
+def rotate_and_infer_batch(batch, grad_vec, model, info, device):
+    y_out_list = []
+    p_ind = info['Inputs']['Liquid Pressure [Pa]']['index']
+    center = int(batch[0][p_ind].shape[0]/2)
+    for datapoint in batch:
+        angle = get_rotation_angle([datapoint[p_ind][center][center].item() - datapoint[p_ind][center + 1][center].item(), 
+                                    datapoint[p_ind][center][center].item() - datapoint[p_ind][center][center + 1].item()], grad_vec)
+        x = rotate(datapoint, angle)
+
+        #get inference
+        x = x.to(device).unsqueeze(0)
+        y_out = model(x).to(device)
+
+        #rotate result back
+        y_out = rotate(y_out.cpu().detach(), 360 - angle).squeeze(0)
+        y_out_list.append(y_out)
+    return torch.stack(y_out_list)
 
 # get angle to rotate a counterclockwise to match b's direction
 def get_rotation_angle(a,b):

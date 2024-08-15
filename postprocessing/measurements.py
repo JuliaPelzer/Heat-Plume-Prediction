@@ -4,9 +4,11 @@ from torch.utils.data import DataLoader
 import os
 import time
 import yaml
+import math
 from pathlib import Path
 from typing import Dict
 import matplotlib.pyplot as plt
+import processing.rotation as rt
 
 from networks.unet import UNet
 from processing.solver import Solver
@@ -49,20 +51,24 @@ def measure_len_width_1K_isoline(data: Dict[str, "DataToVisualize"]):
     plt.close("all")
     return lengths, widths
 
-#rotation not implemented as currently not part of workflow
-def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: modules.loss._Loss = MSELoss()):
+def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: modules.loss._Loss = MSELoss(), rotate_inference : bool = False):
 
     norm = dataloader.dataset.dataset.norm
+    info = dataloader.dataset.dataset.info
     model.eval()
     mse_loss = 0.0
     mse_closs = 0.0
     mae_loss = 0.0
     mae_closs = 0.0
+    avg_perc_closs = 0.0
 
     for x, y in dataloader: # batchwise
         x = x.to(device)
         y = y.to(device)
-        y_pred = model(x).to(device)
+        if rotate_inference:
+            y_pred = rt.rotate_and_infer_batch(x, [1,0], model, info, device).to(device)
+        else:
+            y_pred = model(x).to(device)
         mse_loss += loss_func(y_pred, y).detach().item()
         mae_loss = torch.mean(torch.abs(y_pred - y)).detach().item()
 
@@ -72,14 +78,24 @@ def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: mo
         y_pred = norm.reverse(y_pred.detach().cpu(),"Labels")
         mse_closs += loss_func(y_pred, y).detach().item()
         mae_closs = torch.mean(torch.abs(y_pred - y)).detach().item()
+        avg_perc_closs += percentage_misclassification(y_pred, y, 0.1)
         
     mse_loss /= len(dataloader)
     mse_closs /= len(dataloader)
     mae_loss /= len(dataloader)
     mae_closs /= len(dataloader)
+    avg_perc_closs /= len(dataloader)
 
     return {"mean squared error": mse_loss, "mean squared error in [°C^2]": mse_closs, 
-            "mean absolute error": mae_loss, "mean absolute error in [°C]": mae_closs}
+            "mean absolute error": mae_loss, "mean absolute error in [°C]": mae_closs,
+            "average precentage missclassified":avg_perc_closs}
+
+def percentage_misclassification(y_pred, y, delta):
+    abs_diff = torch.abs(y_pred - y)
+    diff_delta = abs_diff > delta
+    count_delta = torch.sum(diff_delta).item()
+    perc_delta = count_delta / math.prod(y.shape)
+    return perc_delta
 
 def save_all_measurements(settings:SettingsTraining, len_dataset, times, solver:Solver=None, errors:Dict={}):
     with open(Path.cwd() / "runs" / settings.destination / f"measurements_{settings.case}.yaml", "w") as f:

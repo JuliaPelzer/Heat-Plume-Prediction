@@ -2,6 +2,7 @@ import csv
 import logging
 import pathlib
 import time
+import wandb
 from dataclasses import dataclass
 
 from torch.nn import Module, MSELoss, modules
@@ -42,7 +43,7 @@ class Solver(object):
             else:
                 self.model.apply(unet.weights_init)
 
-    def train(self, settings: SettingsTraining):
+    def train(self, settings: SettingsTraining, use_wandb: bool = False):
         manual_seed(0)
         log_val_epoch = True
         if log_val_epoch:
@@ -77,6 +78,11 @@ class Solver(object):
                 val_epoch_loss = self.run_epoch(self.val_dataloader, device)
 
                 # Logging
+                if use_wandb:
+                    wandb.log({'train_loss':train_epoch_loss})
+                    wandb.log({'val_loss':val_epoch_loss})
+                    wandb.log({'learning rate':self.opt.param_groups[0]['lr']})
+
                 writer.add_scalar("train_loss", train_epoch_loss, epoch)
                 writer.add_scalar("val_loss", val_epoch_loss, epoch)
                 writer.add_scalar(
