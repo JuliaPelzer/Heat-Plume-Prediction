@@ -26,7 +26,7 @@ class Domain:
         self.skip_datapoint = False
         self.info = load_yaml(info_path, "info")
         self.size: tuple[int, int] = [self.info["CellsNumber"][0], self.info["CellsNumber"][1], ]  # (x, y), cell-ids
-        self.background_temperature: float = self.info["Inputs"]["Temperature prediction (other HPs) [C]"]["min"]
+        self.background_temperature: float = 10.6 #TODO hardcoded
         self.inputs: tensor = self.load_datapoint(info_path, case="Inputs", file_name=file_name)
         self.label: tensor = self.load_datapoint(info_path, case="Labels", file_name=file_name)
         self.prediction: tensor = self.inputs[4].clone().detach() #TODO hardcoded
@@ -170,7 +170,6 @@ class Domain:
             size_hp_box = tensor([self.info["CellsNumberPrior"][0],self.info["CellsNumberPrior"][1],])
         else:
             size_hp_box = size_hp
-        print(size_hp_box)
         hp_boxes = []
         pos_hps = stack(list(where(material_ids == max(material_ids))), dim=0).T
         names_inputs = [self.get_name_from_index(i) for i in range(self.inputs.shape[0])]
@@ -179,12 +178,14 @@ class Domain:
             pos_hp = pos_hps[idx]
             corner_ll = (pos_hp - distance_hp_corner) # corner lower left
             corner_ur = (pos_hp + size_hp_box - distance_hp_corner)
+            #if box inside domain
             if corner_ll[0] >= 0 and corner_ll[1] >= 0 and corner_ur[0] <= self.size[0] and corner_ur[1] <= self.size[1]:
                 tmp_input = self.inputs[:, corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].detach().clone()
                 tmp_input[4] = self.prediction[corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].clone().detach()
                 tmp_label = self.label[:, corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].detach().clone()
             else:
                 offset_ll = [0,0]
+                # get part that is in domain
                 for i in range(len(corner_ll)):
                     if corner_ll[i] < 0:
                         offset_ll[i] = corner_ll[i] * -1
@@ -197,18 +198,13 @@ class Domain:
                 part_input = self.inputs[:, corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].detach().clone()
                 part_label = self.label[:, corner_ll[0] : corner_ur[0], corner_ll[1] : corner_ur[1]].detach().clone()
                 tmp_input = zeros(part_input.shape[0],size_hp_box[0],size_hp_box[1])
-                print(max(part_input[4]))
-                print(part_input.shape)
-                print(tmp_input.shape)
-                print(self.size)
-                print(offset_ll)
-                print(offset_ur)
-                print(self.size[0] - offset_ur[0])
+                # initialize boxes with desired size, set value to min_value found in domain part
                 for input in range(part_input.shape[0]):
                     tmp_input[input] = ones(size_hp_box[0],size_hp_box[1]) * min(part_input[input]).item()
                 tmp_label = zeros(part_label.shape[0],size_hp_box[0],size_hp_box[1])
                 for label in range(part_label.shape[0]):
                     tmp_label[label] = ones(size_hp_box[0],size_hp_box[1]) * min(part_label[label]).item()
+                # overwrite corresponding part in boxes with the values found in the domain 
                 if (offset_ll == [0,0]):
                     tmp_input[:,  : size_hp_box[0] - offset_ur[0], : size_hp_box[1] - offset_ur[1]] = part_input.clone().detach()
                     tmp_label[:, : size_hp_box[0] - offset_ur[0], : size_hp_box[1] - offset_ur[1]] = part_label.clone().detach()

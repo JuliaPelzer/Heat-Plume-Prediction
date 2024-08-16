@@ -92,9 +92,8 @@ def apply_batch(model: UNet, settings: SettingsTraining, domain, run_id, info, s
             input = single_hps[current].inputs.clone().detach().to("cpu")
             x.append(input)
         x = torch.stack(x)
-        y = model(x).squeeze().detach()
         avg_time_inference = time.perf_counter() - time_start_run_1hp
-
+        y = model(x).squeeze().detach()
         avg_time_inference_all += avg_time_inference
 
 

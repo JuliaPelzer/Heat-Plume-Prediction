@@ -23,7 +23,7 @@ from ray.train import RunConfig
 from ray.tune.search.optuna import OptunaSearch
 from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits
 
-def tune_nn(settings: SettingsTraining, num_samples=150, max_num_epochs=88, gpus_per_trial=1, ):
+def tune_nn(settings: SettingsTraining, num_samples=122, max_num_epochs=88, gpus_per_trial=1, ):
     if settings.problem == "turbnet":
         config = {
             "features_exp": tune.choice(range(2,8)),
@@ -33,10 +33,10 @@ def tune_nn(settings: SettingsTraining, num_samples=150, max_num_epochs=88, gpus
         }
     else:
         config = {
-            "features": tune.choice([2**i for i in range(4,8)]),
+            "features": tune.choice([2**i for i in range(4,7)]),
             "lr": tune.choice([1e-5,7e-4,5e-4,3e-4,1e-4,7e-3,5e-3,3e-3, 1e-3]),
-            "depth": tune.choice([2,3]),
-            "kernel_size": tune.choice([3,5]),
+            "depth": tune.choice([2,3,4,5]),
+            "kernel_size": tune.choice([3,4,5,6,7]),
             "weight_decay": tune.choice([1e-5,7e-4,5e-4,3e-4,1e-4,7e-3,5e-3,3e-3, 1e-3]),
         }
     scheduler = ASHAScheduler(
@@ -119,8 +119,7 @@ def train_mnist(config,settings=None):
         train_loss /= len(train_dataloader)
     
         loss = test_loss(model, dataloaders["test"], settings.device)
-        # Set this to run Tune.
-        train.report({"loss": loss}) # if you want to evaluate loss, change it to mean_loss and set the mode in tune.run to min instead
+        train.report({"loss": loss})
 
 
         
@@ -130,7 +129,7 @@ def test_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: modul
     model.eval()
     mse_loss = 0.0
 
-    for x, y in dataloader: # batchwise
+    for x, y in dataloader:
         x = x.to(device)
         y = y.to(device)
         y_pred = model(x).to(device)

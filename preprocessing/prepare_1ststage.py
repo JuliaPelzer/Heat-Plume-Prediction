@@ -104,10 +104,9 @@ def prepare_dataset(paths: Union[Paths1HP, Paths2HP], inputs: str, power2trafo: 
         torch.save(y, os.path.join(dataset_prepared_path, "Labels", f"{run}.pt"))
         
     if info is not None:
-        print("skiperoni")
-        #info["CellsNumberPrior"] = info["CellsNumberPrior"]
-        #info["PositionHPPrior"] = info["PositionLastHP"]
-        #assert info["CellsSize"][:2] == cell_size.tolist()[:2], f"Cell size changed between given info.yaml {info['CellsSize']} and data {cell_size.tolist()}"
+        info["CellsNumberPrior"] = info["CellsNumber"]
+        info["PositionHPPrior"] = info["PositionLastHP"]
+        assert info["CellsSize"][:2] == cell_size.tolist()[:2], f"Cell size changed between given info.yaml {info['CellsSize']} and data {cell_size.tolist()}"
     else:
         info = dict()
         means = calc.mean()
