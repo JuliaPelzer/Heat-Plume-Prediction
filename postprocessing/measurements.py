@@ -136,7 +136,7 @@ def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args
             # losses in Celsius
             for channel in range(y_pred.shape[1]):
                 mae_closs[channel] += L1Loss(reduction="sum")(y_pred[:,channel], y[:,channel]).item()
-                rmse_closs[channel] += torch.sqrt(MSELoss(reduction="sum")(y_pred[:,channel], y[:,channel])).item()
+                rmse_closs[channel] += MSELoss(reduction="sum")(y_pred[:,channel], y[:,channel]).item()
                 r2_closs[channel] -= (MSELoss()(y_pred[:,channel], y[:,channel]) / MSELoss()(y[:,channel],torch.mean(y[:,channel])) * y_pred.shape[0]).item()
 
                 if vT_case == "temperature":
@@ -149,6 +149,7 @@ def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args
         mse_loss /= (no_datapoints * domain_size)
         mae_closs /= (no_datapoints * domain_size)
         rmse_closs /=  (no_datapoints * domain_size)
+        rmse_closs = torch.sqrt(rmse_closs)
         r2_closs /= no_datapoints
         r2_closs += 1
         if vT_case == "temperature":
