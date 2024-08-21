@@ -6,6 +6,7 @@ CdMLP/
 
 # exclude for now
 runs/
+results/
 *.out
 
 # exclude testing notebook files and other random files
