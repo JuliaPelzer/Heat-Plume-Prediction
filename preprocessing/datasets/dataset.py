@@ -21,7 +21,7 @@ class DatasetBasis(Dataset):
             self.label_names.append(filename)
         self.input_names.sort()
         self.label_names.sort()
-        self.spatial_size = torch.load(self.path / "Inputs" / self.input_names[0]).shape[1:] # required for extend1,2
+        self.spatial_size = torch.load(self.path / "Labels" / self.input_names[0]).shape[1:] # required for extend1,2 # TODO check if still works for extend (changed from Inputs to Labels for allin1)
         if box_size is not None:
             self.box_size = box_size # required for extend1,2
         else:
