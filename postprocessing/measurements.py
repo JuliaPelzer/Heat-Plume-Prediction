@@ -109,7 +109,6 @@ def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args
         mse_loss = torch.Tensor([0.0,] * output_channels)
         mae_closs = torch.Tensor([0.0,] * output_channels)
         rmse_closs = torch.Tensor([0.0,] * output_channels)
-        r2_closs = torch.Tensor([0.0,] * output_channels)
         if vT_case == "temperature":
             pbt_closs = torch.Tensor([0.0,] * output_channels)
 
@@ -137,7 +136,6 @@ def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args
             for channel in range(y_pred.shape[1]):
                 mae_closs[channel] += L1Loss(reduction="sum")(y_pred[:,channel], y[:,channel]).item()
                 rmse_closs[channel] += MSELoss(reduction="sum")(y_pred[:,channel], y[:,channel]).item()
-                r2_closs[channel] -= (MSELoss()(y_pred[:,channel], y[:,channel]) / MSELoss()(y[:,channel],torch.mean(y[:,channel])) * y_pred.shape[0]).item()
 
                 if vT_case == "temperature":
                     # count all pixels where the difference is bigger than 0.1°C, then average over this batch + domain
@@ -150,8 +148,6 @@ def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args
         mae_closs /= (no_datapoints * domain_size)
         rmse_closs /=  (no_datapoints * domain_size)
         rmse_closs = torch.sqrt(rmse_closs)
-        r2_closs /= no_datapoints
-        r2_closs += 1
         if vT_case == "temperature":
             pbt_closs /= (no_datapoints * domain_size) 
             pbt_closs *= 100 # value close to 0% is good, close to 100% is bad
@@ -159,7 +155,6 @@ def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args
         output_mse = ["{:.2e}".format(mse) for mse in mse_loss]
         output_mae = ["{:.2e}".format(mae) for mae in mae_closs]
         output_rmse = ["{:.2e}".format(rmse) for rmse in rmse_closs]
-        output_r2 = ["{:.2e}".format(r2) for r2 in r2_closs]
         if vT_case == "temperature":
             output_pbt = ["{:.2f}".format(pbt) for pbt in pbt_closs]
 
@@ -167,7 +162,7 @@ def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args
             unit = "C"
         else:
             unit = "m/s"
-        results[case] = {"MSE [-] per channel": output_mse, f"MAE [{unit}] per channel": output_mae, f"RMSE [{unit}] per channel": output_rmse, f"R2 based on {unit}, per channel": output_r2} 
+        results[case] = {"MSE [-] per channel": output_mse, f"MAE [{unit}] per channel": output_mae, f"RMSE [{unit}] per channel": output_rmse} 
         
         if vT_case == "temperature":
             results[case]["PBT (percentage bigger than threshold 0.1C in [%]"] = output_pbt
