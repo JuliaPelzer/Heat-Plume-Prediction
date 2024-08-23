@@ -37,7 +37,7 @@ class Solver(object):
     metrics: dict = None
 
     def __post_init__(self):
-        self.opt = self.opt(self.model.parameters(), self.learning_rate, weight_decay=1e-4)
+        # self.opt = self.opt(self.model.parameters(), self.learning_rate, weight_decay=1e-4) # already done in optuna case
         # contains the epoch and learning rate, when lr changes
         self.lr_schedule = {0: self.opt.param_groups[0]["lr"]}
         # self.lr_scheduler = lr_scheduler.ReduceLROnPlateau(self.opt, patience=10, cooldown=10, factor=0.5)
@@ -47,7 +47,7 @@ class Solver(object):
         
         self.metrics: dict = {"MSE": MSELoss(), "MAE": L1Loss(), "KLD": KLD_log(), "Huber": HuberLoss(), "SmoothL1": SmoothL1Loss()}
 
-    def train(self, args: dict):
+    def train(self, trial, args: dict):
         manual_seed(0)
         start_time = time.perf_counter()
         # initialize tensorboard
@@ -99,6 +99,12 @@ class Solver(object):
                     if False:
                         self.model.save(args["destination"], model_name=f"best_model_e{epoch}.pt")
                 
+                trial.report(val_epoch_loss, epoch)
+
+                # Handle pruning based on the intermediate value.
+                if trial.should_prune():
+                    raise optuna.exceptions.TrialPruned()
+
                 # self.lr_scheduler.step(val_epoch_loss)
 
             except KeyboardInterrupt:

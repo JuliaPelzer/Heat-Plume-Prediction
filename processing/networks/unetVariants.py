@@ -177,6 +177,10 @@ class UNetNoPad2(UNet):
             activation = nn.ReLU(inplace=True)
         elif activation_fct == "LeakyReLU":
             activation = nn.LeakyReLU(inplace=True)
+        elif activation_fct == "sigmoid":
+            activation = nn.Sigmoid()
+        elif activation_fct == "tanh":
+            activation = nn.Tanh()
 
         self.encoders = nn.ModuleList()
         self.pools = nn.ModuleList()
