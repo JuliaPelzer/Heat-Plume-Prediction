@@ -23,9 +23,6 @@ def init_data(args:dict, seed=1):
             dataset_val = DataPoint(args["data_prep"], idx=1)
             # dataset_val = SimulationDatasetCuts(args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], idx=1)
 
-            # dataset_train = SimulationDatasetCuts(args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], idx=0, case="train")
-            # dataset_val = SimulationDatasetCuts(args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], idx=0, case="val") 
-
         dataset_test = DataPoint(args["data_prep"], idx=2)
 
     split_ratios = [0.7, 0.2, 0.1]
@@ -38,20 +35,21 @@ def init_data(args:dict, seed=1):
         datasets = [dataset_train, dataset_val, dataset_test]
 
     dataloaders = {}
+    batchsize = 20
     try:
-        dataloaders["train"] = DataLoader(datasets[0], batch_size=100, shuffle=True, num_workers=0)
-        dataloaders["val"] = DataLoader(datasets[1], batch_size=100, shuffle=True, num_workers=0)
+        dataloaders["train"] = DataLoader(datasets[0], batch_size=batchsize, shuffle=True, num_workers=0)
+        dataloaders["val"] = DataLoader(datasets[1], batch_size=batchsize, shuffle=True, num_workers=0)
     except: pass
-    dataloaders["test"] = DataLoader(datasets[2], batch_size=100, shuffle=True, num_workers=0)
+    dataloaders["test"] = DataLoader(datasets[2], batch_size=batchsize, shuffle=True, num_workers=0)
 
     if not args["problem"] == "allin1":
         print(f"Length of dataset: {len(dataset)} - split into {len(datasets[0])}:{len(datasets[1])}:{len(datasets[2])}")
-        return dataset.input_channels, dataloaders
+        return dataset.input_channels, dataset.output_channels, dataloaders
     else:
-        if args["case"] == "test":
-            print(f"Length of dataset: {len(dataset_test)}")
-        else:
+        try:
             print(f"Length of dataset: {len(dataset_train)}:{len(dataset_val)}:{len(dataset_test)}")
+        except:
+            print(f"Length of dataset: {len(dataset_test)}")
         return dataset_test.input_channels, dataset_test.output_channels, dataloaders
 
 def load_all_datasets_in_full(args: dict):

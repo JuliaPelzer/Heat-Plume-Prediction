@@ -114,16 +114,18 @@ def expand_property_names(properties: str):
         "y": "Liquid Y-Velocity [m_per_y]",
         "z": "Liquid Z-Velocity [m_per_y]",
         "p": "Liquid Pressure [Pa]",
-        "t": "Temperature [C]",
         "k": "Permeability X [m^2]",
+        "g": "Pressure Gradient [-]",
         "i": "Material ID",
         "s": "SDF",
         "a": "PE x", # positional encoding: signed distance in x direction
         "b": "PE y", # positional encoding: signed distance in y direction
-        "g": "Pressure Gradient [-]",
-        "o": "Original Temperature [C]",
+        "c": "Streamlines Faded Outer [-]",
+        "d": "Streamlines Faded [-]",
         "m": "MDF",
         "l": "LST",
+        "t": "Temperature [C]",
+        "o": "Original Temperature [C]",
         "n": "Preprocessed Temperature [C]",
     }
     possible_vars = ','.join(translation.keys())

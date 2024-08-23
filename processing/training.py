@@ -3,7 +3,7 @@ import logging
 import multiprocessing
 import numpy as np
 import torch
-from torch.nn import MSELoss, L1Loss
+from torch.nn import MSELoss, L1Loss, HuberLoss
 from datetime import datetime
 
 # from postprocessing.measurements import (save_all_measurements)
@@ -13,6 +13,7 @@ from processing.networks.unet import UNet
 from processing.networks.unetVariants import UNetHalfPad2, UNetNoPad2
 from processing.solver import Solver
 from preprocessing.data_init import init_data, load_all_datasets_in_full
+from postprocessing.measurements import measure_losses_paper24
 
 def train(args: dict):
     np.random.seed(1)
@@ -20,23 +21,33 @@ def train(args: dict):
     multiprocessing.set_start_method("spawn", force=True)
 
     input_channels, output_channels, dataloaders = init_data(args)
+    if output_channels == 1:
+        vT_case = "temperature"
+    elif output_channels == 2:
+        vT_case = "velocities"
 
     # model
     if args["problem"] in ["1hp", "2stages", "test"]:
         model = UNet(in_channels=input_channels).float()
     elif args["problem"] in ["extend"]:
         model = UNetHalfPad2(in_channels=input_channels).float()
-        # model = Encoder(in_channels=input_channels).float()
     elif args["problem"] in ["allin1"]:
-        # model = UNet(in_channels=input_channels, out_channels=1).float()
-        model = UNetNoPad2(in_channels=input_channels, out_channels=output_channels).float()
+        if vT_case == "temperature":
+            kernel_size = 4 # best setting from optimization with optuna
+        elif vT_case == "velocities":
+            kernel_size=5 # best setting from optimization with optuna
+        model = UNetNoPad2(in_channels=input_channels, out_channels=output_channels, depth=4, init_features=32, kernel_size=kernel_size).float() # best setting from optimization with optuna
     model.to(args["device"])
     
     if args["case"] in ["test", "finetune"]:
         model.load(args["model"], args["device"])
 
     if args["case"] in ["train", "finetune"]:
-        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=MSELoss(), finetune=(args["case"] == "finetune"))
+        if vT_case == "temperature":
+            loss = L1Loss()
+        elif vT_case == "velocities":
+            loss = MSELoss() # best setting from optimization with optuna
+        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss, finetune=(args["case"] == "finetune"))
         training_time = datetime.now()
         try:
             solver.load_lr_schedule(args["destination"] / "learning_rate_history.csv")
@@ -55,6 +66,8 @@ def train(args: dict):
     # postprocessing
     # save_all_measurements(args, len(dataloaders["val"].dataset), times={}, solver=solver) #, errors)
     
+    metrics = measure_losses_paper24(model, dataloaders, args, vT_case=vT_case)
+
     dataloaders = load_all_datasets_in_full(args)
     for case in ["train", "val", "test"]:
         visualizations(model, dataloaders[case], args, plot_path=args["destination"] / case, amount_datapoints_to_visu=1, pic_format="png")
