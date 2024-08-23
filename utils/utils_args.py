@@ -38,10 +38,8 @@ def make_prep_path(args:dict, prep_dir: Path):
     # dataset_prep
     if args["data_prep"] is None:
         args["data_prep"] = args["data_raw"].name + " inputs_" + args["inputs"] + " outputs_" + args["outputs"]
-        print(args["data_prep"])
         if "n" in args["inputs"]:
             args["data_prep"] += " " + args["allin1_prepro_n_case"]
-        print("2", args["data_prep"])
             
     args["data_prep"] = prep_dir / args["problem"] / args["data_prep"]
     args["data_prep"].mkdir(parents=True, exist_ok=True)
