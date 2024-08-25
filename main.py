@@ -34,7 +34,7 @@ def init_data(settings: SettingsTraining, seed=1):
 
     split_ratios = [0.7, 0.2, 0.1]
     if settings.case == "test":
-        split_ratios = [0.0, 0.0, 1.0] 
+        split_ratios = [0.0, 0.0, 1.0]
 
     datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     dataloaders = {}
@@ -107,14 +107,14 @@ def run(settings: SettingsTraining):
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"
+        errors = measure_loss(model, dataloaders, settings.device, vT_case="temperature")
         # errors = measure_loss(model, dataloaders[which_dataset], settings.device)
-    save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver) #, errors)
     if settings.visualize:
-        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=10, pic_format=pic_format)
+        errors["isolines"] = visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=10, pic_format=pic_format)
         times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
         plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         print("Visualizations finished")
-        
+    save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver, errors)       
     print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
 
     return model

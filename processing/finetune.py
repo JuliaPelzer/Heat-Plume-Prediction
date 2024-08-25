@@ -23,7 +23,7 @@ from ray.train import RunConfig
 from ray.tune.search.optuna import OptunaSearch
 from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits
 
-def tune_nn(settings: SettingsTraining, num_samples=122, max_num_epochs=88, gpus_per_trial=1, ):
+def tune_nn(settings: SettingsTraining, num_samples=200, max_num_epochs=88, gpus_per_trial=1, ):
     if settings.problem == "turbnet":
         config = {
             "features_exp": tune.choice(range(2,8)),
@@ -34,10 +34,12 @@ def tune_nn(settings: SettingsTraining, num_samples=122, max_num_epochs=88, gpus
     else:
         config = {
             "features": tune.choice([2**i for i in range(4,7)]),
-            "lr": tune.choice([1e-5,7e-4,5e-4,3e-4,1e-4,7e-3,5e-3,3e-3, 1e-3]),
+            "lr": tune.choice([1e-4]),
             "depth": tune.choice([2,3,4,5]),
             "kernel_size": tune.choice([3,4,5,6,7]),
-            "weight_decay": tune.choice([1e-5,7e-4,5e-4,3e-4,1e-4,7e-3,5e-3,3e-3, 1e-3]),
+            "weight_decay": tune.choice([1e-5]),
+            "padding_mode": tune.choice(['zeros','replicate']),
+            "dilation": tune.choice([1,2,3])
         }
     scheduler = ASHAScheduler(
         metric="loss",
@@ -87,7 +89,7 @@ def train_mnist(config,settings=None):
     if settings.problem == "turbnet":
         model = TurbNetG(in_channels=input_channels,channelExponent=config["features_exp"],dropout=config["dropout"]).float()
     else:
-        model = UNet(in_channels=input_channels,init_features=config["features"]).to(settings.device)
+        model = UNet(in_channels=input_channels,init_features=config["features"],depth=config["depth"],padding_mode=config["padding_mode"],dilation=config["dilation"]).to(settings.device)
     optimizer = Adam(model.parameters(), lr=config["lr"], weight_decay=config["weight_decay"])
     loss_function = MSELoss()
     device = settings.device

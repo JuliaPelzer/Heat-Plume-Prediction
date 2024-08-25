@@ -66,6 +66,8 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
                     "dpi": 600,}
 
     current_id = 0
+    len_diff = 0
+    wid_diff = 0
     for inputs, labels in dataloader:
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
@@ -79,12 +81,18 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
             dict_to_plot = prepare_data_to_plot(x, y, y_out, info)
 
             plot_datafields(dict_to_plot, name_pic, settings_pic)
-            # plot_isolines(dict_to_plot, name_pic, settings_pic)
-            # measure_len_width_1K_isoline(dict_to_plot)
+            plot_isolines(dict_to_plot, name_pic, settings_pic)
+            l,w = measure_len_width_1K_isoline(dict_to_plot)
+            len_diff += abs(l["t_true"] - l["t_out"])
+            wid_diff += abs(w["t_true"] - w["t_out"])
 
             if current_id >= amount_datapoints_to_visu-1:
-                return None
+                return {"isolines length difference in %": len_diff / amount_datapoints_to_visu,
+            "isolines width difference in %": wid_diff / amount_datapoints_to_visu}
             current_id += 1
+
+    return {"isolines length difference in %": len_diff / len(dataloader),
+            "isolines width difference in %": wid_diff / len(dataloader)}
 
 def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, norm: NormalizeTransform):
     # reverse transform for plotting real values
@@ -162,11 +170,11 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
 
 def plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
     # plot isolines of temperature fields
-    num_subplots = 3 if "Original Temperature [C]" in data.keys() else 2
+    num_subplots = 3 if "Temperature [C]" in data.keys() else 2
     fig, axes = plt.subplots(num_subplots, 1, sharex=True)
-    fig.set_figheight(num_subplots)
+    fig.set_figheight(num_subplots*1.5)
 
-    for index, name in enumerate(["t_true", "t_out", "Original Temperature [C]"]):
+    for index, name in enumerate(["t_true", "t_out", "Temperature [C]"]):
         try:
             plt.sca(axes[index])
             data[name].data = torch.flip(data[name].data, dims=[1])
@@ -240,3 +248,80 @@ def _aligned_colorbar(pad=0.05,*args,**kwargs):
         "right", size=0.3, pad=pad)
     cbar = plt.colorbar(*args, cax=cax, **kwargs)
     #disable if more than 2 ticks
+
+def _isolines_measurements(data: Dict[str, DataToVisualize], name_pic: str, figsize_x: float = 38.4):
+    # helper function to plot isolines of temperature out
+    
+    max_temp = 16 
+    min_temp = 10 
+    lengths = {}
+    widths = {}
+    T_gwf = 10.6
+    _, axes = plt.subplots(4, 1, sharex=True, figsize=(figsize_x, 3*2))
+    for index, key in enumerate(["t_true", "t_out"]):
+        plt.sca(axes[index])
+        datapoint = data[key]
+        datapoint.data = torch.flip(datapoint.data, dims=[1])
+        left_bound, right_bound = 1280, 0
+        upper_bound, lower_bound = 0, 80
+        if datapoint.data.max() > T_gwf + 1:
+            levels = [T_gwf + 1] 
+            CS = plt.contour(datapoint.data.T, levels=levels, cmap='Pastel1', extent=(0,1280,80,0))
+            # calc maximum width and length of 1K-isoline
+            for level in CS.allsegs:
+                for seg in level:
+                    # print(seg[:,0].max(), seg[:,0].min(), seg[:,1].max(), seg[:,1].min())
+                    right_bound = max(right_bound, seg[:,0].max())
+                    left_bound = min(left_bound, seg[:,0].min())
+                    upper_bound = max(upper_bound, seg[:,1].max())
+                    lower_bound = min(lower_bound, seg[:,1].min())
+        lengths[key] = max(right_bound - left_bound, 0)
+        widths[key] = max(upper_bound - lower_bound, 0)
+        print(f"{key} length (max y): {lengths[key]}, width (max x): {widths[key]}, max temp: {datapoint.data.max()}")
+        # print(f"{key} length (max y): {lengths[key]}, width (max x): {widths[key]}, max temp: {datapoint.data.max()}")
+        print(f"lengths_{key[2:]}.append({lengths[key]})")
+        print(f"widths_{key[2:]}.append({widths[key]})")
+        print(f"max_temps_{key[2:]}.append({datapoint.data.max()})")
+        plt.sca(axes[index+2])
+        plt.imshow(datapoint.data.T, extent=(0,1280,80,0))
+    # plt.show()
+    plt.show()
+    plt.close("all")
+    return lengths, widths
+
+def measure_len_width_1K_isoline(data: Dict[str, "DataToVisualize"]):
+    ''' 
+    function (for paper23) to measure the length and width of the 1K-isoline;
+    prints the values for usage in ipynb
+    '''
+    
+    lengths = {}
+    widths = {}
+    T_gwf = 10.6
+
+    _, axes = plt.subplots(4, 1, sharex=True)
+    for index, key in enumerate(["t_true", "t_out"]):
+        plt.sca(axes[index])
+        datapoint = data[key]
+        datapoint.data = torch.flip(datapoint.data, dims=[1])
+        left_bound, right_bound = datapoint.data.shape [0]*5, 0
+        upper_bound, lower_bound = 0, datapoint.data.shape [0] * 5
+        if datapoint.data.max() > T_gwf + 1:
+            levels = [T_gwf + 1] 
+            CS = plt.contour(datapoint.data.T, levels=levels, cmap='Pastel1', extent=(0,left_bound,lower_bound,0))
+
+            # calc maximum width and length of 1K-isoline
+            for level in CS.allsegs:
+                for seg in level:
+                    right_bound = max(right_bound, seg[:,0].max())
+                    left_bound = min(left_bound, seg[:,0].min())
+                    upper_bound = max(upper_bound, seg[:,1].max())
+                    lower_bound = min(lower_bound, seg[:,1].min())
+        lengths[key] = max(right_bound - left_bound, 0)
+        widths[key] = max(upper_bound - lower_bound, 0)
+        print(f"lengths_{key[2:]}.append({lengths[key]})")
+        print(f"widths_{key[2:]}.append({widths[key]})")
+        print(f"max_temps_{key[2:]}.append({datapoint.data.max()})")
+        plt.sca(axes[index+2])
+    plt.close("all")
+    return lengths, widths
