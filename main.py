@@ -5,9 +5,11 @@ import numpy as np
 import time
 import torch
 import yaml
+import pathlib
 from torch.utils.data import DataLoader, random_split, Subset
 from torch.utils.data.sampler import BatchSampler, RandomSampler, SequentialSampler
 from torch.nn import MSELoss, L1Loss
+import torchmetrics
 
 from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, DatasetExtendConvLSTM, get_splits
 from data_stuff.utils import SettingsTraining
@@ -39,6 +41,9 @@ def init_data(settings: SettingsTraining, seed=1):
     
     split1, split2, split3 = get_splits(len(dataset), split_ratios)
     datasets = []
+    print(split1)
+    print(split2)
+    print(split3)
 
     datasets.append(Subset(dataset, range(split3+split2,len(dataset))))
     datasets.append(Subset(dataset, range(split3,split3+split2)))
@@ -68,7 +73,7 @@ def run(settings: SettingsTraining):
     elif settings.problem in ["extend1", "extend2"]:
         if settings.net == "convLSTM":
             
-            model = Seq2Seq(num_channels=input_channels, frame_size=(64,64), prev_boxes = settings.prev_boxes, extend=settings.extend).float()
+            model = Seq2Seq(num_channels=input_channels, frame_size=(64,64), prev_boxes = settings.prev_boxes, extend=settings.extend, num_layers=settings.nr_layers).float()
         else:
             model = UNetHalfPad(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
@@ -77,6 +82,7 @@ def run(settings: SettingsTraining):
 
     solver = None
     if settings.case in ["train", "finetune"]:
+        ssim = torchmetrics.image.StructuralSimilarityIndexMeasure(kernel_size=3).to(settings.device)
         loss_fn = L1Loss()
         # training
         finetune = True if settings.case == "finetune" else False
@@ -114,7 +120,7 @@ def run(settings: SettingsTraining):
             times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
             plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         elif settings.net == "convLSTM":
-            visualizations_convLSTM(model, dataloaders[which_dataset], settings.device, prev_boxes=settings.prev_boxes, extend=settings.extend, plot_path=settings.destination, dp_to_visu=dp_to_visu, pic_format=pic_format)
+            visualizations_convLSTM(model, dataloaders['test'], settings.device, prev_boxes=settings.prev_boxes, extend=settings.extend, plot_path=settings.destination, dp_to_visu=dp_to_visu, pic_format=pic_format)
             #times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
             #plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
             
@@ -130,16 +136,19 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
         model = UNet(in_channels=in_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         if settings.net == "convLSTM":
-            model = Seq2Seq(num_channels=in_channels, frame_size=(1280//(settings.total_time_steps*2),64 )).float()
+            model = Seq2Seq(num_channels=3, frame_size=(64,64), prev_boxes = settings.prev_boxes, extend=settings.extend, num_kernels=settings.num_layers).float()
         else:
             model = UNetHalfPad(in_channels=in_channels).float()
     model.load(model_name, settings.device)
     model.eval()
 
-    data_dir = settings.dataset_prep
-    (data_dir / "Outputs").mkdir(exist_ok=True)
+    #data_dir = settings.dataset_prep
+    data_dir = "/import/sgs.scratch/hofmanja/datasets_prepared/extend_plumes/stopping"
+    input_dir = pathlib.Path(f'{data_dir}/Inputs')
+    output_dir = pathlib.Path(f'{data_dir}/Outputs')
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    for datapoint in (data_dir / "Inputs").iterdir():
+    for datapoint in input_dir.iterdir():
         data = torch.load(datapoint)
         data = torch.unsqueeze(data, 0)
         time_start = time.perf_counter()
@@ -175,6 +184,7 @@ if __name__ == "__main__":
     parser.add_argument("--prev_boxes", type=int, default=1)
     parser.add_argument("--extend", type=int, default=2)
     parser.add_argument("--overfit", type=int, default=0)
+    parser.add_argument("--nr_layers", type=int, default=1)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

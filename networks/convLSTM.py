@@ -17,7 +17,7 @@ class ConvLSTMCell(nn.Module):
             self.activation = torch.relu
         
         self.nr_features = [16, 32, 64, 64, out_channels]
-        self.kernel_sizes = [3, 5, 5, 5, 5]
+        self.kernel_sizes = [7, 5, 5, 5, 5]
 
         layers = []
         
@@ -127,8 +127,8 @@ class ConvLSTM(nn.Module):
 
 class Seq2Seq(nn.Module):
 
-    def __init__(self, num_channels, frame_size, prev_boxes, extend, num_kernels=64,
-    activation='relu', num_layers=1):
+    def __init__(self, num_channels, frame_size, prev_boxes, extend, num_layers, num_kernels=64,
+    activation='relu'):
 
         super(Seq2Seq, self).__init__()
 
@@ -153,8 +153,9 @@ class Seq2Seq(nn.Module):
             self.sequential.add_module(
                 f"convlstm{l}", ConvLSTM(
                     in_channels=num_kernels, out_channels=num_kernels,
-                    activation=activation, frame_size=frame_size)
+                    activation=activation, frame_size=frame_size, prev_boxes=prev_boxes, extend=extend)
                 )
+                
                 
             self.sequential.add_module(
                 f"batchnorm{l}", nn.BatchNorm3d(num_features=num_kernels)
@@ -177,6 +178,9 @@ class Seq2Seq(nn.Module):
 
         for pred_box in range(self.extend):
             new_output[:,:,pred_box] = self.conv(output[:,:,self.prev_boxes+pred_box])
+            
+        print(f'shap of new-output: {new_output.shape}')
+        new_output = torch.reshape(new_output, (new_output.shape[0], new_output.shape[1], width*self.extend, height))
         
         return nn.Sigmoid()(new_output)
     
