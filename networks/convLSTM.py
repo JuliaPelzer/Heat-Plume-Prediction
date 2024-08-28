@@ -179,7 +179,6 @@ class Seq2Seq(nn.Module):
         for pred_box in range(self.extend):
             new_output[:,:,pred_box] = self.conv(output[:,:,self.prev_boxes+pred_box])
             
-        print(f'shap of new-output: {new_output.shape}')
         new_output = torch.reshape(new_output, (new_output.shape[0], new_output.shape[1], width*self.extend, height))
         
         return nn.Sigmoid()(new_output)

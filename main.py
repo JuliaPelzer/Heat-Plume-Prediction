@@ -83,7 +83,11 @@ def run(settings: SettingsTraining):
     solver = None
     if settings.case in ["train", "finetune"]:
         ssim = torchmetrics.image.StructuralSimilarityIndexMeasure(kernel_size=3).to(settings.device)
-        loss_fn = L1Loss()
+        if settings.loss == 'mse':
+            loss_fn = MSELoss()
+        if settings.loss == 'l1':
+            loss_fn = L1Loss()
+
         # training
         finetune = True if settings.case == "finetune" else False
         solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn, finetune=finetune)
@@ -185,6 +189,7 @@ if __name__ == "__main__":
     parser.add_argument("--extend", type=int, default=2)
     parser.add_argument("--overfit", type=int, default=0)
     parser.add_argument("--nr_layers", type=int, default=1)
+    parser.add_argument("--loss", type=str, choices=['mse', 'l1'], default='mse')
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

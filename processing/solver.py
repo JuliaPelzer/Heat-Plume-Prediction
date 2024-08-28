@@ -25,7 +25,7 @@ class Solver(object):
     model: Module
     train_dataloader: DataLoader
     val_dataloader: DataLoader
-    loss_func: modules.loss._Loss = L1Loss()
+    loss_func: modules.loss._Loss = MSELoss()
     learning_rate: float = 1e-5
     opt: Optimizer = Adam
     finetune: bool = False
@@ -108,6 +108,7 @@ class Solver(object):
                     if epoch in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 15000, 20000, 24999]:
                         csv_writer.writerow([epoch, val_epoch_loss, train_epoch_loss])
                         csv_writer_best.writerow([epoch, self.best_model_params["loss"], self.best_model_params["train loss"]])
+                        file.flush()
                         # for name, param in self.model.named_parameters():
                         #     writer.add_histogram(name, param, epoch)
 
