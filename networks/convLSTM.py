@@ -29,6 +29,8 @@ class ConvLSTMCell(nn.Module):
             padding='same'
         ))
 
+        layers.append(nn.ReLU(inplace=True))
+
         for i in range(1, len(self.nr_features) - 1):
             # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
             layers.append(nn.Conv2d(
@@ -38,6 +40,8 @@ class ConvLSTMCell(nn.Module):
                 stride=1,
                 padding='same'
             ))
+            layers.append(nn.BatchNorm2d(num_features=self.nr_features[i]))
+            layers.append(nn.ReLU(inplace=True))
 
         layers.append(nn.Conv2d(
             in_channels=self.nr_features[-1],
@@ -46,6 +50,8 @@ class ConvLSTMCell(nn.Module):
             stride=1,
             padding='same'
         ))
+
+        layers.append(nn.ReLU(inplace=True))
 
         # Create a Sequential container with the layers
         self.conv = nn.Sequential(*layers)
@@ -58,7 +64,8 @@ class ConvLSTMCell(nn.Module):
     def forward(self, X, H_prev, C_prev):
 
         # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch   
-        
+        assert len(X.size()) == 4, f'expected 4 but got {X.size()}'
+        assert len(H_prev.size()) == 4, f'expected 4 but got {H_prev.size()}'
         conv_output = self.conv[0](torch.cat([X, H_prev], dim=1))
         conv_output.to('cuda')
         
@@ -67,6 +74,11 @@ class ConvLSTMCell(nn.Module):
 
         # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
         i_conv, f_conv, C_conv, o_conv = torch.chunk(conv_output, chunks=4, dim=1)
+
+        with open('/home/hofmanja/1HP_NN/test4.txt', 'w') as file:
+            file.write(f'i_conv shape: {i_conv.shape}\n')
+            file.write(f'self.W_ci: {self.W_ci.shape}\n')
+            file.write(f'C_prev: {C_prev.shape}\n' )
 
         input_gate = torch.sigmoid(i_conv + self.W_ci * C_prev )
         forget_gate = torch.sigmoid(f_conv + self.W_cf * C_prev )
@@ -80,6 +92,42 @@ class ConvLSTMCell(nn.Module):
         H = output_gate * self.activation(C)
 
         return H, C
+    
+    @staticmethod
+    def _block(in_channels, features, kernel_size=5, padding_mode="same"):
+        return nn.Sequential(
+            # PaddingCircular(kernel_size, direction="both"),
+            nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=features,
+                kernel_size=kernel_size,
+                padding="same",
+                # padding_mode=padding_mode,
+                bias=True,
+            ),
+            nn.ReLU(inplace=True),      
+            # PaddingCircular(kernel_size, direction="both"),
+            nn.Conv2d(
+                in_channels=features,
+                out_channels=features,
+                kernel_size=kernel_size,
+                padding="same",
+                # padding_mode=padding_mode,
+                bias=True,
+            ),
+            nn.BatchNorm3d(num_features=features),
+            nn.ReLU(inplace=True),      
+            # PaddingCircular(kernel_size, direction="both"),
+            nn.Conv2d(
+                in_channels=features,
+                out_channels=features,
+                kernel_size=kernel_size,
+                padding="same",
+                # padding_mode=padding_mode,
+                bias=True,
+            ),        
+            nn.ReLU(inplace=True),
+        )
 
 class ConvLSTM(nn.Module):
 
@@ -162,9 +210,32 @@ class Seq2Seq(nn.Module):
                 ) 
 
         # Add Convolutional Layer to predict output frame
-        self.conv = nn.Conv2d(
-            in_channels=num_kernels, out_channels=1,
-            kernel_size=5, stride=1, padding='same')
+        features = [64, 64, 64]
+        self.conv = nn.Sequential(
+            nn.Conv2d(
+                in_channels=num_kernels, 
+                out_channels=features[0],
+                kernel_size=5, 
+                stride=1,
+                padding='same',
+                bias=True),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(
+                in_channels=features[0], 
+                out_channels=features[1],
+                kernel_size=5, 
+                stride=1, 
+                padding='same',
+                bias=True),
+            nn.BatchNorm2d(num_features=features[1]),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(
+                in_channels=features[2],
+                out_channels=1,
+                kernel_size=5,
+                padding='same',
+                bias=True)
+            )
 
     def forward(self, X):
 
@@ -177,6 +248,8 @@ class Seq2Seq(nn.Module):
         new_output = torch.zeros(batch_size, 1, self.extend, height, width, device='cuda')
 
         for pred_box in range(self.extend):
+            curr_output = output[:,:,self.prev_boxes+pred_box]
+            #assert curr_output.shape == [50, 64, 64, 64], f'got {curr_output.shape}'
             new_output[:,:,pred_box] = self.conv(output[:,:,self.prev_boxes+pred_box])
             
         new_output = torch.reshape(new_output, (new_output.shape[0], new_output.shape[1], width*self.extend, height))

@@ -66,7 +66,7 @@ class SettingsTraining:
             self.overfit_str = f' overfit_{self.overfit}'
 
         if self.destination == "": 
-            self.destination = f"inputs_{self.inputs} case_{self.case} prev_{self.prev_boxes} extend_{self.extend} skip_{self.skip_per_dir} more conv{self.overfit_str} {self.loss} l_kernel {self.nr_layers}layers"
+            self.destination = f"case_{self.case} prev_{self.prev_boxes} extend_{self.extend} skip_{self.skip_per_dir} j_conv{self.overfit_str} {self.loss} {self.nr_layers}layers"
 
         
 
@@ -75,7 +75,7 @@ class SettingsTraining:
         
     def make_destination_path(self, destination_dir: pathlib.Path):
         if self.destination == "":
-            self.destination = f"inputs_{self.inputs} case_{self.case} prev_{self.prev_boxes} extend_{self.extend} skip_{self.skip_per_dir} more conv{self.overfit_str} {self.loss} l_kernel {self.nr_layers}layers"
+            self.destination = f"case_{self.case} prev_{self.prev_boxes} extend_{self.extend} skip_{self.skip_per_dir} j_conv{self.overfit_str} {self.loss} {self.nr_layers}layers"
         self.destination = destination_dir / self.destination
         self.destination.mkdir(parents=True, exist_ok=True)
 
