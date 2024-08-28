@@ -76,7 +76,7 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
             y = labels[datapoint_id]
 
             if rotate_inference:
-                y_out = rt.rotate_and_infer(inputs[datapoint_id], [1,0], model, info, device).to(device)
+                y_out = rt.rotate_and_infer(inputs[datapoint_id], [-1,0], model, info, device).to(device)
             else:
                 y_out = model(x).to(device)
 
@@ -187,7 +187,7 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, r
             x = torch.unsqueeze(x, 0)
 
             if rotate_inference:
-                y_out = rt.rotate_and_infer(inputs[datapoint_id], [1,0], model, info, device).to(device)
+                y_out = rt.rotate_and_infer(inputs[datapoint_id], [-1,0], model, info, device).to(device)
             else:
                 y_out = model(x).to(device)
             

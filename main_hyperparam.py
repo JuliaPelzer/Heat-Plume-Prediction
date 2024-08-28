@@ -50,6 +50,14 @@ def init_data(settings: SettingsTraining, seed=1):
     split_ratios = [0.7, 0.2, 0.1]
     # if settings.case == "test":
     #     split_ratios = [0.0, 0.0, 1.0]
+
+    dataset = TrainDataset.restrict_data(dataset, settings.data_n)
+    print('!------------------------------------------------------------------------------------------------------------------!')
+    print('Dataset restricted to size ' + str(len(dataset)))
+    print('!------------------------------------------------------------------------------------------------------------------!')
+
+    if settings.rotate_inference and settings.case == 'train':
+        dataset = TrainDataset.rotate_data(dataset)
         
     datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     dataloaders = {}
@@ -64,6 +72,8 @@ def init_data(settings: SettingsTraining, seed=1):
 
 def run_eval(config = None):
     model_name = 'ECNN' if settings_global.use_ecnn else 'CNN'
+    model_name += '_MASK' if settings_global.mask else '_NO_MASK'
+    model_name += f'_AUG-{settings_global.augmentation_n}'
     with wandb.init(config=config, tags=[model_name]):
         config = wandb.config
         settings = settings_global
@@ -115,6 +125,7 @@ def run_eval(config = None):
         wandb.log({'epoch found':log_params['epoch']})
         wandb.log({'best val_loss':log_params['loss']})
         wandb.log({'best train_loss':log_params['train loss']})
+        wandb.log({'dataset':settings.dataset_raw})
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
@@ -140,6 +151,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_ecnn", type=bool, default=False)
     parser.add_argument("--mask", type=bool, default=False)
     parser.add_argument("--rotate_inputs", type=int, default=0)
+    parser.add_argument("--data_n", type=int, default=-1)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

@@ -8,9 +8,10 @@ from torch.utils.data import Dataset, Subset
 from torch._utils import _accumulate
 from typing import List,Optional,Sequence
 import numpy as np
+import random
 
 from data_stuff.transforms import NormalizeTransform
-from processing.rotation import mask_tensor, rotate
+from processing.rotation import mask_tensor, rotate, get_rotation_angle
 
 
 class SimulationDataset(Dataset):
@@ -117,11 +118,54 @@ class TrainDataset(Dataset):
         
         for i in range(len(dataset)):
             for _ in range(augmentation_n):
-                rot_angle = np.random.rand()*360
-                #rot_angle = np.random.choice([0.25,0.5,0.75])*360
-                augmented_dataset.add_item(rotate(inputs[i], rot_angle), rotate(labels[i], rot_angle), run_ids[i] + f'_rot_{rot_angle}')
+                 rot_angle = np.random.rand()*360
+                 augmented_dataset.add_item(rotate(inputs[i], rot_angle), rotate(labels[i], rot_angle), run_ids[i] + f'_rot_{rot_angle}')
+            #extra augmentation mode used for 90*k degrees rotation
+            if augmentation_n < 0:
+                for rot_angle in [90,180,270]:
+                    augmented_dataset.add_item(rotate(inputs[i], rot_angle), rotate(labels[i], rot_angle), run_ids[i] + f'_rot_{rot_angle}')
 
         return Subset(augmented_dataset, list(range(len(augmented_dataset))))
+    
+    # restrict dataset to data_n points dont limit if data_n <= 0
+    @staticmethod
+    def restrict_data(dataset, data_n = -1, seed = 1):
+        if data_n <= 0 or data_n >= len(dataset):
+            return dataset
+        
+        random.seed(seed)
+        
+        restricted_dataset = TrainDataset(dataset.path) 
+        data_points = random.sample([(dataset[i][0], dataset[i][1], dataset.get_run_id(i)) for i in range(len(dataset))], data_n)
+
+        for data_point in data_points:
+            restricted_dataset.add_item(data_point[0], data_point[1], data_point[2])
+
+        return restricted_dataset
+    
+    # rotate datapoints such that pressure gradient points in grad_vec direction
+    @staticmethod
+    def rotate_data(dataset, grad_vec = [-1,0]):
+        info = dataset.info
+        p_ind = info['Inputs']['Liquid Pressure [Pa]']['index']
+        
+        center = int(dataset[0][0][p_ind].shape[0]/2)
+        start = 5
+        end = dataset[0][0][p_ind].shape[0] - 5
+        dif = end - start
+
+        inputs = [dataset[i][0] for i in range(len(dataset))]
+        labels = [dataset[i][1] for i in range(len(dataset))]
+        run_ids = [dataset.get_run_id(i) for i in range(len(dataset))]
+        
+        rotated_dataset = TrainDataset(dataset.path)
+
+        for i in range(len(dataset)):
+            angle = get_rotation_angle([(inputs[i][p_ind][end][center].item() - inputs[i][p_ind][start][center].item())/dif, 
+                                    (inputs[i][p_ind][center][end].item() - inputs[i][p_ind][center][start].item())/dif], grad_vec)
+            rotated_dataset.add_item(rotate(inputs[i], angle), rotate(labels[i], angle), run_ids[i])
+
+        return rotated_dataset
 
 class DatasetExtend1(Dataset):
     def __init__(self, path:str, box_size:int=64):

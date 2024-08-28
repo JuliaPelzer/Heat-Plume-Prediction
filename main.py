@@ -33,7 +33,15 @@ def init_data(settings: SettingsTraining, seed=1):
     split_ratios = [0.7, 0.2, 0.1]
     # if settings.case == "test":
     #     split_ratios = [0.0, 0.0, 1.0]
-        
+    
+    dataset = TrainDataset.restrict_data(dataset, settings.data_n)
+    print('------------------------------------------------------------------------------------------------------------------')
+    print('Dataset restricted to size ' + str(len(dataset)))
+    print('------------------------------------------------------------------------------------------------------------------')
+
+    if settings.rotate_inference and settings.case == 'train':
+        dataset = TrainDataset.rotate_data(dataset)
+
     datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     dataloaders = {}
     try:
@@ -99,7 +107,7 @@ def run(settings: SettingsTraining):
         print('----------------------------------------------------------------------------------')
     save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver) #, errors)
     if settings.visualize:
-        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", pic_format=pic_format, rotate_inference=settings.rotate_inference) #amount_datapoints_to_visu=5,
+        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", pic_format=pic_format, amount_datapoints_to_visu=10, rotate_inference=settings.rotate_inference) #amount_datapoints_to_visu=5,
         times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device, rotate_inference=settings.rotate_inference)
         plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         print("Visualizations finished")
@@ -126,7 +134,7 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
         time_start = time.perf_counter()
 
         if settings.rotate_inference:
-            y_out = rotate_and_infer(data, [1,0], model, load_yaml(settings.destination, 'info'), settings.device).to(settings.device)
+            y_out = rotate_and_infer(data, [-1,0], model, load_yaml(settings.destination, 'info'), settings.device).to(settings.device)
         else:
             y_out = model(data.to(settings.device)).to(settings.device)
 
@@ -162,6 +170,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_ecnn", type=bool, default=False)
     parser.add_argument("--mask", type=bool, default=False)
     parser.add_argument("--rotate_inputs", type=int, default=0)
+    parser.add_argument("--data_n", type=int, default=-1)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

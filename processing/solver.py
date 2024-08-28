@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from torch.nn import Module, MSELoss, modules
 from torch.optim import Adam, Optimizer
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch import manual_seed
@@ -62,6 +63,12 @@ class Solver(object):
         writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
 
         epochs = tqdm(range(settings.epochs), desc="epochs", disable=False)
+
+        #-----------------------------------------lr--------------------------
+        # scheduler = CosineAnnealingLR(self.opt, T_max = len(epochs))
+        # self.opt.param_groups[0]["lr"] = 1e-4
+        #-----------------------------------------lr--------------------------
+
         for epoch in epochs:
             try:
                 # Set lr according to schedule
@@ -110,6 +117,9 @@ class Solver(object):
                         csv_writer_best.writerow([epoch, self.best_model_params["loss"], self.best_model_params["train loss"]])
                         # for name, param in self.model.named_parameters():
                         #     writer.add_histogram(name, param, epoch)
+                
+                #adjust lr
+                #scheduler.step()
 
             except KeyboardInterrupt:
                 model_tmp = UNetHalfPad(in_channels=len(settings.inputs), out_channels=1) # UNet

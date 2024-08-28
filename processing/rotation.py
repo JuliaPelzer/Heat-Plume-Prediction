@@ -18,8 +18,12 @@ def rotate(data, angle):
 def rotate_and_infer(datapoint, grad_vec, model, info, device):
     p_ind = info['Inputs']['Liquid Pressure [Pa]']['index']
     center = int(datapoint[p_ind].shape[0]/2)
-    angle = get_rotation_angle([datapoint[p_ind][center][center].item() - datapoint[p_ind][center + 1][center].item(), 
-                                datapoint[p_ind][center][center].item() - datapoint[p_ind][center][center + 1].item()], grad_vec)
+    start = 5
+    end = datapoint[p_ind].shape[0] - 5
+    dif = end - start
+
+    angle = get_rotation_angle([(datapoint[p_ind][end][center].item() - datapoint[p_ind][start][center].item())/dif, 
+                                (datapoint[p_ind][center][end].item() - datapoint[p_ind][center][start].item())/dif], grad_vec)
     x = rotate(datapoint, angle)
 
     #get inference
@@ -35,9 +39,13 @@ def rotate_and_infer_batch(batch, grad_vec, model, info, device):
     y_out_list = []
     p_ind = info['Inputs']['Liquid Pressure [Pa]']['index']
     center = int(batch[0][p_ind].shape[0]/2)
+    start = 5
+    end = datapoint[p_ind].shape[0] - 5
+    dif = end - start
+    
     for datapoint in batch:
-        angle = get_rotation_angle([datapoint[p_ind][center][center].item() - datapoint[p_ind][center + 1][center].item(), 
-                                    datapoint[p_ind][center][center].item() - datapoint[p_ind][center][center + 1].item()], grad_vec)
+        angle = get_rotation_angle([(datapoint[p_ind][end][center].item() - datapoint[p_ind][start][center].item())/dif, 
+                                (datapoint[p_ind][center][end].item() - datapoint[p_ind][center][start].item())/dif], grad_vec)
         x = rotate(datapoint, angle)
 
         #get inference
