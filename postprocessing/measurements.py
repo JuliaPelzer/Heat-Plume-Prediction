@@ -51,46 +51,7 @@ def measure_len_width_1K_isoline(data: Dict[str, "DataToVisualize"]):
     plt.close("all")
     return lengths, widths
 
-def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: modules.loss._Loss = MSELoss(), rotate_inference : bool = False):
-
-    norm = dataloader.dataset.dataset.norm
-    info = dataloader.dataset.dataset.info
-    model.eval()
-    mse_loss = 0.0
-    mse_closs = 0.0
-    mae_loss = 0.0
-    mae_closs = 0.0
-    avg_perc_closs = 0.0
-
-    for x, y in dataloader: # batchwise
-        x = x.to(device)
-        y = y.to(device)
-        if rotate_inference:
-            y_pred = rt.rotate_and_infer_batch(x, [-1,0], model, info, device).to(device)
-        else:
-            y_pred = model(x).to(device)
-        mse_loss += loss_func(y_pred, y).detach().item()
-        mae_loss = torch.mean(torch.abs(y_pred - y)).detach().item()
-
-        y = torch.swapaxes(y, 0, 1)
-        y_pred = torch.swapaxes(y_pred, 0, 1)
-        y = norm.reverse(y.detach().cpu(),"Labels")
-        y_pred = norm.reverse(y_pred.detach().cpu(),"Labels")
-        mse_closs += loss_func(y_pred, y).detach().item()
-        mae_closs = torch.mean(torch.abs(y_pred - y)).detach().item()
-        avg_perc_closs += percentage_misclassification(y_pred, y, 0.1)
-        
-    mse_loss /= len(dataloader)
-    mse_closs /= len(dataloader)
-    mae_loss /= len(dataloader)
-    mae_closs /= len(dataloader)
-    avg_perc_closs /= len(dataloader)
-
-    return {"mean squared error": mse_loss, "mean squared error in [°C^2]": mse_closs, 
-            "mean absolute error": mae_loss, "mean absolute error in [°C]": mae_closs,
-            "average precentage missclassified":avg_perc_closs}
-
-def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args: dict, vT_case: str = "temperature", rotate_inference : bool = False):
+def measure_loss(model: UNet, dataloaders: Dict[str, DataLoader], settings: SettingsTraining, vT_case: str = "temperature", rotate_inference : bool = False, mask : bool = False):
     '''
     function to measure the losses for the paper24
     ATTENTION! not robust, expects vT-case to be "temperature" or "velocities" and
@@ -100,11 +61,11 @@ def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args
     if vT_case == "temperature":
         pbt_threshold = [0.1] # [°C] # only relevant for temperature
     
-    device = args["device"]
-    if args["problem"] == "allin1":
+    device = settings.device
+    if settings.problem == "allin1":
         norm = dataloaders["train"].dataset.norm
         output_channels = dataloaders["train"].dataset.output_channels
-    elif args["problem"] in ["1hp", "2stages"]:
+    elif settings.problem in ["1hp", "2stages"]:
         norm = dataloaders["train"].dataset.dataset.norm
         output_channels = dataloaders["train"].dataset.dataset.output_channels
     info = dataloaders["train"].dataset.dataset.info
@@ -125,6 +86,11 @@ def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args
                 y_pred = rt.rotate_and_infer_batch(x, [-1,0], model, info, device).to(device).detach()
             else:
                 y_pred = model(x).to(device).detach()
+
+            if mask:
+                y = rt.mask_batch(y.cpu()).to(device)
+                y_pred = rt.mask_batch(y_pred.cpu()).to(device)
+                
             required_size = y_pred.shape[2:]
             start_pos = ((y.shape[2] - required_size[0])//2, (y.shape[3] - required_size[1])//2)
             y = y[:, :, start_pos[0]:start_pos[0]+required_size[0], start_pos[1]:start_pos[1]+required_size[1]]

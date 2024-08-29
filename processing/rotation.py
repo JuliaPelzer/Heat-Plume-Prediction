@@ -40,7 +40,7 @@ def rotate_and_infer_batch(batch, grad_vec, model, info, device):
     p_ind = info['Inputs']['Liquid Pressure [Pa]']['index']
     center = int(batch[0][p_ind].shape[0]/2)
     start = 5
-    end = datapoint[p_ind].shape[0] - 5
+    end = batch[0][p_ind].shape[0] - 5
     dif = end - start
     
     for datapoint in batch:
@@ -120,6 +120,10 @@ def mask_tensor(data):
         data_out[i] = data[i]*mask
     
     return data_out
+
+#cut out circular field of data for batch
+def mask_batch(batch):
+    return torch.stack([mask_tensor(data) for data in batch])
 
 # FUNCTIONS TO USE IN COMBINATION WITH GRADIENT, ARTIFACTS OF EARLIER TINKERING ===> UNSUPPORTED!
 

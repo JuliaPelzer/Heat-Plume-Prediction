@@ -101,14 +101,14 @@ def run(settings: SettingsTraining):
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"
-        errors = measure_loss(model, dataloaders[which_dataset], settings.device, rotate_inference=settings.rotate_inference)
+        errors = measure_loss(model, dataloaders, settings, rotate_inference=settings.rotate_inference, mask = True)
         print('----------------------------------------------------------------------------------')
         print(errors)
         print('----------------------------------------------------------------------------------')
     save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver) #, errors)
     if settings.visualize:
-        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", pic_format=pic_format, amount_datapoints_to_visu=10, rotate_inference=settings.rotate_inference) #amount_datapoints_to_visu=5,
-        times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device, rotate_inference=settings.rotate_inference)
+        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", pic_format=pic_format, amount_datapoints_to_visu=10, rotate_inference=settings.rotate_inference, mask=True) #amount_datapoints_to_visu=5,
+        times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device, rotate_inference=settings.rotate_inference, mask=True)
         plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
         print("Visualizations finished")
         
