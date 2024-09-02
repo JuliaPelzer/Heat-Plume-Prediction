@@ -10,7 +10,7 @@ def rotate(data, angle):
     data_out = torch.zeros_like(data)
     # rotate all scalar fields
     for i in range(data.shape[0]):
-        data_out[i] = TF.rotate(data[i].unsqueeze(0), angle).squeeze(0) #interpolation = InterpolationMode.BILINEAR
+        data_out[i] = TF.rotate(data[i].unsqueeze(0), angle, interpolation = InterpolationMode.BILINEAR).squeeze(0) #interpolation = InterpolationMode.BILINEAR
     
     return data_out
 

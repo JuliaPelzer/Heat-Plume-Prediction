@@ -16,7 +16,7 @@ from networks.equivariantCNN import G_UNet
 from processing.solver import Solver
 from processing.rotation import rotate_and_infer
 from preprocessing.prepare import prepare_data_and_paths
-from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
+from postprocessing.visualization import plot_avg_error_cellwise, plot_avg_error_rotated_cellwise, visualizations, infer_all_and_summed_pic, infer_all_rotate_and_summed_pic
 from postprocessing.measurements import measure_loss, save_all_measurements
 
 def init_data(settings: SettingsTraining, seed=1):
@@ -48,7 +48,8 @@ def init_data(settings: SettingsTraining, seed=1):
         dataloaders["train"] = DataLoader(TrainDataset.augment_data(datasets[0], settings.augmentation_n, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
         dataloaders["val"] = DataLoader(TrainDataset.augment_data(datasets[1], 0, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
     except: pass
-    dataloaders["test"] = DataLoader(TrainDataset.augment_data(datasets[2], 0, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
+    #dont shuffle to omitt additional rounding errors
+    dataloaders["test"] = DataLoader(TrainDataset.augment_data(datasets[2], 0, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=False, num_workers=0)
 
     return dataset.input_channels, dataloaders
 
@@ -109,7 +110,12 @@ def run(settings: SettingsTraining):
     if settings.visualize:
         visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", pic_format=pic_format, amount_datapoints_to_visu=10, rotate_inference=settings.rotate_inference, mask=True) #amount_datapoints_to_visu=5,
         times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device, rotate_inference=settings.rotate_inference, mask=True)
+        summed_dif_pic = infer_all_rotate_and_summed_pic(model, dataloaders[which_dataset], settings.device, rotate_inference=settings.rotate_inference, mask=True, angle = 90)
+        plot_avg_error_rotated_cellwise(dataloaders[which_dataset], summed_dif_pic, {"folder" : settings.destination, "format": pic_format})
+        print(f"Mean Error (Equivariance): {summed_dif_pic.mean()}")
         plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
+        avg_inference_time = times[f"avg_inference_time of {which_dataset}"]
+        print(f"Avg inference Time: {avg_inference_time}")
         print("Visualizations finished")
         
     print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
@@ -119,7 +125,10 @@ def run(settings: SettingsTraining):
 def save_inference(model_name:str, in_channels: int, settings: SettingsTraining):
     # push all datapoints through and save all outputs
     if settings.problem == "2stages":
-        model = UNet(in_channels=in_channels).float()
+        if settings.use_ecnn:
+            model = G_UNet(in_channels=in_channels).float()
+        else:
+            model = UNet(in_channels=in_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         model = UNetHalfPad(in_channels=in_channels).float()
     model.load(model_name, settings.device)
@@ -128,13 +137,16 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
     data_dir = settings.dataset_prep
     (data_dir / "Outputs").mkdir(exist_ok=True)
 
+    avg_time = 0.0
+    n_data = 0
+
     for datapoint in (data_dir / "Inputs").iterdir():
         data = torch.load(datapoint)
         data = torch.unsqueeze(data, 0)
         time_start = time.perf_counter()
 
         if settings.rotate_inference:
-            y_out = rotate_and_infer(data, [-1,0], model, load_yaml(settings.destination, 'info'), settings.device).to(settings.device)
+            y_out = rotate_and_infer(data.squeeze(0), [-1,0], model, load_yaml(settings.destination, 'info'), settings.device).to(settings.device)
         else:
             y_out = model(data.to(settings.device)).to(settings.device)
 
@@ -142,8 +154,12 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
         y_out = y_out.detach().cpu()
         y_out = torch.squeeze(y_out, 0)
         torch.save(y_out, data_dir / "Outputs" / datapoint.name)
-        print(f"Inference of {datapoint.name} took {time_end-time_start} seconds")
-    
+        time_run = time_end-time_start
+        print(f"Inference of {datapoint.name} took {time_run} seconds")
+        avg_time += time_run
+        n_data += 1
+    avg_time /= n_data
+    print(f"Average inference time {avg_time}")
     print(f"Inference finished, outputs saved in {data_dir / 'Outputs'}")
 
 if __name__ == "__main__":

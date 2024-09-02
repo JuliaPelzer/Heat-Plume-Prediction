@@ -215,26 +215,3 @@ def weights_init(m):
     # elif classname.find("BatchNorm") != -1:
     #     m.weight.data.normal_(1.0, 0.02)
     #     m.bias.data.zero_()
-
-# function to rotate one datapoint counterclockwise (with pressure)
-# def rotate(data, angle):
-#     data_out = torch.zeros_like(data)
-#     # rotate all scalar fields
-#     for i in range(data.shape[0]):
-#         data_out[i] = TF.rotate(data[i].unsqueeze(0), angle).squeeze(0)
-    
-#     return data_out
-
-# Test:
-# in_channels = 5
-# model = G_UNet(in_channels=in_channels,rotation_n=4)
-# input_tensor = randn(1, in_channels, 128, 128)
-# output = model(input_tensor)
-# print(output.shape)
-
-# if torch.equal(output, output_rot):
-#     print('YEA')
-# else:
-#     print('NAY')
-
-# print(output.shape)

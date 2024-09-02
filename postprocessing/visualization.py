@@ -76,7 +76,7 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
             y = labels[datapoint_id]
 
             if rotate_inference:
-                y_out = rt.rotate_and_infer(inputs[datapoint_id], [-1,0], model, info, device).to(device)
+                y_out = rt.rotate_and_infer(x.squeeze(0), [-1,0], model, info, device).to(device)
             else:
                 y_out = model(x).to(device)
 
@@ -169,9 +169,10 @@ def plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, settings_pic:
     plt.tight_layout()
     plt.savefig(f"{name_pic}_isolines.{settings_pic['format']}", **settings_pic)
 
-def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, rotate_inference: bool = False, mask: bool = False):
+def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, rotate_inference: bool = False, mask: bool = False, angle: int = 0):
     '''
     sum inference time (including reverse-norming) and pixelwise error over all datapoints
+    the angle parameter is only used for testing of equivariance
     '''
     
     norm = dataloader.dataset.dataset.norm
@@ -187,15 +188,15 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, r
         for datapoint_id in range(len_batch):
             # get data
             start_time = time.perf_counter()
-            x = inputs[datapoint_id].to(device)
+            x = rt.rotate(inputs[datapoint_id],angle).to(device)
             x = torch.unsqueeze(x, 0)
 
             if rotate_inference:
-                y_out = rt.rotate_and_infer(inputs[datapoint_id], [-1,0], model, info, device).to(device)
+                y_out = rt.rotate_and_infer(x.squeeze(0), [-1,0], model, info, device).to(device)
             else:
                 y_out = model(x).to(device)
             
-            y = labels[datapoint_id]
+            y = rt.rotate(labels[datapoint_id],angle)
 
             if mask:
                 y = rt.mask_tensor(y.cpu()).to(device)
@@ -212,7 +213,39 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, r
 
     avg_inference_time /= current_id
     summed_error_pic /= current_id
-    return avg_inference_time, summed_error_pic
+    return avg_inference_time, rt.rotate(summed_error_pic.unsqueeze(0), 360 - angle).squeeze(0)
+
+def infer_all_rotate_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, rotate_inference: bool = False, mask: bool = False, angle: int = 0):
+    '''
+    sum inference time (including reverse-norming)
+    pixelwise error between pixelwise error over all datapoints and pixelwise error over all rotated datapoints
+    '''
+    
+    _, summed_error_pic = infer_all_and_summed_pic(model, dataloader, device, rotate_inference, mask)
+    _, summed_error_pic_rotated = infer_all_and_summed_pic(model, dataloader, device, rotate_inference, mask, angle=angle)
+
+    #absolute differences between errors
+    summed_error_pic_dif = abs(summed_error_pic-summed_error_pic_rotated)
+
+    return summed_error_pic_dif 
+
+def plot_avg_error_rotated_cellwise(dataloader, summed_error_pic_dif, settings_pic: dict):
+    # plot avg error cellwise AND return time measurements for inference
+
+    info = dataloader.dataset.dataset.info
+    extent_highs = (np.array(info["CellsSize"][:2]) * dataloader.dataset[0][0][0].shape)
+    extent = (0,int(extent_highs[0]),int(extent_highs[1]),0)
+
+    plt.figure()
+    plt.imshow(summed_error_pic_dif.T, cmap="RdBu_r", extent=extent)
+    plt.gca().invert_yaxis()
+    plt.ylabel("x [m]")
+    plt.xlabel("y [m]")
+    plt.title("Difference cellwise averaged error [°C]")
+    _aligned_colorbar()
+
+    plt.tight_layout()
+    plt.savefig(f"{settings_pic['folder']}/avg_error_dif.{settings_pic['format']}", format=settings_pic['format'])
 
 def plot_avg_error_cellwise(dataloader, summed_error_pic, settings_pic: dict):
     # plot avg error cellwise AND return time measurements for inference
