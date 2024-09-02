@@ -2,33 +2,49 @@ import torch.nn as nn
 from torch import save, tensor, cat, load, equal
 import pathlib
 
-class UNet(nn.Module):
-    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=5, kernel_size=3, padding_mode="replicate", dilation = 2):
+class UNetRectKernel(nn.Module):
+    def __init__(self, in_channels=2, out_channels=1, init_features=64, depth=5, kernel_size=4, padding_mode="replicate", dilation = 1, early = True, down_kernel=7):
         super().__init__()
         features = init_features        
         self.encoders = nn.ModuleList()
         self.pools = nn.ModuleList()
-        meta_model = []
+        if early:
+            make_quad = 0
+        else:
+            make_quad = depth - 1
         for _ in range(depth):
-            self.encoders.append(UNet._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
-            for i in range(3):
-                meta_model.append({"kernel_size" : kernel_size,"stride":1, "dilation": dilation})
-            self.pools.append(nn.MaxPool2d(kernel_size=2, stride=2))
-            meta_model.append({"kernel_size" : 2,"stride":2, "dilation": 1})
+            self.encoders.append(UNetRectKernel._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
+            if _ == make_quad:
+                self.pools.append(nn.Sequential(
+                nn.Conv2d(
+                    in_channels=features,
+                    out_channels=features,
+                    kernel_size=(down_kernel,3),
+                    padding=(down_kernel//2,1),
+                    padding_mode='replicate',
+                    stride = (4,1),
+                    bias=True,
+                ),
+                nn.ReLU(inplace=True)))
+            else:
+                self.pools.append(nn.MaxPool2d(kernel_size=2, stride=2))
             in_channels = features
             features *= 2
-        self.encoders.append(UNet._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
-        for i in range(3):
-            meta_model.append({"kernel_size" : kernel_size,"stride":1, "dilation": dilation})
+        
+        self.encoders.append(UNetRectKernel._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
+
+
         self.upconvs = nn.ModuleList()
         self.decoders = nn.ModuleList()
         for _ in range(depth):
-            self.upconvs.append(nn.ConvTranspose2d(features, features//2, kernel_size=2, stride=2))
-            self.decoders.append(UNet._block(features, features//2, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
+            if _ == depth-1:
+                self.upconvs.append(nn.ConvTranspose2d(features, features//2, kernel_size=(10,3), stride=(4,1),padding=(3,1)))
+            else:
+                self.upconvs.append(nn.ConvTranspose2d(features, features//2, kernel_size=2, stride=2))
+            self.decoders.append(UNetRectKernel._block(features, features//2, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
             features = features // 2
 
         self.conv = nn.Conv2d(in_channels=features, out_channels=out_channels, kernel_size=1)
-        calc_receptive_field(meta_model)
 
     def forward(self, x: tensor) -> tensor:
         encodings = []
@@ -36,7 +52,9 @@ class UNet(nn.Module):
             x = encoder(x)
             encodings.append(x)
             x = pool(x)
+
         x = self.encoders[-1](x)
+
 
         for upconv, decoder, encoding in zip(self.upconvs, self.decoders, reversed(encodings)):
             x = upconv(x)
@@ -146,35 +164,3 @@ class PaddingCircular(nn.Module):
             
         return result
 
-class UNetBC(UNet):
-    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
-        super().__init__(in_channels, out_channels, init_features, depth, kernel_size)
-
-        features = init_features
-        for _ in range(depth): features *= 2
-        for _ in range(depth): features = features // 2
-        self.conv = nn.Conv2d(in_channels=features, out_channels=out_channels, kernel_size=1)
-
-    @staticmethod
-    def _block(in_channels, features, kernel_size=5, padding_mode="zeros"):
-        return nn.Sequential(
-            ExplicitConv2dLayer(
-                in_channels, features, kernel_size, bias=True,),
-            nn.ReLU(inplace=True),    
-            ExplicitConv2dLayer(
-                features, features, kernel_size, bias=True,),
-            nn.BatchNorm2d(num_features=features),
-            nn.ReLU(inplace=True),  
-            ExplicitConv2dLayer(
-                features, features, kernel_size, bias=True,),
-            nn.ReLU(inplace=True),
-        )
-
-def calc_receptive_field(meta_model):
-    field_size = 1
-    mult_stride = 1
-
-    for i,curr_layer in enumerate(meta_model):
-        field_size = field_size + ((curr_layer["kernel_size"]-1) * mult_stride)
-        mult_stride = mult_stride * curr_layer["stride"]
-    print(f"receptive field of current network is:{field_size}")

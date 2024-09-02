@@ -132,7 +132,7 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
         if example[0]/example[1] > 4:
             fig.set_figheight(num_subplots * 1.5)
         else:
-            fig.set_figheight(num_subplots * 3)
+            fig.set_figheight(num_subplots * 2)
     
     for index, (name, datapoint) in enumerate(data.items()):
         if num_subplots == 1:

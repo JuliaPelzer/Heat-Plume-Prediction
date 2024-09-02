@@ -2,45 +2,54 @@ import torch.nn as nn
 from torch import save, tensor, cat, load, equal
 import pathlib
 
-class UNet(nn.Module):
-    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=5, kernel_size=3, padding_mode="replicate", dilation = 2):
+class UNetParallel(nn.Module):
+    def __init__(self, in_channels=2, out_channels=1, init_features=64, depth=5, kernel_size=4, padding_mode="replicate", dilation = 1, par_depth = 3, par_dil = (1,1), par_kern = (6,3)):
         super().__init__()
         features = init_features        
         self.encoders = nn.ModuleList()
         self.pools = nn.ModuleList()
-        meta_model = []
+        self.parallel = nn.ModuleList()
+
+        for _ in range(par_depth):
+            self.parallel.append(UNetParallel._block(features, features, kernel_size=par_kern, padding_mode=padding_mode, dilation = par_dil))
+        
         for _ in range(depth):
-            self.encoders.append(UNet._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
-            for i in range(3):
-                meta_model.append({"kernel_size" : kernel_size,"stride":1, "dilation": dilation})
+            self.encoders.append(UNetParallel._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
             self.pools.append(nn.MaxPool2d(kernel_size=2, stride=2))
-            meta_model.append({"kernel_size" : 2,"stride":2, "dilation": 1})
             in_channels = features
             features *= 2
-        self.encoders.append(UNet._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
-        for i in range(3):
-            meta_model.append({"kernel_size" : kernel_size,"stride":1, "dilation": dilation})
+        self.encoders.append(UNetParallel._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
+
         self.upconvs = nn.ModuleList()
         self.decoders = nn.ModuleList()
         for _ in range(depth):
             self.upconvs.append(nn.ConvTranspose2d(features, features//2, kernel_size=2, stride=2))
-            self.decoders.append(UNet._block(features, features//2, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
+            self.decoders.append(UNetParallel._block(features, features//2, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
             features = features // 2
 
         self.conv = nn.Conv2d(in_channels=features, out_channels=out_channels, kernel_size=1)
-        calc_receptive_field(meta_model)
 
     def forward(self, x: tensor) -> tensor:
         encodings = []
+        pools = []
         for encoder, pool in zip(self.encoders, self.pools):
             x = encoder(x)
             encodings.append(x)
             x = pool(x)
+            pools.append(x)
         x = self.encoders[-1](x)
 
+        x_par = pools[0]
+        for para_enc in self.parallel:
+            x_par = para_enc(x_par)
+
+        step = 0
         for upconv, decoder, encoding in zip(self.upconvs, self.decoders, reversed(encodings)):
             x = upconv(x)
-            x = cat((x, encoding), dim=1)
+            if step == len(encodings) - 2:
+                x = cat((x, x_par), dim=1)
+            else:
+                x = cat((x, encoding), dim=1)
             x = decoder(x)
 
         return self.conv(x)
@@ -146,7 +155,7 @@ class PaddingCircular(nn.Module):
             
         return result
 
-class UNetBC(UNet):
+class UNetBC(UNetParallel):
     def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=3, kernel_size=5):
         super().__init__(in_channels, out_channels, init_features, depth, kernel_size)
 
@@ -169,12 +178,3 @@ class UNetBC(UNet):
                 features, features, kernel_size, bias=True,),
             nn.ReLU(inplace=True),
         )
-
-def calc_receptive_field(meta_model):
-    field_size = 1
-    mult_stride = 1
-
-    for i,curr_layer in enumerate(meta_model):
-        field_size = field_size + ((curr_layer["kernel_size"]-1) * mult_stride)
-        mult_stride = mult_stride * curr_layer["stride"]
-    print(f"receptive field of current network is:{field_size}")

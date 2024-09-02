@@ -12,6 +12,8 @@ from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2
 from data_stuff.utils import SettingsTraining
 from networks.unet import UNet, UNetBC
 from networks.unetHalfPad import UNetHalfPad
+from networks.unetRectKernel import UNetRectKernel
+from networks.unetParallel import UNetParallel
 from networks.turbnet import TurbNetG
 from networks.turbnetnoskip import TurbNetNoSkipG
 from processing.solver import Solver
@@ -22,7 +24,7 @@ from postprocessing.measurements import measure_loss, save_all_measurements
 from postprocessing.test_temp import test_temp
 
 def init_data(settings: SettingsTraining, seed=1):
-    if settings.problem in ["2stages", "turbnet"]:
+    if settings.problem in ["2stages", "turbnet", "parallel", "rect"]:
         dataset = SimulationDataset(settings.dataset_prep)
     elif settings.problem == "extend1":
         dataset = DatasetExtend1(settings.dataset_prep, box_size=settings.len_box)
@@ -68,6 +70,10 @@ def run(settings: SettingsTraining):
         model = TurbNetG(in_channels=input_channels).float()
     elif settings.problem == "turb-ni":
         model = TurbNetNoSkipG(in_channels=input_channels).float()
+    elif settings.problem == "parallel":
+        model = UNetParallel(in_channels=input_channels).float()
+    elif settings.problem == "rect":
+        model = UNetRectKernel(in_channels=input_channels).float()
 
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, map_location=settings.device)
@@ -104,7 +110,9 @@ def run(settings: SettingsTraining):
     which_dataset = "val"
     pic_format = "png"
     times["time_end"] = time.perf_counter()
+    errors = {}
     if settings.case == "test":
+        summary(model, (5, 256, 64), receptive_field=True, max_depth=5)
         settings.visualize = True
         which_dataset = "test"
         errors = measure_loss(model, dataloaders, settings.device, vT_case="temperature")
@@ -163,7 +171,7 @@ if __name__ == "__main__":
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--only_prep", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
-    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2","turbnet","turb-no",], default="extend1")
+    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2","turbnet","turb-no","parallel","rect"], default="extend1")
     parser.add_argument("--notes", type=str, default="")
     parser.add_argument("--len_box", type=int, default=256)
     parser.add_argument("--skip_per_dir", type=int, default=256)

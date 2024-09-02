@@ -95,7 +95,7 @@ def extend_paths_for_problem(problem:str, default_raw_dir: pathlib.Path, destina
         default_raw_dir = default_raw_dir / "giant_manyhps"
         destination_dir = destination_dir / "allin1"
         datasets_prepared_dir = datasets_prepared_dir / "giant_manyhps"
-    elif problem == "2stages":
+    elif problem in ["2stages","parallel","rect"]:
         default_raw_dir = default_raw_dir / "1hp_boxes"
         destination_dir = destination_dir / "1hpnn"
         datasets_prepared_dir = datasets_prepared_dir / "1hp_boxes"
