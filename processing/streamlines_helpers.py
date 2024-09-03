@@ -56,36 +56,36 @@ def build_new_args(args):
     "Material ID",
     "Liquid X-Velocity [m_per_y]",
     "Liquid Y-Velocity [m_per_y]",
-    "Streamlines [-]",
     "Streamlines Faded [-]",
     "Permeability X [m^2]",
+    "Streamlines Faded Outer [-],"
     ]
     args["outputs"] = ["Temperature [C]"]
 
 def build_new_info(info):
-    info["Inputs"]["Streamlines [-]"] = {
-    "index": 3,
+    # info["Inputs"]["Streamlines Faded [-]"] = {
+    # "index": 3,
+    # "max": 1.0,
+    # "mean": None,
+    # "min": 0.0,
+    # "norm": None,
+    # "std": None,
+    # }
+    info["Inputs"]["Streamlines Faded Outer [-]"] = {
+    "index": 5,
     "max": 1.0,
     "mean": None,
     "min": 0.0,
     "norm": None,
     "std": None,
     }
-    info["Inputs"]["Streamlines Faded [-]"] = {
-    "index": 4,
-    "max": 1.0,
-    "mean": None,
-    "min": 0.0,
-    "norm": None,
-    "std": None,
-    }
-    info["Inputs"]["Permeability X [m^2]"]["index"] = 5
-    info["Inputs"]["Liquid X-Velocity [m_per_y]"] = info["Labels"]["Liquid X-Velocity [m_per_y]"]
-    info["Inputs"]["Liquid X-Velocity [m_per_y]"]["index"] = 1
-    info["Inputs"]["Liquid Y-Velocity [m_per_y]"] = info["Labels"]["Liquid Y-Velocity [m_per_y]"]
-    info["Inputs"]["Liquid Y-Velocity [m_per_y]"]["index"] = 2
+    # info["Inputs"]["Permeability X [m^2]"]["index"] = 4
+    # info["Inputs"]["Liquid X-Velocity [m_per_y]"] = info["Labels"]["Liquid X-Velocity [m_per_y]"]
+    # info["Inputs"]["Liquid X-Velocity [m_per_y]"]["index"] = 1
+    # info["Inputs"]["Liquid Y-Velocity [m_per_y]"] = info["Labels"]["Liquid Y-Velocity [m_per_y]"]
+    # info["Inputs"]["Liquid Y-Velocity [m_per_y]"]["index"] = 2
 
-    info["Labels"] = {"Temperature [C]": info["Labels"]["Temperature [C]"]}
+    # info["Labels"] = {"Temperature [C]": info["Labels"]["Temperature [C]"]}
 
 def extract_mat_ids_and_velos(inputs, label, indices):
     mat_ids = inputs[indices["mat_id"]].numpy()
@@ -158,13 +158,14 @@ def make_streamlines(mat_ids, vx, vy, dims, offset:str=None):
     pos_hps = np.array(np.where(mat_ids == 2)).T.astype(float)
     print("Number of heat pumps: ", pos_hps.shape[0])
     pos_hps += np.array([0.5,0.5]) # cell-center offset
+    resolution = 5
     if offset != None:
         pos_hps += np.array([0,offset])
     x,y = (np.arange(0,dims[0]),np.arange(0,dims[1]))
 
     time = datetime.now()
     streamlines = []
-    integrator = integrate_velocity(x, y, vx/5, vy/5)
+    integrator = integrate_velocity(x, y, vx/resolution, vy/resolution)
     for hp in tqdm(pos_hps, desc="Calculating streamlines"):
         sol = calc_streamline(integrator, (x.max(),y.max()), hp, t_end=27.5, t_steps=10_000)
         streamlines.append(sol)
@@ -182,12 +183,15 @@ def save_new_datapoint(destination, runid:str, inputs_new:torch.Tensor, labels_n
     torch.save(inputs_new, destination / "Inputs"/ runid)
     if labels_new != None:
         torch.save(labels_new, destination / "Labels" / runid)
+    correct_args_info(destination)
 
-def save_args_info(destination, args, info):
+def correct_args_info(destination):
+    info = load_yaml(destination / "info.yaml")
     build_new_info(info)
     print(info)
     save_yaml(info, destination / "info.yaml")
 
+    args = load_yaml(destination / "args.yaml")
     build_new_args(args)
     print(args)
     save_yaml(args, destination / "args.yaml")
