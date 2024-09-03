@@ -94,6 +94,25 @@ python prepare_2ndstage.py --dataset "dataset_2hps_1fixed_10dp inputs_gki100 box
 ## Infering and combining both models of extend plumes:
 - see `extend_plumes.py:pipeline_infer_extend_plumes` and `__main__` on how to use it.
 
+## Training an LG-CNN:
+with newest version of main.py script (includes `cheat = True`)
+### 1st step (predict v):
+- define a `command_line_argument.yaml` in `NAME_OF_DIR_PREDICT_V` acc. to example in `example/command_line_arguments_v.yaml`
+- run `python main.py --destination NAME_OF_DIR_PREDICT_V`
+### 2nd step (calculate streamlines and prepare inputs for next step):
+this step prepares the data for the 3rd step into the directory `NAME_OF_DATA_RAW_DIR inputs_INPUTS outputs_OUTPUTS prep_with_NAME_OF_DIR_PREDICT_V`:
+- call processing/streamlines_main.py like:
+    ```
+    dataset_name = NAME_OF_DATA_RAW_DIR
+    model_name = NAME_OF_DIR_PREDICT_V
+    based_on_predicted_v = True
+    build_streamlines(model_name, dataset_name, based_on_predicted_v)
+    ```
+### 3rd step (predict T):
+- check that the required prepared dataset exists
+- define a `command_line_argument.yaml` in `NAME_OF_DIR_PREDICT_T` acc. to example in `example/command_line_arguments_T.yaml`
+- run `python main.py --destination NAME_OF_DIR_PREDICT_T`
+
 ## Finding the results:
 - resulting model (`model.pt`) + normalization parameters (info.yaml) used can be found in `runs/PROBLEM/DESTINATION` with `PROBLEM` in [1hpnn, 2hpnn, allin1, extend_plumes1, extend_plumes2] and `DESTINATION` being the user defined or default name in the call of main.py
 - this folder also contains visualisations if any were made during the training/inference
