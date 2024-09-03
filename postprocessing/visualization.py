@@ -5,7 +5,7 @@ from typing import Dict
 import pathlib
 
 import matplotlib as mpl
-mpl.use('pdf') #pgf')
+# mpl.use('pdf') #pgf')
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
