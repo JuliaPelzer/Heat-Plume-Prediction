@@ -1,19 +1,17 @@
-import argparse
 import logging
 import multiprocessing
 import numpy as np
 import torch
-from torch.nn import MSELoss, L1Loss, HuberLoss
+from torch.nn import MSELoss, L1Loss
 from datetime import datetime
 
-# from postprocessing.measurements import (save_all_measurements)
-from postprocessing.visualization import (infer_all_and_summed_pic, plot_avg_error_cellwise, visualizations)
-from processing.networks.encoder import Encoder
+from preprocessing.data_init import init_data, load_all_datasets_in_full
 from processing.networks.unet import UNet
 from processing.networks.unetVariants import UNetHalfPad2, UNetNoPad2
 from processing.solver import Solver
-from preprocessing.data_init import init_data, load_all_datasets_in_full
+from postprocessing.visualization import visualizations
 from postprocessing.measurements import measure_losses_paper24
+from utils.utils_args import save_yaml
 
 def train(args: dict):
     np.random.seed(1)
@@ -41,6 +39,8 @@ def train(args: dict):
     
     if args["case"] in ["test", "finetune"]:
         model.load(args["model"], args["device"])
+    if args["case"] == "test":
+        model.eval()
 
     if args["case"] in ["train", "finetune"]:
         if vT_case == "temperature":
@@ -67,6 +67,7 @@ def train(args: dict):
     # save_all_measurements(args, len(dataloaders["val"].dataset), times={}, solver=solver) #, errors)
     
     metrics = measure_losses_paper24(model, dataloaders, args, vT_case=vT_case)
+    save_yaml(metrics, args["destination"] / "metrics_paper24.yaml")
 
     dataloaders = load_all_datasets_in_full(args)
     for case in ["train", "val", "test"]:
