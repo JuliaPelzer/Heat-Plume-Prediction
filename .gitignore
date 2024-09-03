@@ -5,6 +5,15 @@ datasets_prepared/
 nerf/
 WIP_rnn/
 
+#jobscripts
+*.sh
+
+#databases
+*.db
+
+#textfiles
+*.txt
+
 # exclude for now
 runs/
 *.out
