@@ -93,7 +93,7 @@ def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args
     also: calculates the pbt_threshold only for temperature
     '''
     if vT_case == "temperature":
-        pbt_threshold = [0.1] # [°C] # only relevant for temperature
+        pbt_thresholds = [0.1, 1] # [°C] # only relevant for temperature
     
     device = args["device"]
     if args["problem"] == "allin1":
@@ -110,12 +110,14 @@ def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args
         mae_closs = torch.Tensor([0.0,] * output_channels)
         rmse_closs = torch.Tensor([0.0,] * output_channels)
         if vT_case == "temperature":
-            pbt_closs = torch.Tensor([0.0,] * output_channels)
+            pbt_closs = torch.Tensor([0.0,] * len(pbt_thresholds))
 
         for x, y in dataloader:
+            start_inference = time.perf_counter()
             x = x.to(device).detach() # B,C,H,W
             y = y.to(device).detach()
             y_pred = model(x).to(device).detach()
+            time_inference = time.perf_counter() - start_inference
             required_size = y_pred.shape[2:]
             start_pos = ((y.shape[2] - required_size[0])//2, (y.shape[3] - required_size[1])//2)
             y = y[:, :, start_pos[0]:start_pos[0]+required_size[0], start_pos[1]:start_pos[1]+required_size[1]]
@@ -137,9 +139,10 @@ def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args
                 mae_closs[channel] += L1Loss(reduction="sum")(y_pred[:,channel], y[:,channel]).item()
                 rmse_closs[channel] += MSELoss(reduction="sum")(y_pred[:,channel], y[:,channel]).item()
 
-                if vT_case == "temperature":
-                    # count all pixels where the difference is bigger than 0.1°C, then average over this batch + domain
-                    pbt_closs[channel] += (torch.sum(torch.abs(y_pred[:,channel] - y[:,channel]) > pbt_threshold[channel])).item()
+            if vT_case == "temperature":
+                # count all pixels where the difference is larger than threshold, then average over this batch + domain
+                for idx in range(len(pbt_thresholds)):
+                    pbt_closs[idx] += (torch.sum(torch.abs(y_pred[:,0] - y[:,0]) > pbt_thresholds[idx])).item()
 
         # average over all batches
         no_datapoints = len(dataloaders[case].dataset)
@@ -156,60 +159,18 @@ def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args
         output_mae = ["{:.2e}".format(mae) for mae in mae_closs]
         output_rmse = ["{:.2e}".format(rmse) for rmse in rmse_closs]
         if vT_case == "temperature":
-            output_pbt = ["{:.2f}".format(pbt) for pbt in pbt_closs]
+            output_pbt = ["{:.2f} above {:.1f}C".format(pbt, threshold) for threshold, pbt in zip(pbt_thresholds, pbt_closs)]
 
         if vT_case == "temperature":
             unit = "C"
         else:
-            unit = "m/s"
-        results[case] = {"MSE [-] per channel": output_mse, f"MAE [{unit}] per channel": output_mae, f"RMSE [{unit}] per channel": output_rmse} 
+            unit = "m/year"
+        results[case] = {"MSE [-] per channel": output_mse, f"MAE [{unit}] per channel": output_mae, f"RMSE [{unit}] per channel": output_rmse,
+                         "time inference [s]": time_inference} 
         
         if vT_case == "temperature":
-            results[case]["PBT (percentage bigger than threshold 0.1C in [%]"] = output_pbt
+            results[case]["PAT (percentage above threshold in [%]"] = output_pbt
     return results
-
-# NOT working due to installation issues of _lzma in python
-# def measure_losses_paper24_v2(model: UNet, dataloaders: Dict[str, DataLoader], args: dict, vT_case: str = "temperature"):
-#     '''
-#     function to measure the losses for the paper24
-#     ATTENTION! not robust, expects vT-case to be "temperature" or "velocities" and
-#     sets the number of outputs accordingly (1 or 2)
-#     also: calculates the pbt_threshold only for temperature
-#     '''
-#     if vT_case == "temperature":
-#         pbt_threshold = [0.1] # [°C] # only relevant for temperature
-    
-#     device = args["device"]
-#     if args["problem"] == "allin1":
-#         norm = dataloaders["train"].dataset.norm
-#         output_channels = dataloaders["train"].dataset.output_channels
-#     elif args["problem"] in ["1hp", "2stages"]:
-#         norm = dataloaders["train"].dataset.dataset.norm
-#         output_channels = dataloaders["train"].dataset.dataset.output_channels
-#     model.eval()
-#     results = {}
-
-#     for case, dataloader in dataloaders.items():
-#         mse_loss = {}
-#         for channel in range(output_channels):
-#             mse_loss[channel] = MeanSquaredError()
-
-#         for x, y in dataloader:
-#             x = x.to(device).detach() # B,C,H,W
-#             y = y.to(device).detach()
-#             y_pred = model(x).to(device).detach()
-#             required_size = y_pred.shape[2:]
-#             start_pos = ((y.shape[2] - required_size[0])//2, (y.shape[3] - required_size[1])//2)
-#             y = y[:, :, start_pos[0]:start_pos[0]+required_size[0], start_pos[1]:start_pos[1]+required_size[1]]
-
-#             # normed losses
-#             for channel in range(output_channels):
-#                 mse_loss[channel].update(y_pred[:,channel], y[:,channel])
-
-#         output_mse = ["{:.2e}".format(mse.compute()) for mse in mse_loss]
-#         results[case] = {"MSE [-] per channel": output_mse} 
-        
-#     return results
 
 # collect metric of test data for all models
 def collect_metric(metrics, dataset, metric_name, idx=0):
