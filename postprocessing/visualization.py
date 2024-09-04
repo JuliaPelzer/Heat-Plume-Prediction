@@ -68,10 +68,10 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
     current_id = 0
     len_diff = 0
     wid_diff = 0
-    for inputs, labels in dataloader:
+    for inputs, labels, fname in dataloader:
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
-            name_pic = f"{plot_path}_{current_id}"
+            name_pic = f"{plot_path}_{fname[datapoint_id]}"
 
             x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
             y = labels[datapoint_id]
@@ -202,7 +202,7 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str):
     avg_inference_time = 0
     summed_error_pic = torch.zeros_like(torch.Tensor(dataloader.dataset[0][0][0])).cpu()
 
-    for inputs, labels in dataloader:
+    for inputs, labels, fname in dataloader:
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
             # get data

@@ -127,7 +127,7 @@ class Solver(object):
 
     def run_epoch(self, dataloader: DataLoader, device: str):
         epoch_loss = 0.0
-        for x, y in dataloader:
+        for x, y, fname in dataloader:
             x = x.to(device)
             y = y.to(device)
 

@@ -50,7 +50,7 @@ class SimulationDataset(Dataset):
             "Inputs", self.input_names[index]))
         label = torch.load(self.path.joinpath(
             "Labels", self.label_names[index]))
-        return input, label
+        return input, label, self.input_names[index]
     
     def get_run_id(self, index):
         return self.input_names[index]

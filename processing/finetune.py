@@ -125,7 +125,7 @@ def train_mnist(config,settings=None):
                             par_dil=config["par_dil"],
                             par_kern=config["par_kern"]).to(settings.device)
     elif settings.problem == "rect":
-        model = UNet(in_channels=input_channels,init_features=config["features"],depth=config["depth"],padding_mode=config["padding_mode"],dilation=config["dilation"],down_kernel=config["down_kernel"]).to(settings.device)
+        model = UNetRectKernel(in_channels=input_channels,init_features=config["features"],depth=config["depth"],padding_mode=config["padding_mode"],dilation=config["dilation"],down_kernel=config["down_kernel"]).to(settings.device)
     else:
         model = UNet(in_channels=input_channels,init_features=config["features"],depth=config["depth"],padding_mode=config["padding_mode"],dilation=config["dilation"]).to(settings.device)
     optimizer = Adam(model.parameters(), lr=config["lr"], weight_decay=config["weight_decay"])
@@ -141,7 +141,7 @@ def train_mnist(config,settings=None):
         # Training
         model.train()
         train_loss = 0.0
-        for x, y in train_dataloader:
+        for x, y,fname in train_dataloader:
             x = x.to(device)
             y = y.to(device)
 
@@ -169,7 +169,7 @@ def test_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: modul
     model.eval()
     mse_loss = 0.0
 
-    for x, y in dataloader:
+    for x, y, fname in dataloader:
         x = x.to(device)
         y = y.to(device)
         y_pred = model(x).to(device)

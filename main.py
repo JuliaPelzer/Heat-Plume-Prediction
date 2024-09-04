@@ -52,7 +52,7 @@ def init_data(settings: SettingsTraining, seed=1):
 def run(settings: SettingsTraining):
     multiprocessing.set_start_method("spawn", force=True)
 
-    if settings.case in ["finetune"]:
+    if settings.case in ["hypertune"]:
         tune_nn(settings)
         return
     
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_prep", type=str, default="")
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--epochs", type=int, default=10000)
-    parser.add_argument("--case", type=str, choices=["train", "test", "finetune"], default="train")
+    parser.add_argument("--case", type=str, choices=["train", "test", "finetune", "hypertune"], default="train")
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
     parser.add_argument("--destination", type=str, default="")
     parser.add_argument("--inputs", type=str, default="gksi") #choices=["gki", "gksi", "pksi", "gks", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100", "t", "gkiab", "gksiab", "gkt"]
