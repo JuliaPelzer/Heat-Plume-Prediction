@@ -122,14 +122,14 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
 
 def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
     # plot datafields (temperature true, temperature out, error, physical variables (inputs))
-
+    fontsize = 8
     num_subplots = len(data)
     fig, axes = plt.subplots(num_subplots, 1, sharex=True)
     fig.set_figheight(num_subplots)
     
     for index, (name, datapoint) in enumerate(data.items()):
         plt.sca(axes[index])
-        plt.title(datapoint.name)
+        plt.title(datapoint.name, fontsize=fontsize, pad=10)
         # if name in ["t_true", "t_out"]:  
         #     with warnings.catch_warnings():
         #         warnings.simplefilter("ignore")
@@ -139,11 +139,14 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
         plt.imshow(datapoint.data.T, **datapoint.imshowargs)
         plt.gca().invert_yaxis()
 
-        plt.ylabel("x [m]")
-        _aligned_colorbar()
+        plt.ylabel("x [m]", fontsize=fontsize)
+        plt.tick_params(axis='both', labelsize=fontsize)
+
+        _aligned_colorbar(fontsize=fontsize)
+        plt.tick_params(axis='both', labelsize=fontsize)
 
     plt.sca(axes[-1])
-    plt.xlabel("y [m]")
+    plt.xlabel("y [m]", fontsize=fontsize)
     plt.tight_layout()
     plt.savefig(f"{name_pic}.{settings_pic['format']}", **settings_pic)
 
@@ -187,14 +190,18 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, r
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
             # get data
-            start_time = time.perf_counter()
+            #start_time = time.perf_counter()
             x = rt.rotate(inputs[datapoint_id],angle).to(device)
             x = torch.unsqueeze(x, 0)
 
             if rotate_inference:
+                start_time = time.perf_counter()
                 y_out = rt.rotate_and_infer(x.squeeze(0), [-1,0], model, info, device).to(device)
             else:
+                start_time = time.perf_counter()
                 y_out = model(x).to(device)
+            
+            avg_inference_time += (time.perf_counter() - start_time)
             
             y = rt.rotate(labels[datapoint_id],angle)
 
@@ -206,7 +213,7 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, r
             x = norm.reverse(x.cpu().detach().squeeze(), "Inputs")
             y = norm.reverse(y.cpu().detach(),"Labels")[0]
             y_out = norm.reverse(y_out.cpu().detach()[0],"Labels")[0]
-            avg_inference_time += (time.perf_counter() - start_time)
+            #avg_inference_time += (time.perf_counter() - start_time)
             summed_error_pic += abs(y-y_out)
 
             current_id += 1
@@ -215,21 +222,55 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, r
     summed_error_pic /= current_id
     return avg_inference_time, rt.rotate(summed_error_pic.unsqueeze(0), 360 - angle).squeeze(0)
 
-def infer_all_rotate_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, rotate_inference: bool = False, mask: bool = False, angle: int = 0):
+def infer_all_rotate_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, rotate_inference: bool = False, mask: bool = True, angle: int = 0):
     '''
     sum inference time (including reverse-norming)
     pixelwise error between pixelwise error over all datapoints and pixelwise error over all rotated datapoints
     '''
     
-    _, summed_error_pic = infer_all_and_summed_pic(model, dataloader, device, rotate_inference, mask)
-    _, summed_error_pic_rotated = infer_all_and_summed_pic(model, dataloader, device, rotate_inference, mask, angle=angle)
+    norm = dataloader.dataset.dataset.norm
+    info = dataloader.dataset.dataset.info
+    model.eval()
 
-    #absolute differences between errors
-    summed_error_pic_dif = abs(summed_error_pic-summed_error_pic_rotated)
+    current_id = 0
+    summed_error_pic = torch.zeros_like(torch.Tensor(dataloader.dataset[0][0][0])).cpu()
 
-    return summed_error_pic_dif 
+    for inputs, _ in dataloader:
+        len_batch = inputs.shape[0]
+        for datapoint_id in range(len_batch):
+            # get data
+            x = inputs[datapoint_id].to(device)
+            x = torch.unsqueeze(x, 0)
 
-def plot_avg_error_rotated_cellwise(dataloader, summed_error_pic_dif, settings_pic: dict):
+            #get rotated data
+            x_rot = rt.rotate(inputs[datapoint_id],angle).to(device)
+            x_rot = torch.unsqueeze(x_rot, 0)
+
+            if rotate_inference:
+                y_out = rt.rotate_and_infer(x.squeeze(0), [-1,0], model, info, device).to(device)
+                y_out_rot = rt.rotate_and_infer(x_rot.squeeze(0), [-1,0], model, info, device).to(device)
+            else:
+                y_out = model(x).to(device)
+                y_out_rot = model(x_rot).to(device)
+            
+            #rotate prediction for rotated data back
+            y_out_rot = rt.rotate(y_out_rot, 360 - angle)
+
+            if mask:
+                y_out = rt.mask_tensor(y_out.cpu()[0]).unsqueeze(0).to(device)
+                y_out_rot = rt.mask_tensor(y_out_rot.cpu()[0]).unsqueeze(0).to(device)
+
+            # reverse transform for plotting real values
+            y_out_rot = norm.reverse(y_out_rot.cpu().detach()[0],"Labels")[0]
+            y_out = norm.reverse(y_out.cpu().detach()[0],"Labels")[0]
+            summed_error_pic += abs(y_out - y_out_rot)
+
+            current_id += 1
+
+    summed_error_pic /= current_id
+    return summed_error_pic
+
+def plot_avg_error_rotated_cellwise(dataloader, summed_error_pic_dif, settings_pic: dict, angle: int):
     # plot avg error cellwise AND return time measurements for inference
 
     info = dataloader.dataset.dataset.info
@@ -245,7 +286,7 @@ def plot_avg_error_rotated_cellwise(dataloader, summed_error_pic_dif, settings_p
     _aligned_colorbar()
 
     plt.tight_layout()
-    plt.savefig(f"{settings_pic['folder']}/avg_error_dif.{settings_pic['format']}", format=settings_pic['format'])
+    plt.savefig(f"{settings_pic['folder']}/avg_error_dif_{angle}.{settings_pic['format']}", format=settings_pic['format'])
 
 def plot_avg_error_cellwise(dataloader, summed_error_pic, settings_pic: dict):
     # plot avg error cellwise AND return time measurements for inference
@@ -265,7 +306,10 @@ def plot_avg_error_cellwise(dataloader, summed_error_pic, settings_pic: dict):
     plt.tight_layout()
     plt.savefig(f"{settings_pic['folder']}/avg_error.{settings_pic['format']}", format=settings_pic['format'])
 
-def _aligned_colorbar(*args, **kwargs):
+def _aligned_colorbar(fontsize: int = -1, *args, **kwargs):
     cax = make_axes_locatable(plt.gca()).append_axes(
-        "right", size=0.3, pad=0.05)
+        "right", size=0.15, pad=0.05)
+    if fontsize > 0:
+        offset_text = cax.yaxis.get_offset_text()
+        offset_text.set_fontsize(fontsize)
     plt.colorbar(*args, cax=cax, **kwargs)

@@ -110,10 +110,15 @@ def run(settings: SettingsTraining):
     if settings.visualize:
         visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", pic_format=pic_format, amount_datapoints_to_visu=10, rotate_inference=settings.rotate_inference, mask=True) #amount_datapoints_to_visu=5,
         times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device, rotate_inference=settings.rotate_inference, mask=True)
-        summed_dif_pic = infer_all_rotate_and_summed_pic(model, dataloaders[which_dataset], settings.device, rotate_inference=settings.rotate_inference, mask=True, angle = 90)
-        plot_avg_error_rotated_cellwise(dataloaders[which_dataset], summed_dif_pic, {"folder" : settings.destination, "format": pic_format})
-        print(f"Mean Error (Equivariance): {summed_dif_pic.mean()}")
+        mean_error_strings = []
+        for angle in [0,30,45,60,90]:
+            summed_dif_pic = infer_all_rotate_and_summed_pic(model, dataloaders[which_dataset], settings.device, rotate_inference=settings.rotate_inference, mask=True, angle = angle)
+            plot_avg_error_rotated_cellwise(dataloaders[which_dataset], summed_dif_pic, {"folder" : settings.destination, "format": pic_format}, angle=angle)
+            mean_error_strings.append(f"Mean Error (Equivariance {angle}): {summed_dif_pic.mean()}")
+        
         plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
+        for mean_error_string in mean_error_strings:
+            print(mean_error_string)
         avg_inference_time = times[f"avg_inference_time of {which_dataset}"]
         print(f"Avg inference Time: {avg_inference_time}")
         print("Visualizations finished")

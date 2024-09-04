@@ -118,7 +118,11 @@ def measure_loss(model: UNet, dataloaders: Dict[str, DataLoader], settings: Sett
 
         # average over all batches
         no_datapoints = len(dataloaders[case].dataset)
-        domain_size = y_pred.shape[2] * y_pred.shape[3]
+        if mask:
+            domain_size = rt.mask_size(y_pred.shape[2])
+        else:
+            domain_size = y_pred.shape[2] * y_pred.shape[3]
+        print(domain_size)
         mse_loss /= (no_datapoints * domain_size)
         mae_closs /= (no_datapoints * domain_size)
         rmse_closs /=  (no_datapoints * domain_size)

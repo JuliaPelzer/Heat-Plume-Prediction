@@ -16,6 +16,7 @@ def rotate(data, angle):
 
 # rotate a datapoint such that direction matches specified direction and return rerotated inference (with pressure)
 def rotate_and_infer(datapoint, grad_vec, model, info, device):
+    #calculate gradient and get angle, margin at borders to allow for circular mask
     p_ind = info['Inputs']['Liquid Pressure [Pa]']['index']
     center = int(datapoint[p_ind].shape[0]/2)
     start = 5
@@ -37,6 +38,7 @@ def rotate_and_infer(datapoint, grad_vec, model, info, device):
 # rotate a datapoint such that direction matches specified direction and return rerotated inference (with pressure)
 def rotate_and_infer_batch(batch, grad_vec, model, info, device):
     y_out_list = []
+    #calculate gradient and get angle, margin at borders to allow for circular mask
     p_ind = info['Inputs']['Liquid Pressure [Pa]']['index']
     center = int(batch[0][p_ind].shape[0]/2)
     start = 5
@@ -111,6 +113,17 @@ def build_mask(
         else:
             mask[(..., *k)] = 0.  # Outside the circle
     return mask
+
+def mask_size(s, dim: int = 2):
+    c = (s-1) / 2  # Center of the tensor
+    r_max = c**2  # Maximum radius squared for the circle to fit
+    pixels = 0.
+
+    for k in product(range(s), repeat=dim):
+        r = sum((x - c)**2 for x in k)
+        if r <= r_max:
+            pixels += 1.  # Inside the circle
+    return pixels
 
 #cut out circular field of data
 def mask_tensor(data):

@@ -168,3 +168,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# run scripts
+run*.sh
