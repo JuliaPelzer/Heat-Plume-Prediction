@@ -185,4 +185,8 @@ dmypy.json
 .pt
 
 #
-/cnn model
+/cnn_model
+
+#
+visu_extend.py
+visu_extend.py
