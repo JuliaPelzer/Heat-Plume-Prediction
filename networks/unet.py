@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from torch import save, tensor, cat, load, equal
 import pathlib
@@ -77,7 +78,7 @@ class UNet(nn.Module):
         )
     
     def load(self, model_path:pathlib.Path, device:str = "cpu", model_name: str = "model.pt"):
-        self.load_state_dict(load(model_path/model_name, map_location="cuda:0"))
+        self.load_state_dict(load(model_path/model_name, map_location=torch.device('cpu')))
         self.to(device)
 
     def save(self, path:pathlib.Path, model_name: str = "model.pt"):
