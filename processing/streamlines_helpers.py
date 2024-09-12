@@ -40,6 +40,13 @@ def load_data(dataset_name, runid, problem:str="allin1"):
 
     return inputs, inputs_normed, labels, labels_normed, info, args
 
+def extend_inputs_dims(inputs_normed):
+    dummy_field = torch.zeros_like(inputs_normed[0])
+    inputs_new = torch.cat([inputs_normed[:3], dummy_field.unsqueeze(0), inputs_normed[3].unsqueeze(0), dummy_field.unsqueeze(0)], dim=0)
+    inputs_new = inputs_new.float()
+
+    return inputs_new
+
 def build_new_inputs_and_outputs(inputs_normed, labels_normed, indices):
     dummy_field = torch.zeros_like(inputs_normed[0])
 
@@ -51,26 +58,31 @@ def build_new_inputs_and_outputs(inputs_normed, labels_normed, indices):
     inputs_new = inputs_new.float()
     return inputs_new, labels_new
 
-def build_new_args(args):
+def build_new_args(args, model_name: str = None):
     args["inputs"] = [
     "Material ID",
     "Liquid X-Velocity [m_per_y]",
     "Liquid Y-Velocity [m_per_y]",
     "Streamlines Faded [-]",
     "Permeability X [m^2]",
-    "Streamlines Faded Outer [-],"
+    "Streamlines Faded Outer [-]"
     ]
     args["outputs"] = ["Temperature [C]"]
+    if model_name:
+        idx_vx = 1
+        idx_vy = 2
+        args["inputs"][idx_vx] = f"Liquid X-Velocity [m_per_y] - predicted by '{model_name.name}'"
+        args["inputs"][idx_vy] = f"Liquid Y-Velocity [m_per_y] - predicted by '{model_name.name}'"
 
-def build_new_info(info):
-    # info["Inputs"]["Streamlines Faded [-]"] = {
-    # "index": 3,
-    # "max": 1.0,
-    # "mean": None,
-    # "min": 0.0,
-    # "norm": None,
-    # "std": None,
-    # }
+def build_new_info(info:dict, info_vx:dict, info_vy:dict):
+    info["Inputs"]["Streamlines Faded [-]"] = {
+    "index": 3,
+    "max": 1.0,
+    "mean": None,
+    "min": 0.0,
+    "norm": None,
+    "std": None,
+    }
     info["Inputs"]["Streamlines Faded Outer [-]"] = {
     "index": 5,
     "max": 1.0,
@@ -79,11 +91,12 @@ def build_new_info(info):
     "norm": None,
     "std": None,
     }
-    # info["Inputs"]["Permeability X [m^2]"]["index"] = 4
-    # info["Inputs"]["Liquid X-Velocity [m_per_y]"] = info["Labels"]["Liquid X-Velocity [m_per_y]"]
-    # info["Inputs"]["Liquid X-Velocity [m_per_y]"]["index"] = 1
-    # info["Inputs"]["Liquid Y-Velocity [m_per_y]"] = info["Labels"]["Liquid Y-Velocity [m_per_y]"]
-    # info["Inputs"]["Liquid Y-Velocity [m_per_y]"]["index"] = 2
+    info["Inputs"]["Permeability X [m^2]"]["index"] = 4
+
+    info["Inputs"]["Liquid X-Velocity [m_per_y]"] = info_vx
+    info["Inputs"]["Liquid X-Velocity [m_per_y]"]["index"] = 1
+    info["Inputs"]["Liquid Y-Velocity [m_per_y]"] = info_vy
+    info["Inputs"]["Liquid Y-Velocity [m_per_y]"]["index"] = 2
 
     # info["Labels"] = {"Temperature [C]": info["Labels"]["Temperature [C]"]}
 
@@ -180,18 +193,21 @@ def make_streamlines(mat_ids, vx, vy, dims, offset:str=None):
 def save_new_datapoint(destination, runid:str, inputs_new:torch.Tensor, labels_new:torch.Tensor=None):
     (destination/"Inputs").mkdir(exist_ok=True, parents=True)
     (destination/"Labels").mkdir(exist_ok=True, parents=True)
-    torch.save(inputs_new, destination / "Inputs"/ runid)
+    torch.save(inputs_new, destination / "Inputs" / runid)
     if labels_new != None:
         torch.save(labels_new, destination / "Labels" / runid)
-    correct_args_info(destination)
 
-def correct_args_info(destination):
+def correct_args_info(destination:pathlib.Path, v_info_path:pathlib.Path=None, based_on_predicted_v:bool=False):
     info = load_yaml(destination / "info.yaml")
-    build_new_info(info)
-    print(info)
+    info_v = load_yaml(v_info_path / "info.yaml")
+    info_vx = info_v["Labels"]["Liquid X-Velocity [m_per_y]"]
+    info_vy = info_v["Labels"]["Liquid Y-Velocity [m_per_y]"]
+    build_new_info(info, info_vx, info_vy)
     save_yaml(info, destination / "info.yaml")
 
     args = load_yaml(destination / "args.yaml")
-    build_new_args(args)
-    print(args)
+    if based_on_predicted_v:
+        build_new_args(args, v_info_path)
+    else:
+        build_new_args(args)
     save_yaml(args, destination / "args.yaml")
