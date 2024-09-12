@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
     cheat = True # read in cla.yaml as settings-file for training
     if cheat:
-        args["destination"] = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/allin1") / args["destination"]
+        args["destination"] = Path(f"/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/{args['problem']}") / args["destination"]
         current_destination = args["destination"]
         args = read_cla(args["destination"])
         args["destination"] = current_destination # just to make sure that nothing is overwritten
