@@ -71,7 +71,7 @@ def measure_loss(model: UNet, dataloaders: Dict[str, DataLoader], device: str, v
         if vT_case == "temperature":
             pbt_closs = torch.Tensor([0.0,] * output_channels)
 
-        for x, y in dataloader:
+        for x, y, fname in dataloader:
             x = x.to(device).detach() # B,C,H,W
             y = y.to(device).detach()
             y_pred = model(x).to(device).detach()

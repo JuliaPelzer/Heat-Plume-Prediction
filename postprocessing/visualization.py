@@ -52,7 +52,69 @@ class DataToVisualize:
             self.name = "Permeability in [m$^2$]"
         elif self.name == "SDF":
             self.name = "SDF-transformed position in [-]"
-    
+
+def visualize_dataset(dataloader: DataLoader, device: str, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png"):
+    print("Visualizing...", end="\r")
+
+    if amount_datapoints_to_visu > len(dataloader.dataset):
+        amount_datapoints_to_visu = len(dataloader.dataset)
+
+    norm = dataloader.dataset.dataset.norm
+    info = dataloader.dataset.dataset.info
+    settings_pic = {"format": pic_format,
+                    "dpi": 600,}
+
+    current_id = 0
+    len_diff = 0
+    wid_diff = 0
+    for inputs, labels, fname in dataloader:
+        len_batch = inputs.shape[0]
+        for datapoint_id in range(len_batch):
+            name_pic = f"{plot_path}_{fname[datapoint_id]}"
+            name_pic_alt = f"{name_pic}_alt"
+
+            x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
+            y = labels[datapoint_id]
+
+            x = norm.reverse(x.detach().cpu().squeeze(0), "Inputs")
+            y = norm.reverse(y.detach().cpu(),"Labels")[0]
+
+            temp_max = y.max()
+            temp_min = y.min()
+            extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
+
+            dict_to_plot = {
+                "t_true": DataToVisualize(y, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min})
+            }
+            alt_dict = {
+                "t_true": DataToVisualize(y, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min})
+            }
+            third_dict = {
+                "t_true": DataToVisualize(y, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min})
+            }
+            input_keys = info["Inputs"].keys()
+            for input in input_keys:
+                index = info["Inputs"][input]["index"]
+                if input == "Temperature [C]":
+                    dict_to_plot[input] = DataToVisualize(x[index], "Input: Temperature in [°C]", extent_highs)
+                    plot_datafields(dict_to_plot, name_pic, settings_pic)
+                    alt_dict[input] = DataToVisualize(torch.ones(x[index].shape)*10.4, "Input: Temperature in [°C]", extent_highs)
+                    plot_datafields(alt_dict, name_pic_alt, settings_pic)
+                    third_dict[input] = DataToVisualize(x[index], "Input: Temperature in [°C]", extent_highs)
+                else:
+                    third_dict[input] = DataToVisualize(x[index], f"Input: {input}", extent_highs)
+                
+
+            plot_datafields(third_dict, f"{name_pic}_full", settings_pic)
+            #plot_isolines(dict_to_plot, name_pic, settings_pic)
+
+            if current_id >= amount_datapoints_to_visu-1:
+                return 
+            current_id += 1
+
+    return {"isolines length difference in %": len_diff / len(dataloader),
+            "isolines width difference in %": wid_diff / len(dataloader)}
+
 def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_datapoints_to_visu: int = inf, plot_path: str = "default", pic_format: str = "png"):
     print("Visualizing...", end="\r")
 

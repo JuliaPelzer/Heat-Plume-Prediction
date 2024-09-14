@@ -19,7 +19,7 @@ from networks.turbnetnoskip import TurbNetNoSkipG
 from processing.solver import Solver
 from processing.finetune import tune_nn
 from preprocessing.prepare import prepare_data_and_paths
-from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
+from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic, visualize_dataset
 from postprocessing.measurements import measure_loss, save_all_measurements
 from postprocessing.test_temp import test_temp
 
@@ -35,7 +35,7 @@ def init_data(settings: SettingsTraining, seed=1):
     generator = torch.Generator().manual_seed(seed)
 
     split_ratios = [0.7, 0.2, 0.1]
-    if settings.case == "test":
+    if settings.case in ["test","visualize"]:
         split_ratios = [0.0, 0.0, 1.0]
 
     datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
@@ -44,7 +44,7 @@ def init_data(settings: SettingsTraining, seed=1):
         dataloaders["train"] = DataLoader(datasets[0], batch_size=50, shuffle=True, num_workers=0)
         dataloaders["val"] = DataLoader(datasets[1], batch_size=50, shuffle=True, num_workers=0)
     except: pass
-    dataloaders["test"] = DataLoader(datasets[2], batch_size=50, shuffle=True, num_workers=0)
+    dataloaders["test"] = DataLoader(datasets[2], batch_size=10, shuffle=True, num_workers=0)
 
     return dataset.input_channels, dataloaders
 
@@ -77,6 +77,10 @@ def run(settings: SettingsTraining):
 
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, map_location=settings.device)
+    
+    if settings.case == "visualize":
+        visualize_dataset(dataloaders["test"], settings.device, plot_path=settings.destination / f"plot_vis", amount_datapoints_to_visu=20, pic_format="png")
+        return
 
     if settings.case_2hp:
         model.to("cpu")
@@ -112,7 +116,7 @@ def run(settings: SettingsTraining):
     times["time_end"] = time.perf_counter()
     errors = {}
     if settings.case == "test":
-        summary(model, (5, 256, 64), receptive_field=True, max_depth=5)
+        #summary(model, (5, 256, 64), receptive_field=True, max_depth=5)
         settings.visualize = True
         which_dataset = "test"
         errors = measure_loss(model, dataloaders, settings.device, vT_case="temperature")
@@ -163,7 +167,7 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_prep", type=str, default="")
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--epochs", type=int, default=10000)
-    parser.add_argument("--case", type=str, choices=["train", "test", "finetune", "hypertune"], default="train")
+    parser.add_argument("--case", type=str, choices=["train", "test", "finetune", "hypertune", "visualize"], default="train")
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
     parser.add_argument("--destination", type=str, default="")
     parser.add_argument("--inputs", type=str, default="gksi") #choices=["gki", "gksi", "pksi", "gks", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100", "t", "gkiab", "gksiab", "gkt"]

@@ -145,7 +145,11 @@ def apply_iterative(model: UNet, settings: SettingsTraining, domain, run_id, inf
         hp_pos.append(hp.pos)
 
     hp_pos_sorted = sorted(hp_pos, key=lambda x:x[0].item())
-    print(len(hp_pos_sorted))
+    stepswise_to_plot = {}
+
+    extent_highs_domain = (np.array(info["CellsSize"][:2]) * domain.label.shape[-2:])
+
+    stepswise_to_plot["step init"] = DataToVisualize(domain.prediction.clone().detach(), "Inital Domain",extent_highs_domain)
 
     for current, pos in enumerate(hp_pos_sorted):
         # visualization purpose
@@ -180,7 +184,7 @@ def apply_iterative(model: UNet, settings: SettingsTraining, domain, run_id, inf
         temp_max = y.max()
         temp_min = y.min()
         dict_to_plot[f"t_out_{current}"] = DataToVisualize(y, f"Prediction hp{current}: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min})
-        label = single_hps[current].label.clone().detach()
+        label = single_hps[current].label.clone().detach().squeeze()
         dict_to_plot[f"label_{current}"] = DataToVisualize(label, f"Label: Temperature in [°C]", extent_highs)
 
         # plot 
@@ -194,12 +198,13 @@ def apply_iterative(model: UNet, settings: SettingsTraining, domain, run_id, inf
         #update domain
         domain.plot("t",settings.destination / run_id ,f"domain_step_pre_{current}",corner_ll=single_hps[current].corner_ll,corner_ur=single_hps[current].corner_ur)
         domain.add_hp(single_hps[current])
+        stepswise_to_plot[f"step {current+1}"] = DataToVisualize(domain.prediction.clone().detach(), f"Prediction after step {current+1} in [°C]",extent_highs_domain)
         domain.plot("t",settings.destination / run_id ,f"domain_step_{current}",corner_ll=single_hps[current].corner_ll,corner_ur=single_hps[current].corner_ur)
         domain.inputs[4] = domain.prediction.clone().detach()
         single_hps = domain.extract_hp_boxes("cpu")
 
     domain.plot("t",settings.destination / run_id ,f"domain_step_final")
     
-
+    plot_datafields(stepswise_to_plot, settings.destination / run_id / "stepwise", settings_pic)
     with open(settings.destination / run_id / "measurements.yaml", "w") as f:
         f.write(f"avg inference times for 1HP-NN in seconds step: {avg_time_inference_all/len(single_hps)}\n")

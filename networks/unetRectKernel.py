@@ -3,7 +3,7 @@ from torch import save, tensor, cat, load, equal
 import pathlib
 
 class UNetRectKernel(nn.Module):
-    def __init__(self, in_channels=2, out_channels=1, init_features=64, depth=5, kernel_size=4, padding_mode="replicate", dilation = 1, early = True, down_kernel=7):
+    def __init__(self, in_channels=2, out_channels=1, init_features=32, depth=5, kernel_size=5, padding_mode="replicate", dilation = 1, early = True, down_kernel=7):
         super().__init__()
         features = init_features        
         self.encoders = nn.ModuleList()
@@ -15,17 +15,7 @@ class UNetRectKernel(nn.Module):
         for _ in range(depth):
             self.encoders.append(UNetRectKernel._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
             if _ == make_quad:
-                self.pools.append(nn.Sequential(
-                nn.Conv2d(
-                    in_channels=features,
-                    out_channels=features,
-                    kernel_size=(down_kernel,3),
-                    padding=(down_kernel//2,1),
-                    padding_mode='replicate',
-                    stride = (4,1),
-                    bias=True,
-                ),
-                nn.ReLU(inplace=True)))
+                self.pools.append(nn.MaxPool2d(kernel_size=(4,1), stride=(4,1)))
             else:
                 self.pools.append(nn.MaxPool2d(kernel_size=2, stride=2))
             in_channels = features
@@ -38,7 +28,7 @@ class UNetRectKernel(nn.Module):
         self.decoders = nn.ModuleList()
         for _ in range(depth):
             if _ == depth-1:
-                self.upconvs.append(nn.ConvTranspose2d(features, features//2, kernel_size=(10,3), stride=(4,1),padding=(3,1)))
+                self.upconvs.append(nn.ConvTranspose2d(features, features//2, kernel_size=(4,1), stride=(4,1)))
             else:
                 self.upconvs.append(nn.ConvTranspose2d(features, features//2, kernel_size=2, stride=2))
             self.decoders.append(UNetRectKernel._block(features, features//2, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))

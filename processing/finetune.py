@@ -25,7 +25,7 @@ from ray.train import RunConfig
 from ray.tune.search.optuna import OptunaSearch
 from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits
 
-def tune_nn(settings: SettingsTraining, num_samples=200, max_num_epochs=88, gpus_per_trial=1, ):
+def tune_nn(settings: SettingsTraining, num_samples=200, max_num_epochs=18, gpus_per_trial=1, ):
     if settings.problem == "turbnet":
         config = {
             "features_exp": tune.choice(range(2,8)),

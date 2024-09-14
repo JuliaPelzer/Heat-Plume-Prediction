@@ -284,9 +284,26 @@ class Domain:
         properties = expand_property_names(fields)
         n_subplots = len(properties)
         plt.rcParams.update({'font.size': 22})
+        fig,ax = plt.subplots()
+        if corner_ll is not None:
+            x = corner_ll[0]
+            y = corner_ll[1]
+            width = corner_ur[0] - corner_ll[0]
+            height = corner_ur[1] - corner_ll[1]
+            rect = patches.Rectangle((x, y), width, height, linewidth=1, edgecolor='g', facecolor='none')
+            ax.add_patch(rect)
+        plt.imshow(self.reverse_norm(self.prediction.detach().numpy().T), cmap="RdBu_r")
+        plt.gca().invert_yaxis()
+        plt.xlabel("x [cells]")
+        plt.ylabel("y [cells]")
+        _aligned_colorbar(label="Predicted")
+        #for presentation
+        plt.savefig(f"{folder}/{name}_prediction.{format_fig}", format=format_fig)
+        plt.clf()
         if "t" in fields:
             n_subplots += 2
-        plt.subplots(n_subplots, 1, sharex=True, figsize=(20, 3 * (n_subplots)))
+        plt.subplots(n_subplots, 1, sharex=True, figsize=(8, 2.8 * (n_subplots)))
+        #plt.subplots(n_subplots, 1)
         idx = 1
         for property in properties:
             ax = plt.subplot(n_subplots, 1, idx)
@@ -298,14 +315,14 @@ class Domain:
                     height = corner_ur[1] - corner_ll[1]
                     rect = patches.Rectangle((x, y), width, height, linewidth=1, edgecolor='g', facecolor='none')
                     ax.add_patch(rect)
-                plt.imshow(self.prediction.detach().numpy().T, cmap="RdBu_r")
+                plt.imshow(self.reverse_norm(self.prediction.detach().numpy().T), cmap="RdBu_r")
                 plt.gca().invert_yaxis()
                 plt.xlabel("x [cells]")
                 plt.ylabel("y [cells]")
                 _aligned_colorbar(label="Predicted")
                 idx += 1
                 #for presentation
-                #plt.savefig(f"{folder}/{name}.{format_fig}", format=format_fig)
+
                 #logging.warning(f"Saving plot to {folder}/{name}.{format_fig}")
                 #return
                 plt.subplot(n_subplots, 1, idx)
@@ -320,7 +337,7 @@ class Domain:
                 _aligned_colorbar(label="Absolute error")
                 idx += 1
                 plt.subplot(n_subplots, 1, idx)
-                plt.imshow(self.label.detach().numpy().T, cmap="RdBu_r")
+                plt.imshow(self.label.detach().squeeze().numpy().T, cmap="RdBu_r")
             # elif property == "Original Temperature [C]":
             #     field = self.prediction_1HPNN
             #     property = "1st Prediction of Temperature [C]"
