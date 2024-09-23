@@ -190,3 +190,7 @@ dmypy.json
 #
 visu_extend.py
 visu_extend.py
+study_extend_layers.py
+study_extend_prev.py
+study_GridSearch.py
+study.py

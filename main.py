@@ -73,7 +73,11 @@ def run(settings: SettingsTraining):
     elif settings.problem in ["extend1", "extend2"]:
         if settings.net == "convLSTM":
             
-            model = Seq2Seq(num_channels=input_channels, frame_size=(64,64), prev_boxes = settings.prev_boxes, extend=settings.extend, num_layers=settings.nr_layers).float()
+            model = Seq2Seq(num_channels=input_channels, frame_size=(64,64), prev_boxes = settings.prev_boxes, extend=settings.extend, num_layers=settings.num_layers,
+            enc_conv_features=settings.enc_conv_features,
+            dec_conv_features=settings.dec_conv_features,
+            enc_kernel_sizes=settings.enc_kernel_sizes,
+            dec_kernel_sizes=settings.dec_kernel_sizes).float()
         else:
             model = UNetHalfPad(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
@@ -140,7 +144,7 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
         model = UNet(in_channels=in_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         if settings.net == "convLSTM":
-            model = Seq2Seq(num_channels=3, frame_size=(64,64), prev_boxes = settings.prev_boxes, extend=settings.extend, num_kernels=settings.num_layers).float()
+            model = Seq2Seq(num_channels=3, frame_size=(64,64), prev_boxes = settings.prev_boxes, extend=settings.extend, num_layers=settings.num_layers).float()
         else:
             model = UNetHalfPad(in_channels=in_channels).float()
     model.load(model_name, settings.device)
@@ -170,26 +174,26 @@ if __name__ == "__main__":
         
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_raw", type=str, default="ep_medium_1000dp_only_vary_dist", help="Name of the raw dataset (without inputs)")
-    parser.add_argument("--dataset_prep", type=str, default="")
+    parser.add_argument("--dataset_prep", type=str, default="ep_medium_1000dp_only_vary_dist inputs_ks")
     parser.add_argument("--device", type=str, default="cuda:0")
-    parser.add_argument("--epochs", type=int, default=10000)
+    parser.add_argument("--epochs", type=int, default=20000)
     parser.add_argument("--case", type=str, choices=["train", "test", "finetune"], default="train")
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
     parser.add_argument("--destination", type=str, default="")
     parser.add_argument("--inputs", type=str, default="ks") #choices=["gki", "gksi", "pksi", "gks", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100", "t", "gkiab", "gksiab", "gkt"]
-    parser.add_argument("--case_2hp", type=bool, default=False)
-    parser.add_argument("--visualize", type=bool, default=False)
-    parser.add_argument("--save_inference", type=bool, default=False)
     parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2",], default="extend2")
-    parser.add_argument("--notes", type=str, default="")
-    parser.add_argument("--len_box", type=int, default=640)
-    parser.add_argument("--skip_per_dir", type=int, default=32)
-    parser.add_argument("--net", type=str, choices=["CNN", "convLSTM"], default="convLSTM")
     parser.add_argument("--prev_boxes", type=int, default=1)
     parser.add_argument("--extend", type=int, default=2)
     parser.add_argument("--overfit", type=int, default=0)
-    parser.add_argument("--nr_layers", type=int, default=1)
+    parser.add_argument("--num_layers", type=int, default=1)
     parser.add_argument("--loss", type=str, choices=['mse', 'l1'], default='mse')
+    parser.add_argument("--enc_conv_features", default=[16, 32, 64])
+    parser.add_argument("--dec_conv_features", default=[64, 32, 16,8])
+    parser.add_argument("--enc_kernel_sizes", default = [5, 5, 5, 5])
+    parser.add_argument("--dec_kernel_sizes", default=[5, 5, 5,5])
+    parser.add_argument("--activation", type=str, default="relu")
+    parser.add_argument("--notes", type=str, default=None)
+    parser.add_argument("--skip_per_dir", type=int, default=64)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

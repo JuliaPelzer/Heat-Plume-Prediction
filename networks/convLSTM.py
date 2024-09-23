@@ -7,7 +7,7 @@ import pathlib
 # Original ConvLSTM cell as proposed by Shi et al.
 class ConvLSTMCell(nn.Module):
 
-    def __init__(self, in_channels, out_channels, activation, frame_size):
+    def __init__(self, in_channels, out_channels, activation, frame_size, conv_features, kernel_sizes):
 
         super(ConvLSTMCell, self).__init__()  
 
@@ -15,38 +15,37 @@ class ConvLSTMCell(nn.Module):
             self.activation = torch.tanh 
         elif activation == "relu":
             self.activation = torch.relu
-        
-        self.nr_features = [16, 32, 64, 64, out_channels]
-        self.kernel_sizes = [7, 5, 5, 5, 5]
+        elif activation == "sigmoid":
+            self.activation = torch.sigmoid
 
         layers = []
         
         layers.append(nn.Conv2d(
             in_channels=in_channels + out_channels, 
-            out_channels=self.nr_features[0], 
-            kernel_size=self.kernel_sizes[0], 
+            out_channels=conv_features[0], 
+            kernel_size=kernel_sizes[0], 
             stride=1,
             padding='same'
         ))
 
         layers.append(nn.ReLU(inplace=True))
 
-        for i in range(1, len(self.nr_features) - 1):
+        for i in range(1, len(conv_features)):
             # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
             layers.append(nn.Conv2d(
-                in_channels=self.nr_features[i-1],
-                out_channels=self.nr_features[i],
-                kernel_size=self.kernel_sizes[i],
+                in_channels=conv_features[i-1],
+                out_channels=conv_features[i],
+                kernel_size=kernel_sizes[i],
                 stride=1,
                 padding='same'
             ))
-            layers.append(nn.BatchNorm2d(num_features=self.nr_features[i]))
+            layers.append(nn.BatchNorm2d(num_features=conv_features[i]))
             layers.append(nn.ReLU(inplace=True))
 
         layers.append(nn.Conv2d(
-            in_channels=self.nr_features[-1],
+            in_channels=conv_features[-1],
             out_channels=4 * out_channels,
-            kernel_size=self.kernel_sizes[-1],
+            kernel_size=kernel_sizes[-1],
             stride=1,
             padding='same'
         ))
@@ -131,7 +130,8 @@ class ConvLSTMCell(nn.Module):
 
 class ConvLSTM(nn.Module):
 
-    def __init__(self, in_channels, out_channels, activation, frame_size, prev_boxes, extend):
+    def __init__(self, in_channels, out_channels, activation, frame_size, prev_boxes, extend, 
+                 conv_features, kernel_sizes):
 
         super(ConvLSTM, self).__init__()
 
@@ -140,10 +140,10 @@ class ConvLSTM(nn.Module):
         self.extend = extend
 
         # We will unroll this over time steps
-        self.convLSTMcell1 = ConvLSTMCell(in_channels, out_channels, activation, frame_size)
+        self.convLSTMcell1 = ConvLSTMCell(in_channels, out_channels, activation, frame_size, conv_features,kernel_sizes)
 
         # initialize last cel
-        self.convLSTMcell2 = ConvLSTMCell(in_channels-1, out_channels, activation, frame_size)
+        self.convLSTMcell2 = ConvLSTMCell(in_channels-1, out_channels, activation, frame_size, conv_features, kernel_sizes)
 
     def forward(self, X):
 
@@ -175,10 +175,16 @@ class ConvLSTM(nn.Module):
 
 class Seq2Seq(nn.Module):
 
-    def __init__(self, num_channels, frame_size, prev_boxes, extend, num_layers, num_kernels=64,
+    def __init__(self, num_channels, frame_size, prev_boxes, extend, num_layers,
+    enc_conv_features,
+    dec_conv_features,
+    enc_kernel_sizes,
+    dec_kernel_sizes,
     activation='relu'):
-
+    
         super(Seq2Seq, self).__init__()
+
+        assert enc_conv_features[-1] == dec_conv_features[0]
 
         self.sequential = nn.Sequential()
         self.prev_boxes = prev_boxes
@@ -187,12 +193,13 @@ class Seq2Seq(nn.Module):
         # Add First layer (Different in_channels than the rest)
         self.sequential.add_module(
             "convlstm1", ConvLSTM(
-                in_channels=num_channels, out_channels=num_kernels,  
-                activation=activation, frame_size=frame_size, prev_boxes=prev_boxes, extend=extend)
+                in_channels=num_channels, out_channels=enc_conv_features[-1],  
+                activation=activation, frame_size=frame_size, prev_boxes=prev_boxes, extend=extend,
+                conv_features=enc_conv_features, kernel_sizes = enc_kernel_sizes)
         )
 
         self.sequential.add_module(
-            "batchnorm1", nn.BatchNorm3d(num_features=num_kernels)
+            "batchnorm1", nn.BatchNorm3d(num_features=enc_conv_features[-1])
         ) 
 
         # Add rest of the layers
@@ -200,49 +207,63 @@ class Seq2Seq(nn.Module):
 
             self.sequential.add_module(
                 f"convlstm{l}", ConvLSTM(
-                    in_channels=num_kernels, out_channels=num_kernels,
-                    activation=activation, frame_size=frame_size, prev_boxes=prev_boxes, extend=extend)
+                    in_channels=enc_conv_features[-1], out_channels=enc_conv_features[-1],
+                    activation=activation, frame_size=frame_size, prev_boxes=prev_boxes, extend=extend,
+                    conv_features=enc_conv_features, kernel_sizes = enc_kernel_sizes)
                 )
                 
                 
             self.sequential.add_module(
-                f"batchnorm{l}", nn.BatchNorm3d(num_features=num_kernels)
+                f"batchnorm{l}", nn.BatchNorm3d(num_features=enc_conv_features[-1])
                 ) 
 
         # Add Convolutional Layer to predict output frame
-        features = [64, 64, 64]
-        self.conv = nn.Sequential(
-            nn.Conv2d(
-                in_channels=num_kernels, 
-                out_channels=features[0],
-                kernel_size=5, 
+        self.conv = nn.Sequential()
+
+        self.conv.add_module("dec_conv1", nn.Conv2d(
+            in_channels=dec_conv_features[0], 
+            out_channels=dec_conv_features[1],
+            kernel_size=dec_kernel_sizes[0], 
+            stride=1,
+            padding=(dec_kernel_sizes[0] - 1) // 2,  # Correct padding for 'same'
+            bias=True
+        ))
+        self.conv.add_module("relu1", nn.ReLU(inplace=True))
+
+        for i in range(1, len(dec_conv_features)-1):
+            self.conv.add_module(f"dec_conv{i+1}", nn.Conv2d(
+                in_channels=dec_conv_features[i],
+                out_channels=dec_conv_features[i+1],
+                kernel_size=dec_kernel_sizes[i],
                 stride=1,
-                padding='same',
-                bias=True),
-            nn.ReLU(inplace=True),
+                padding=(dec_kernel_sizes[i] - 1) // 2,  # Correct padding for 'same'
+                bias=True
+            ))
+            
+            self.conv.add_module(f"batch{i}", nn.BatchNorm2d(num_features=dec_conv_features[i+1]))
+            self.conv.add_module(f"relu{i+1}", nn.ReLU(inplace=True))
+
+        self.conv.add_module("dec_conv_last",
             nn.Conv2d(
-                in_channels=features[0], 
-                out_channels=features[1],
-                kernel_size=5, 
-                stride=1, 
-                padding='same',
-                bias=True),
-            nn.BatchNorm2d(num_features=features[1]),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(
-                in_channels=features[2],
+                in_channels=dec_conv_features[-1],
                 out_channels=1,
-                kernel_size=5,
-                padding='same',
-                bias=True)
+                kernel_size=dec_kernel_sizes[-1],
+                stride=1,
+                padding=(dec_kernel_sizes[-1] - 1) // 2,  # Correct padding for 'same'
+                bias=True
             )
+        )
+
+        #self.conv.add_module("relu_last", nn.ReLU(inplace=True))
+        
+
+        
 
     def forward(self, X):
 
         # Forward propagation through all the layers
         output = self.sequential(X)
-
-
+        
         # decode result
         batch_size, _ , _, height, width = output.size()
         new_output = torch.zeros(batch_size, 1, self.extend, height, width, device='cuda')
@@ -250,7 +271,7 @@ class Seq2Seq(nn.Module):
         for pred_box in range(self.extend):
             curr_output = output[:,:,self.prev_boxes+pred_box]
             #assert curr_output.shape == [50, 64, 64, 64], f'got {curr_output.shape}'
-            new_output[:,:,pred_box] = self.conv(output[:,:,self.prev_boxes+pred_box])
+            new_output[:,:,pred_box] = self.conv(curr_output)
             
         new_output = torch.reshape(new_output, (new_output.shape[0], new_output.shape[1], width*self.extend, height))
         
@@ -266,8 +287,11 @@ class Seq2Seq(nn.Module):
             f.write(str(model_structure))
 
     def load(self, model_path:pathlib.Path, device:str = "cpu", model_name: str = "model.pt"):
-        self.load_state_dict(load(model_path/model_name))
+        self.load_state_dict(load(model_path/model_name, map_location=torch.device("cpu")))
         self.to(device)
+
+    def num_of_params(self):
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
     
 def weights_init(m):
