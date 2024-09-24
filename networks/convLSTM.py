@@ -175,7 +175,7 @@ class ConvLSTM(nn.Module):
 
 class Seq2Seq(nn.Module):
 
-    def __init__(self, num_channels, frame_size, prev_boxes, extend, num_layers,
+    def __init__(self, in_channels, frame_size, prev_boxes, extend, num_layers,
     enc_conv_features,
     dec_conv_features,
     enc_kernel_sizes,
@@ -193,7 +193,7 @@ class Seq2Seq(nn.Module):
         # Add First layer (Different in_channels than the rest)
         self.sequential.add_module(
             "convlstm1", ConvLSTM(
-                in_channels=num_channels, out_channels=enc_conv_features[-1],  
+                in_channels=in_channels, out_channels=enc_conv_features[-1],  
                 activation=activation, frame_size=frame_size, prev_boxes=prev_boxes, extend=extend,
                 conv_features=enc_conv_features, kernel_sizes = enc_kernel_sizes)
         )
@@ -287,7 +287,7 @@ class Seq2Seq(nn.Module):
             f.write(str(model_structure))
 
     def load(self, model_path:pathlib.Path, device:str = "cpu", model_name: str = "model.pt"):
-        self.load_state_dict(load(model_path/model_name, map_location=torch.device("cpu")))
+        self.load_state_dict(load(model_path/model_name))
         self.to(device)
 
     def num_of_params(self):
