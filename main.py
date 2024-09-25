@@ -121,7 +121,7 @@ def run(settings: SettingsTraining):
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"
-    save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver) #, errors)
+    save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver, errors)
     if settings.visualize:
         if settings.net == "CNN":
             visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
@@ -144,7 +144,7 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
         model = UNet(in_channels=in_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         if settings.net == "convLSTM":
-            model = Seq2Seq(num_channels=3, frame_size=(64,64), prev_boxes = settings.prev_boxes, extend=settings.extend, num_layers=settings.num_layers).float()
+            model = Seq2Seq(in_channels=3, frame_size=(64,64), prev_boxes = settings.prev_boxes, extend=settings.extend, num_layers=settings.num_layers).float()
         else:
             model = UNetHalfPad(in_channels=in_channels).float()
     model.load(model_name, settings.device)
