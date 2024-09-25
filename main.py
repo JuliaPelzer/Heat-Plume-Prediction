@@ -73,7 +73,7 @@ def run(settings: SettingsTraining):
     elif settings.problem in ["extend1", "extend2"]:
         if settings.net == "convLSTM":
             
-            model = Seq2Seq(num_channels=input_channels, frame_size=(64,64), prev_boxes = settings.prev_boxes, extend=settings.extend, num_layers=settings.num_layers,
+            model = Seq2Seq(in_channels=input_channels, frame_size=(64,64), prev_boxes = settings.prev_boxes, extend=settings.extend, num_layers=settings.num_layers,
             enc_conv_features=settings.enc_conv_features,
             dec_conv_features=settings.dec_conv_features,
             enc_kernel_sizes=settings.enc_kernel_sizes,
