@@ -1,5 +1,5 @@
 import os
-from pynvml import *
+#from pynvml import *
 import re
 from typing import List
 

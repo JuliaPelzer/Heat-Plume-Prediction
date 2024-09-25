@@ -51,10 +51,10 @@ def init_data(settings: SettingsTraining, seed=1):
     dataloaders = {}
     torch.manual_seed(2809)
     try:
-        dataloaders["train"] = DataLoader(datasets[0], batch_size=50, shuffle=True, num_workers=0)
-        dataloaders["val"] = DataLoader(datasets[1], batch_size=50, shuffle=True, num_workers=0)
+        dataloaders["train"] = DataLoader(datasets[0], batch_size=16, shuffle=True, num_workers=0)
+        dataloaders["val"] = DataLoader(datasets[1], batch_size=16, shuffle=True, num_workers=0)
     except: pass
-    dataloaders["test"] = DataLoader(datasets[2], batch_size=10, shuffle=False, num_workers=0)
+    dataloaders["test"] = DataLoader(datasets[2], batch_size=16, shuffle=False, num_workers=0)
 
     return dataset.input_channels, dataloaders
 
@@ -121,7 +121,7 @@ def run(settings: SettingsTraining):
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"
-    save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver, errors)
+    save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver)
     if settings.visualize:
         if settings.net == "CNN":
             visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)

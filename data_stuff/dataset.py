@@ -5,7 +5,7 @@ import torch
 import yaml
 from torch import default_generator, randperm, Generator
 from torch.utils.data import Dataset, Subset
-from torch._utils import _accumulate
+#from torch._utils import _accumulate
 from typing import List,Optional,Sequence
 import matplotlib.pyplot as plt
 import re
