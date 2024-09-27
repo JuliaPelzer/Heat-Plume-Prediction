@@ -252,7 +252,7 @@ def measure_additional_losses(model: UNet, dataloaders: Dict[str, DataLoader], d
             y_pred = torch.swapaxes(y_pred, 0, 1)
             y = norm.reverse(y.detach().cpu(),"Labels")
             y_pred = norm.reverse(y_pred.detach().cpu(),"Labels")
-            vars += torch.mean(torch.pow(abs((y_pred - y) - summed_error_pic),2)).detach()
+            vars += torch.mean(torch.pow(abs(y_pred - y) - summed_error_pic,2)).detach()
             
         vars /= len(dataloader)
         stds = torch.sqrt(vars)
