@@ -215,7 +215,7 @@ class DatasetExtendConvLSTM(Dataset):
         
 
         # set last temp-square to mean
-        input_seq[-1,-1] = input_seq[-1].mean() #torch.zeros_like(input_seq[0,-64:])
+        # input_seq[-1,-1] = input_seq[-1].mean() #torch.zeros_like(input_seq[0,-64:])
         
         output = torch.cat(temp_slices, dim=1)[:,-self.extend:].reshape(1, self.extend * 64, 64)
 
