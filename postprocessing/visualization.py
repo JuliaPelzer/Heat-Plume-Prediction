@@ -112,6 +112,7 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, pr
                 y = labels[dp_in_batch]
                 y_out = model(x).to(device)
                 x_copy = x.clone()
+                y_copy = y.clone()
                 if iterative:
                     fig,ax = plt.subplots(6,3)
                     y_out_it = torch.zeros_like(y_out)
@@ -124,10 +125,9 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, pr
                     fig.savefig("plot_inputs.png")
                     print(f"Shape of x: {x.shape}")
                 
-                    
 
-                x, y, y_out = reverse_norm_one_dp(x_copy, y, y_out, norm)
-                x, y, y_out_it = reverse_norm_one_dp(x_copy, y, y_out_it, norm)
+                x, y, y_out = reverse_norm_one_dp(x_copy, y_copy, y_out, norm)
+                x, y, y_out_it = reverse_norm_one_dp(x_copy, y_copy, y_out_it, norm)
                 print(f"Shape of y: {y.shape}")
                 print(f"Shape of y_out: {y_out.shape}")
                 print(f"Shape of y_out_it: {y_out_it.shape}")
