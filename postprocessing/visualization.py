@@ -73,7 +73,7 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
     for inputs, labels in dataloader:
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
-            name_pic = f"{plot_path}_{current_id}"
+            name_pic = f"{plot_path}_{current_id/18+899}"
 
             x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
             y = labels[datapoint_id]
@@ -102,18 +102,40 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, pr
     current_id = 0
     batch_id = 1
     printed = 0
+    iterative = True
     for batch_id, (inputs, labels) in enumerate(dataloader, start=0):
         for dp_in_batch in range(dataloader.batch_size):
             datapoint_id = batch_id * dataloader.batch_size + dp_in_batch
             if datapoint_id in dp_to_visu:
-                name_pic = f"{plot_path}/dp_{datapoint_id}"
+                name_pic = f"{plot_path}/dp_{datapoint_id/12}iterative{iterative}"
                 x = torch.unsqueeze(inputs[dp_in_batch].to(device), 0)
                 y = labels[dp_in_batch]
                 y_out = model(x).to(device)
-
-                x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
+                x_copy = x.clone()
+                if iterative:
+                    fig,ax = plt.subplots(6,3)
+                    y_out_it = torch.zeros_like(y_out)
+                    for i in range(6):
+                        y_out = model(x).to(device)
+                        start = i*64
+                        y_out_it[:,:,start:start+64,:] = y_out[:,:,:64,:]
+                        x = x[:, :, 1:, :, :]
+                        x = torch.cat((x, torch.zeros(x.size(0), x.size(1), 1, x.size(3), x.size(4)).to('cuda:0')),dim=2)
+                    fig.savefig("plot_inputs.png")
+                    print(f"Shape of x: {x.shape}")
                 
-                dict_to_plot = prepare_data_to_plot_convLSTM(x, y.squeeze(), y_out.squeeze(), info, prev_boxes, extend)
+                    
+
+                x, y, y_out = reverse_norm_one_dp(x_copy, y, y_out, norm)
+                x, y, y_out_it = reverse_norm_one_dp(x_copy, y, y_out_it, norm)
+                print(f"Shape of y: {y.shape}")
+                print(f"Shape of y_out: {y_out.shape}")
+                print(f"Shape of y_out_it: {y_out_it.shape}")
+                print(f"Shape of x: {x.shape}")
+                x_out = x[ -1, :prev_boxes ,:,:].squeeze().reshape(64*prev_boxes, 64)
+                y_out = torch.cat((x_out, y_out.squeeze()),dim=0)
+                y_out_it = torch.cat((x_out ,y_out_it.squeeze()),dim=0)
+                dict_to_plot = prepare_data_to_plot_convLSTM(x, y.squeeze(), y_out.squeeze(), y_out_it.squeeze(), info, prev_boxes, extend)
 
                 plot_datafields(dict_to_plot, name_pic, settings_pic)
                 printed += 1
@@ -131,7 +153,6 @@ def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, no
     x2 = norm.reverse(x[0][-1].detach().cpu().unsqueeze(0), "Labels")
     x = torch.cat((x1,x2),dim=0)
 
-    
     y = y.unsqueeze(0)
     y = norm.reverse(y.detach().cpu(), "Labels")
 
@@ -139,7 +160,7 @@ def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, no
 
     return x, y, y_out
 
-def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, info: dict, prev_boxes:int, extend:int):
+def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, y_out_it:torch.Tensor, info: dict, prev_boxes:int, extend:int):
     
     length = 64 * (prev_boxes + extend)
     length_temp = 64*prev_boxes
@@ -155,7 +176,7 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
     temp_min = min(min(y.min(), y_out.min()), temp.min())
     extent_highs = (0,640,64,0)
 
-    y_out = y_out.reshape(length_pred,64)
+    y_out = y_out.reshape(length,64)
     y = y.reshape(length_pred, 64)
 
     dict_to_plot = {     
@@ -164,10 +185,11 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
         "perm" : DataToVisualize(perm,  "Input: Permeabilität",(0,length,64,0), cmap="viridis"),
         "temp" : DataToVisualize(temp, "Input: Temperature in [°C]", (0,length_temp,64,0),{"vmax": temp_max, "vmin": temp_min}),
         "t_true": DataToVisualize(y, f"Label: Temperature in [°C]", (length_temp, length, 64, 0),{"vmax": temp_max, "vmin": temp_min}),
-        "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]",(length_temp,length,64,0), {"vmax": temp_max, "vmin": temp_min}),
-        "error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]",(length_temp,length,64,0)),
+        "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]",(0,length,64,0), {"vmax": temp_max, "vmin": temp_min}),
+        "t_out_it": DataToVisualize(y_out_it, "Prediction: Temperature in [°C]",(0,length,64,0), {"vmax": temp_max, "vmin": temp_min}),
+        
     }
-
+    #"error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]",(length_temp,length,64,0)),
 
     return dict_to_plot
 
@@ -198,8 +220,9 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
     
     for index, (name, datapoint) in enumerate(data.items()):
         plt.sca(axes[index])
-        axes[index].set_xlim(0,640)
+        axes[index].set_xlim(0,512)
         axes[index].set_ylim(0,64)
+        axes[index].set_xticks([64*i for i in range(9)])
         plt.title(datapoint.name)
         plt.imshow(datapoint.data.T, **datapoint.imshowargs)
         #plt.gca().invert_yaxis()

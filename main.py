@@ -117,11 +117,12 @@ def run(settings: SettingsTraining):
     which_dataset = "val"
     pic_format = "png"
     times["time_end"] = time.perf_counter()
-    dp_to_visu = np.arange(50)
+    dp_to_visu = [12 * i for i in [0,1]]
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"
-    save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver)
+    errors = measure_loss(model, dataloaders[which_dataset], device="cuda:0")
+    save_all_measurements(settings, dataloaders[which_dataset], times, solver, errors)
     if settings.visualize:
         if settings.net == "CNN":
             visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
@@ -187,8 +188,8 @@ if __name__ == "__main__":
     parser.add_argument("--overfit", type=int, default=0)
     parser.add_argument("--num_layers", type=int, default=1)
     parser.add_argument("--loss", type=str, choices=['mse', 'l1'], default='mse')
-    parser.add_argument("--enc_conv_features", default=[64, 128, 256])
-    parser.add_argument("--dec_conv_features", default=[256, 128, 64,32])
+    parser.add_argument("--enc_conv_features", default=[16, 32, 64])
+    parser.add_argument("--dec_conv_features", default=[64,32,16,8])
     parser.add_argument("--enc_kernel_sizes", default = [5, 5, 5, 5])
     parser.add_argument("--dec_kernel_sizes", default=[5, 5, 5, 5])
     parser.add_argument("--activation", type=str, default="relu")
