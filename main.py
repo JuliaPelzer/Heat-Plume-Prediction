@@ -117,7 +117,7 @@ def run(settings: SettingsTraining):
     which_dataset = "val"
     pic_format = "png"
     times["time_end"] = time.perf_counter()
-    dp_to_visu = [12 * i for i in [0,1]]
+    dp_to_visu = [(20 - settings.extend - settings.prev_boxes +1) * i for i in [0,1]]
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"

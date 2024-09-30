@@ -171,9 +171,10 @@ class DatasetExtendConvLSTM(Dataset):
         self.spatial_size = torch.load(self.path / "Inputs" / self.input_names[0]).shape[1:]
         self.total_nr_steps = prev_steps + extend
         self.extend = extend
+        self.prev_steps = prev_steps
         self.box_len:int = (self.total_nr_steps) * self.spatial_size[1]
         self.skip_per_dir:int = skip_per_dir
-        self.dp_per_run:int = (self.spatial_size[0] - self.box_len) // skip_per_dir
+        self.dp_per_run:int = (self.spatial_size[0] - self.box_len) // skip_per_dir +1
         self.overfit = overfit
 
     @property
@@ -208,7 +209,8 @@ class DatasetExtendConvLSTM(Dataset):
         temp = temp[:, self.skip_per_dir*window_nr:self.skip_per_dir*window_nr+(self.box_len),:] 
 
         input, temp = input.unsqueeze(1), temp.unsqueeze(1)
-        input = torch.cat((input, temp), dim=0)
+        input_temp = torch.cat((temp[:,:,:self.prev_steps*64], torch.zeros([1,1, self.extend*64,64])), dim=2)
+        input = torch.cat((input, input_temp), dim=0)
         input_slices = torch.tensor_split(input,self.total_nr_steps,axis=2) # produces array
         input_seq = torch.cat(input_slices, dim=1) # concatenates array elements to form a tensor
         temp_slices = torch.tensor_split(temp, self.total_nr_steps, axis=2)

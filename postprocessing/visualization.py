@@ -102,39 +102,40 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, pr
     current_id = 0
     batch_id = 1
     printed = 0
-    iterative = True
     for batch_id, (inputs, labels) in enumerate(dataloader, start=0):
         for dp_in_batch in range(dataloader.batch_size):
             datapoint_id = batch_id * dataloader.batch_size + dp_in_batch
             if datapoint_id in dp_to_visu:
-                name_pic = f"{plot_path}/dp_{datapoint_id/12}iterative{iterative}"
+                name_pic = f"{plot_path}/dp_{int(datapoint_id/(20-prev_boxes-extend+1))}"
                 x = torch.unsqueeze(inputs[dp_in_batch].to(device), 0)
                 y = labels[dp_in_batch]
+                print(f"y max: {y.max()}, y min: {y.min()}")
                 y_out = model(x).to(device)
+                y_out_copy = y_out.clone()
                 x_copy = x.clone()
                 y_copy = y.clone()
-                if iterative:
-                    fig,ax = plt.subplots(6,3)
-                    y_out_it = torch.zeros_like(y_out)
-                    for i in range(6):
-                        y_out = model(x).to(device)
-                        start = i*64
-                        y_out_it[:,:,start:start+64,:] = y_out[:,:,:64,:]
-                        x = x[:, :, 1:, :, :]
-                        x = torch.cat((x, torch.zeros(x.size(0), x.size(1), 1, x.size(3), x.size(4)).to('cuda:0')),dim=2)
-                    fig.savefig("plot_inputs.png")
-                    print(f"Shape of x: {x.shape}")
-                
 
-                x, y, y_out = reverse_norm_one_dp(x_copy, y_copy, y_out, norm)
-                x, y, y_out_it = reverse_norm_one_dp(x_copy, y_copy, y_out_it, norm)
-                print(f"Shape of y: {y.shape}")
-                print(f"Shape of y_out: {y_out.shape}")
+                fig,ax = plt.subplots(6,3)
+                y_out_it = torch.zeros([1,1,64*6, 64])
                 print(f"Shape of y_out_it: {y_out_it.shape}")
-                print(f"Shape of x: {x.shape}")
+                for i in range(6):
+                    y_out = model(x).to(device)
+                    start = i*64
+                    y_out_it[:,:,start:start+64,:] = y_out[:,:,:64,:]
+                    x = x[:, :, 1:, :, :]
+                    x[:,:, 64:128] = y_out[:,:,:64]
+                    x = torch.cat((x, torch.zeros(x.size(0), x.size(1), 1, x.size(3), x.size(4)).to('cuda:0')),dim=2)
+                fig.savefig("plot_inputs.png")
+                
+                x, y, y_out = reverse_norm_one_dp(x_copy, y, y_out_copy, norm)
+                _,_, y_out_it = reverse_norm_one_dp(x_copy, y_copy, y_out_it, norm)
                 x_out = x[ -1, :prev_boxes ,:,:].squeeze().reshape(64*prev_boxes, 64)
-                y_out = torch.cat((x_out, y_out.squeeze()),dim=0)
-                y_out_it = torch.cat((x_out ,y_out_it.squeeze()),dim=0)
+                # y_out = torch.cat((x_out, y_out.squeeze()),dim=0)
+                # y_out_it = torch.cat((x_out, y_out_it.squeeze()),dim=0)
+
+                y = torch.cat((x[-1][:prev_boxes].reshape(prev_boxes*64,64), y.squeeze()), dim=0)
+                y_out = torch.cat((x[-1][:prev_boxes].reshape(prev_boxes*64,64), y_out.squeeze()), dim=0)
+                y_out_it = torch.cat((x[-1][:prev_boxes].reshape(prev_boxes*64,64), y_out_it.squeeze()), dim=0)
                 dict_to_plot = prepare_data_to_plot_convLSTM(x, y.squeeze(), y_out.squeeze(), y_out_it.squeeze(), info, prev_boxes, extend)
 
                 plot_datafields(dict_to_plot, name_pic, settings_pic)
@@ -161,32 +162,34 @@ def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, no
     return x, y, y_out
 
 def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, y_out_it:torch.Tensor, info: dict, prev_boxes:int, extend:int):
-    
+    print(f" In prepare: y max: {y.max()}, y min: {y.min()}")
     length = 64 * (prev_boxes + extend)
     length_temp = 64*prev_boxes
     length_pred = 64*extend
+    length_unrolled = 64*8
     perm = x[0]
     perm = perm.reshape(length,64)
     sdf = x[1].reshape(length,64)
     temp = x[-1][:prev_boxes]
     temp = temp.reshape(length_temp,64)
-    extent = (0,576,64,0)
     
     temp_max = max(max(y.max(), y_out.max()), temp.max())
     temp_min = min(min(y.min(), y_out.min()), temp.min())
     extent_highs = (0,640,64,0)
+    print(f" In prepare: y max: {y.max()}, y min: {y.min()}")
+    y_out = y_out.reshape((extend+prev_boxes)*64,64)
+    y = y.reshape((64*(prev_boxes+extend)), 64)
 
-    y_out = y_out.reshape(length,64)
-    y = y.reshape(length_pred, 64)
+    print(f" In prepare: y max: {y.max()}, y min: {y.min()}")
 
     dict_to_plot = {     
         "sdf" : DataToVisualize(sdf, "Input: Signed Distance Function", (0,length,64,0), cmap="viridis"), 
         #"press" : DataToVisualize(press, "Input: Pressure Gradient", (0,640,64,0), {"vmax": press_max, "vmin": press_min}, cmap="viridis"),
         "perm" : DataToVisualize(perm,  "Input: Permeabilität",(0,length,64,0), cmap="viridis"),
         "temp" : DataToVisualize(temp, "Input: Temperature in [°C]", (0,length_temp,64,0),{"vmax": temp_max, "vmin": temp_min}),
-        "t_true": DataToVisualize(y, f"Label: Temperature in [°C]", (length_temp, length, 64, 0),{"vmax": temp_max, "vmin": temp_min}),
-        "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]",(0,length,64,0), {"vmax": temp_max, "vmin": temp_min}),
-        "t_out_it": DataToVisualize(y_out_it, "Prediction: Temperature in [°C]",(0,length,64,0), {"vmax": temp_max, "vmin": temp_min}),
+        "t_true": DataToVisualize(y, f"Label: Temperature in [°C]", (0, length, 64, 0),{"vmax": temp_max, "vmin": temp_min}),
+        "t_out": DataToVisualize(y_out, "Direct prediction: Temperature in [°C]",(0,length,64,0), {"vmax": temp_max, "vmin": temp_min}),
+        "t_out_it": DataToVisualize(y_out_it, "Iterative prediction: Temperature in [°C]",(0,length_unrolled,64,0), {"vmax": temp_max, "vmin": temp_min}),
         
     }
     #"error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]",(length_temp,length,64,0)),

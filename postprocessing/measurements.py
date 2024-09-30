@@ -59,6 +59,7 @@ def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: mo
     mae_closs = 0.0
 
     for x, y in dataloader: # batchwise
+        print(f"Shape of x: {x.shape}")
         x = x.to(device)
         y = y.to(device)
         y_pred = model(x).to(device)
