@@ -54,7 +54,7 @@ def init_data(settings: SettingsTraining, seed=1):
         dataloaders["train"] = DataLoader(datasets[0], batch_size=16, shuffle=True, num_workers=0)
         dataloaders["val"] = DataLoader(datasets[1], batch_size=16, shuffle=True, num_workers=0)
     except: pass
-    dataloaders["test"] = DataLoader(datasets[2], batch_size=16, shuffle=False, num_workers=0)
+    dataloaders["test"] = DataLoader(datasets[2], batch_size=16, shuffle=False, num_workers=0, drop_last=True)
 
     return dataset.input_channels, dataloaders
 
@@ -80,7 +80,7 @@ def run(settings: SettingsTraining):
             dec_kernel_sizes=settings.dec_kernel_sizes).float()
         else:
             model = UNetHalfPad(in_channels=input_channels).float()
-    if settings.case in ["test", "finetune"]:
+    if settings.case in ["test", "finetune", "benchmark"]:
         model.load(settings.model, settings.device)
     model.to(settings.device)
 
@@ -118,10 +118,16 @@ def run(settings: SettingsTraining):
     pic_format = "png"
     times["time_end"] = time.perf_counter()
     dp_to_visu = [(20 - settings.extend - settings.prev_boxes +1) * i for i in [0,1]]
+    settings.visualize == False
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"
-    errors = measure_loss(model, dataloaders[which_dataset], device="cuda:0")
+    benchmark=False
+    if settings.case == "benchmark":
+        benchmark = True
+        which_dataset = "test"
+    errors = measure_loss(model, dataloaders[which_dataset], device="cuda:0", benchmark=benchmark)
+    print(errors)
     save_all_measurements(settings, dataloaders[which_dataset], times, solver, errors)
     if settings.visualize:
         if settings.net == "CNN":
@@ -178,7 +184,7 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_prep", type=str, default="ep_medium_1000dp_only_vary_dist inputs_ks")
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--epochs", type=int, default=20000)
-    parser.add_argument("--case", type=str, choices=["train", "test", "finetune"], default="train")
+    parser.add_argument("--case", type=str, choices=["train", "test", "finetune", "benchmark"], default="train")
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
     parser.add_argument("--destination", type=str, default="")
     parser.add_argument("--inputs", type=str, default="ks") #choices=["gki", "gksi", "pksi", "gks", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100", "t", "gkiab", "gksiab", "gkt"]
@@ -188,8 +194,8 @@ if __name__ == "__main__":
     parser.add_argument("--overfit", type=int, default=0)
     parser.add_argument("--num_layers", type=int, default=1)
     parser.add_argument("--loss", type=str, choices=['mse', 'l1'], default='mse')
-    parser.add_argument("--enc_conv_features", default=[32, 64, 128])
-    parser.add_argument("--dec_conv_features", default=[128,64,32,16])
+    parser.add_argument("--enc_conv_features", default=[16,32, 64])
+    parser.add_argument("--dec_conv_features", default=[64,32,16,8])
     parser.add_argument("--enc_kernel_sizes", default = [5, 5, 5, 5])
     parser.add_argument("--dec_kernel_sizes", default=[5, 5, 5, 5])
     parser.add_argument("--activation", type=str, default="relu")

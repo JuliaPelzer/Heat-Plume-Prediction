@@ -109,15 +109,12 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, pr
                 name_pic = f"{plot_path}/dp_{int(datapoint_id/(20-prev_boxes-extend+1))}"
                 x = torch.unsqueeze(inputs[dp_in_batch].to(device), 0)
                 y = labels[dp_in_batch]
-                print(f"y max: {y.max()}, y min: {y.min()}")
                 y_out = model(x).to(device)
                 y_out_copy = y_out.clone()
                 x_copy = x.clone()
                 y_copy = y.clone()
 
-                fig,ax = plt.subplots(6,3)
                 y_out_it = torch.zeros([1,1,64*6, 64])
-                print(f"Shape of y_out_it: {y_out_it.shape}")
                 for i in range(6):
                     y_out = model(x).to(device)
                     start = i*64
@@ -125,7 +122,6 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, pr
                     x = x[:, :, 1:, :, :]
                     x[:,:, 64:128] = y_out[:,:,:64]
                     x = torch.cat((x, torch.zeros(x.size(0), x.size(1), 1, x.size(3), x.size(4)).to('cuda:0')),dim=2)
-                fig.savefig("plot_inputs.png")
                 
                 x, y, y_out = reverse_norm_one_dp(x_copy, y, y_out_copy, norm)
                 _,_, y_out_it = reverse_norm_one_dp(x_copy, y_copy, y_out_it, norm)
@@ -162,7 +158,6 @@ def reverse_norm_one_dp(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, no
     return x, y, y_out
 
 def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, y_out_it:torch.Tensor, info: dict, prev_boxes:int, extend:int):
-    print(f" In prepare: y max: {y.max()}, y min: {y.min()}")
     length = 64 * (prev_boxes + extend)
     length_temp = 64*prev_boxes
     length_pred = 64*extend
@@ -176,11 +171,12 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
     temp_max = max(max(y.max(), y_out.max()), temp.max())
     temp_min = min(min(y.min(), y_out.min()), temp.min())
     extent_highs = (0,640,64,0)
-    print(f" In prepare: y max: {y.max()}, y min: {y.min()}")
     y_out = y_out.reshape((extend+prev_boxes)*64,64)
     y = y.reshape((64*(prev_boxes+extend)), 64)
 
-    print(f" In prepare: y max: {y.max()}, y min: {y.min()}")
+    # labels =  torch.load(f"/import/sgs.scratch/hofmanja/datasets_prepared/extend_plumes/ep_medium_1000dp_only_vary_dist inputs_gksi/Labels/RUN_{0}.pt", map_location=torch.device('cpu'))
+    # y_long = labels[0][:8*64]
+    # y_long = y_long * (15.600794792175293 - 10.600003242492676) + 10.600003242492676
 
     dict_to_plot = {     
         "sdf" : DataToVisualize(sdf, "Input: Signed Distance Function", (0,length,64,0), cmap="viridis"), 
@@ -188,9 +184,9 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
         "perm" : DataToVisualize(perm,  "Input: Permeabilität",(0,length,64,0), cmap="viridis"),
         "temp" : DataToVisualize(temp, "Input: Temperature in [°C]", (0,length_temp,64,0),{"vmax": temp_max, "vmin": temp_min}),
         "t_true": DataToVisualize(y, f"Label: Temperature in [°C]", (0, length, 64, 0),{"vmax": temp_max, "vmin": temp_min}),
-        "t_out": DataToVisualize(y_out, "Direct prediction: Temperature in [°C]",(0,length,64,0), {"vmax": temp_max, "vmin": temp_min}),
-        "t_out_it": DataToVisualize(y_out_it, "Iterative prediction: Temperature in [°C]",(0,length_unrolled,64,0), {"vmax": temp_max, "vmin": temp_min}),
-        
+        "t_out": DataToVisualize(y_out, "Direct prediction Dec6",(0,length,64,0), {"vmax": temp_max, "vmin": temp_min}),
+        #"t_out_it": DataToVisualize(y_out_it, "Iterative prediction: Temperature in [°C]",(0,length_unrolled,64,0), {"vmax": temp_max, "vmin": temp_min}),
+         "error": DataToVisualize(torch.abs(y-y_out), "Error",(0,length_unrolled,64,0), {"vmin": 0, "vmax": 2}),
     }
     #"error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]",(length_temp,length,64,0)),
 

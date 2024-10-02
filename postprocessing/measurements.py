@@ -49,7 +49,7 @@ def measure_len_width_1K_isoline(data: Dict[str, "DataToVisualize"]):
     plt.close("all")
     return lengths, widths
 
-def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: modules.loss._Loss = MSELoss()):
+def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: modules.loss._Loss = MSELoss(), benchmark=False):
 
     norm = dataloader.dataset.dataset.norm
     model.eval()
@@ -57,29 +57,70 @@ def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: mo
     mse_closs = 0.0
     mae_loss = 0.0
     mae_closs = 0.0
+    mse_closs_first = 0.0
+    mae_closs_first = 0.0
+    mse_closs_last = 0.0
+    mae_closs_last = 0.0
+    count = 0.0
+    
+        # for x,y in dataloader:# batchwise
+        #     x = x.to(device)
+        #     y = y.to(device)
+        #     y_pred = model(x).to(device)
+    for batch_id, (inputs, labels) in enumerate(dataloader): # batchwise
+        for dp_in_batch in range(dataloader.batch_size):
+            datapoint_id = batch_id * dataloader.batch_size + dp_in_batch
+            if benchmark == False or datapoint_id % dataloader.dataset.dataset.dp_per_run == 0:
+                count += 1
+                x = torch.unsqueeze(inputs[dp_in_batch], 0)
+                y = torch.unsqueeze(labels[dp_in_batch], 0)
+                x = x.to(device)
+                y = y.to(device)
+                y_pred = model(x).to(device)
 
-    for x, y in dataloader: # batchwise
-        print(f"Shape of x: {x.shape}")
-        x = x.to(device)
-        y = y.to(device)
-        y_pred = model(x).to(device)
-        mse_loss += loss_func(y_pred, y).detach().item()
-        mae_loss = torch.mean(torch.abs(y_pred - y)).detach().item()
+                assert y.shape == y_pred.shape
 
-        y = torch.swapaxes(y, 0, 1)
-        y_pred = torch.swapaxes(y_pred, 0, 1)
-        y = norm.reverse(y.detach().cpu(),"Labels")
-        y_pred = norm.reverse(y_pred.detach().cpu(),"Labels")
-        mse_closs += loss_func(y_pred, y).detach().item()
-        mae_closs += torch.mean(torch.abs(y_pred - y)).detach().item()
-        
-    mse_loss /= len(dataloader)
-    mse_closs /= len(dataloader)
-    mae_loss /= len(dataloader)
-    mae_closs /= len(dataloader)
+                mse_loss += loss_func(y_pred, y).detach().item()
+                mae_loss += torch.mean(torch.abs(y_pred - y)).detach().item()
+
+                y = torch.swapaxes(y, 0, 1)
+                y_pred = torch.swapaxes(y_pred, 0, 1)
+                y = norm.reverse(y.detach().cpu(),"Labels")
+                y_pred = norm.reverse(y_pred.detach().cpu(),"Labels")
+
+                assert y.shape == y_pred.shape
+
+                mse_closs += loss_func(y_pred, y).detach().item()
+                mae_closs += torch.mean(torch.abs(y_pred - y)).detach().item()
+
+                y_first = y.squeeze()[:64,:64]
+                y_pred_first = y_pred.squeeze()[:64,:64]
+
+                assert y.shape == y_pred.shape
+                mse_closs_first += loss_func(y_pred_first, y_first).detach().item()
+                mae_closs_first += torch.mean(torch.abs(y_pred_first - y_first)).detach().item()
+
+                y_last = y.squeeze()[-64:,-64:]
+                y_pred_last = y_pred.squeeze()[-64:, -64:]
+                mse_closs_last += loss_func(y_pred_last, y_last).detach().item()
+                mae_closs_last += torch.mean(torch.abs(y_pred_last - y_last)).detach().item()
+
+    mse_loss /= count 
+    mse_closs /=count 
+    mae_loss /= count 
+    mae_closs /=count 
+    mse_closs_first /=count
+    mae_closs_first/=count
+    mse_closs_last /=count
+    mae_closs_last /=count
+    print(f"count: {count}")
 
     return {"mean squared error": mse_loss, "mean squared error in [°C^2]": mse_closs, 
-            "mean absolute error": mae_loss, "mean absolute error in [°C]": mae_closs}
+            "mean absolute error": mae_loss, "mean absolute error in [°C]": mae_closs,
+            "mean squared error in first frame in [°C^2]": mse_closs_first,
+            "mean absolute error in first frame in [°C]": mae_closs_first,
+            "mean squared error in last frame in [°C^2]": mse_closs_last,
+            "mean absolute error in last frame in [°C]": mae_closs_last}
 
 def save_all_measurements(settings:SettingsTraining, dataset, times, solver:Solver=None, errors:Dict={}):
     with open(Path.cwd() / "runs" / settings.destination / f"measurements_{settings.case}.yaml", "w") as f:
