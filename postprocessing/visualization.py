@@ -185,8 +185,8 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
         "temp" : DataToVisualize(temp, "Input: Temperature in [°C]", (0,length_temp,64,0),{"vmax": temp_max, "vmin": temp_min}),
         "t_true": DataToVisualize(y, f"Label: Temperature in [°C]", (0, length, 64, 0),{"vmax": temp_max, "vmin": temp_min}),
         "t_out": DataToVisualize(y_out, "Direct prediction Dec6",(0,length,64,0), {"vmax": temp_max, "vmin": temp_min}),
-        #"t_out_it": DataToVisualize(y_out_it, "Iterative prediction: Temperature in [°C]",(0,length_unrolled,64,0), {"vmax": temp_max, "vmin": temp_min}),
-         "error": DataToVisualize(torch.abs(y-y_out), "Error",(0,length_unrolled,64,0), {"vmin": 0, "vmax": 2}),
+        "t_out_it": DataToVisualize(y_out_it, "Iterative prediction: Temperature in [°C]",(0,length_unrolled,64,0), {"vmax": temp_max, "vmin": temp_min}),
+         "error": DataToVisualize(torch.abs(y-y_out), "Error",(0,length,64,0), {"vmin": 0, "vmax": 2}),
     }
     #"error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]",(length_temp,length,64,0)),
 

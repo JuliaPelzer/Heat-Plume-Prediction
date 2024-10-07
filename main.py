@@ -113,11 +113,14 @@ def run(settings: SettingsTraining):
     model.save(settings.destination)
     print(f"Model saved in {settings.destination}")
 
+    num_param = sum(p.numel() for p in model.parameters())
+    print(f"Number of parameters: {num_param}")
+
     # visualization
     which_dataset = "val"
     pic_format = "png"
     times["time_end"] = time.perf_counter()
-    dp_to_visu = [(20 - settings.extend - settings.prev_boxes +1) * i for i in [0,1]]
+    dp_to_visu = [(20 - settings.extend - settings.prev_boxes +1) * i for i in [0,1,39,37,33,63]]
     settings.visualize == False
     if settings.case == "test":
         settings.visualize = True
@@ -194,8 +197,8 @@ if __name__ == "__main__":
     parser.add_argument("--overfit", type=int, default=0)
     parser.add_argument("--num_layers", type=int, default=1)
     parser.add_argument("--loss", type=str, choices=['mse', 'l1'], default='mse')
-    parser.add_argument("--enc_conv_features", default=[16,32, 64])
-    parser.add_argument("--dec_conv_features", default=[64,32,16,8])
+    parser.add_argument("--enc_conv_features", default=[32, 64,128])
+    parser.add_argument("--dec_conv_features", default=[128,64,32,16])
     parser.add_argument("--enc_kernel_sizes", default = [5, 5, 5, 5])
     parser.add_argument("--dec_kernel_sizes", default=[5, 5, 5, 5])
     parser.add_argument("--activation", type=str, default="relu")

@@ -74,11 +74,6 @@ class ConvLSTMCell(nn.Module):
         # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
         i_conv, f_conv, C_conv, o_conv = torch.chunk(conv_output, chunks=4, dim=1)
 
-        with open('/home/hofmanja/1HP_NN/test4.txt', 'w') as file:
-            file.write(f'i_conv shape: {i_conv.shape}\n')
-            file.write(f'self.W_ci: {self.W_ci.shape}\n')
-            file.write(f'C_prev: {C_prev.shape}\n' )
-
         input_gate = torch.sigmoid(i_conv + self.W_ci * C_prev )
         forget_gate = torch.sigmoid(f_conv + self.W_cf * C_prev )
 
