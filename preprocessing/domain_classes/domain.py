@@ -283,8 +283,9 @@ class Domain:
     def plot(self, fields: str = "t", folder: str = "", name: str = "test", format_fig: str = "png", corner_ll: tensor = None, corner_ur: tensor = None):
         properties = expand_property_names(fields)
         n_subplots = len(properties)
-        plt.rcParams.update({'font.size': 22})
-        fig,ax = plt.subplots()
+        plt.rcParams.update({'font.size': 16})
+        #BOXES HERE
+        fig,ax = plt.subplots(figsize=(8, 4.3))
         if corner_ll is not None:
             x = corner_ll[0]
             y = corner_ll[1]
@@ -296,13 +297,15 @@ class Domain:
         plt.gca().invert_yaxis()
         plt.xlabel("x [cells]")
         plt.ylabel("y [cells]")
-        _aligned_colorbar(label="Predicted")
+        plt.title(name)
+        _aligned_colorbar(label="")
         #for presentation
         plt.savefig(f"{folder}/{name}_prediction.{format_fig}", format=format_fig)
         plt.clf()
         if "t" in fields:
             n_subplots += 2
-        plt.subplots(n_subplots, 1, sharex=True, figsize=(8, 2.8 * (n_subplots)))
+        fig,axes = plt.subplots(n_subplots, 1, sharex=True)
+        fig.set_figheight(n_subplots * 3.5)
         #plt.subplots(n_subplots, 1)
         idx = 1
         for property in properties:
@@ -319,25 +322,13 @@ class Domain:
                 plt.gca().invert_yaxis()
                 plt.xlabel("x [cells]")
                 plt.ylabel("y [cells]")
-                _aligned_colorbar(label="Predicted")
+                plt.title("Prediction: Temperature in [C°]")
+                _aligned_colorbar(label="")
                 idx += 1
                 #for presentation
 
                 #logging.warning(f"Saving plot to {folder}/{name}.{format_fig}")
                 #return
-                plt.subplot(n_subplots, 1, idx)
-                if self.label_normed_bool:
-                    self.label = self.reverse_norm(self.label, property)
-                    self.label_normed_bool = False
-                domain_temp = self.reverse_norm(self.prediction.clone().detach())
-                plt.imshow(abs(domain_temp.T - squeeze(self.label).T).detach().numpy(), cmap="RdBu_r")
-                plt.gca().invert_yaxis()
-                plt.xlabel("x [cells]")
-                plt.ylabel("y [cells]")
-                _aligned_colorbar(label="Absolute error")
-                idx += 1
-                plt.subplot(n_subplots, 1, idx)
-                plt.imshow(self.label.detach().squeeze().numpy().T, cmap="RdBu_r")
             # elif property == "Original Temperature [C]":
             #     field = self.prediction_1HPNN
             #     property = "1st Prediction of Temperature [C]"
@@ -346,11 +337,29 @@ class Domain:
                 field = self.get_input_field_from_name(property)
                 field = self.reverse_norm(field, property)
                 plt.imshow(field.detach().numpy().T, cmap="RdBu_r")
+                
+            plt.subplot(n_subplots, 1, idx)
+            plt.imshow(self.label.detach().squeeze().numpy().T, cmap="RdBu_r")
             plt.gca().invert_yaxis()
             plt.xlabel("x [cells]")
             plt.ylabel("y [cells]")
-            _aligned_colorbar(label="Label")
+            plt.title("Label: Temperature in [C°]")
+            _aligned_colorbar(label="")
             idx += 1
+
+            plt.subplot(n_subplots, 1, idx)
+            if self.label_normed_bool:
+                self.label = self.reverse_norm(self.label, property)
+                self.label_normed_bool = False
+            domain_temp = self.reverse_norm(self.prediction.clone().detach())
+            plt.imshow(abs(domain_temp.T - squeeze(self.label).T).detach().numpy(), cmap="RdBu_r")
+            plt.gca().invert_yaxis()
+            plt.xlabel("x [cells]")
+            plt.ylabel("y [cells]")
+            plt.title("Absolute error in [C°]")
+            _aligned_colorbar(label="")
+            idx += 1
+        plt.tight_layout()
         plt.savefig(f"{folder}/{name}.{format_fig}", format=format_fig)
         logging.warning(f"Saving plot to {folder}/{name}.{format_fig}")
 

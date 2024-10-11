@@ -22,6 +22,7 @@ from preprocessing.prepare import prepare_data_and_paths
 from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic, visualize_dataset
 from postprocessing.measurements import measure_loss, save_all_measurements
 from postprocessing.test_temp import test_temp
+from torchsummary import summary
 
 def init_data(settings: SettingsTraining, seed=1):
     if settings.problem in ["2stages", "turbnet", "parallel", "rect"]:
@@ -41,8 +42,8 @@ def init_data(settings: SettingsTraining, seed=1):
     datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     dataloaders = {}
     try:
-        dataloaders["train"] = DataLoader(datasets[0], batch_size=50, shuffle=True, num_workers=0)
-        dataloaders["val"] = DataLoader(datasets[1], batch_size=50, shuffle=True, num_workers=0)
+        dataloaders["train"] = DataLoader(datasets[0], batch_size=40, shuffle=True, num_workers=0)
+        dataloaders["val"] = DataLoader(datasets[1], batch_size=40, shuffle=True, num_workers=0)
     except: pass
     dataloaders["test"] = DataLoader(datasets[2], batch_size=10, shuffle=True, num_workers=0)
 
@@ -109,6 +110,7 @@ def run(settings: SettingsTraining):
 
     # save model
     model.save(settings.destination)
+    summary(model,input_size=(5,64,256))
 
     # visualization
     which_dataset = "val"

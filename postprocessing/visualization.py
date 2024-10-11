@@ -127,12 +127,25 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
     settings_pic = {"format": pic_format,
                     "dpi": 600,}
 
+    measure = False
+    vis = True
+    if measure:
+        vis = False
+        amount_datapoints_to_visu = 50
     current_id = 0
     len_diff = 0
     wid_diff = 0
+    skipped = 0
     for inputs, labels, fname in dataloader:
+        print(fname)
+        #if "RUN_826" not in fname:
+        #    continue
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
+            the_list = ['RUN_581', 'RUN_2091', 'RUN_1457', 'RUN_184', 'RUN_1363', 'RUN_727', 'RUN_1587', 'RUN_869', 'RUN_1728', 'RUN_2399', 'RUN_1662', 'RUN_1228', 'RUN_713', 'RUN_1331', 'RUN_1390', 'RUN_1021', 'RUN_978', 'RUN_877', 'RUN_1689', 'RUN_1894', 'RUN_560', 'RUN_1475', 'RUN_373', 'RUN_792', 'RUN_1304', 'RUN_908', 'RUN_532', 'RUN_13', 'RUN_1872', 'RUN_61', 'RUN_2237', 'RUN_1918', 'RUN_1445', 'RUN_1530', 'RUN_1799', 'RUN_1071', 'RUN_541', 'RUN_2189', 'RUN_636', 'RUN_5']
+            if fname[datapoint_id] not in the_list:
+                print("hi")
+                continue
             name_pic = f"{plot_path}_{fname[datapoint_id]}"
 
             x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
@@ -141,16 +154,25 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
 
             x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
             dict_to_plot = prepare_data_to_plot(x, y, y_out, info)
+            if vis:
+                #dict_to_plot_only_label_pred = {k: dict_to_plot[k] for k in ('t_true', 't_out', 'error','Temperature [C]')}
+                dict_to_plot_only_label_pred = {k: dict_to_plot[k] for k in ('t_true', 't_out', 'error')}
 
-            plot_datafields(dict_to_plot, name_pic, settings_pic)
-            plot_isolines(dict_to_plot, name_pic, settings_pic)
+                plot_datafields(dict_to_plot_only_label_pred, name_pic + "out_lab_err", settings_pic)
+
+                plot_datafields(dict_to_plot, name_pic, settings_pic)
+                plot_isolines(dict_to_plot, name_pic, settings_pic)
             l,w = measure_len_width_1K_isoline(dict_to_plot)
-            len_diff += abs(l["t_true"] - l["t_out"])
-            wid_diff += abs(w["t_true"] - w["t_out"])
+            if l["t_out"] == 0:
+                #Normally everything is 0 in this case so the accuraccy is 100%
+                skipped += 0
+            else:
+                len_diff += abs((l["t_true"] / l["t_out"]) - 1)
+                wid_diff += abs((w["t_true"] / w["t_out"]) - 1)
 
             if current_id >= amount_datapoints_to_visu-1:
-                return {"isolines length difference in %": len_diff / amount_datapoints_to_visu,
-            "isolines width difference in %": wid_diff / amount_datapoints_to_visu}
+                return {"isolines length difference in %": len_diff / (amount_datapoints_to_visu),
+            "isolines width difference in %": wid_diff / (amount_datapoints_to_visu)}
             current_id += 1
 
     return {"isolines length difference in %": len_diff / len(dataloader),
@@ -177,7 +199,7 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     inputs = info["Inputs"].keys()
     for input in inputs:
         index = info["Inputs"][input]["index"]
-        dict_to_plot[input] = DataToVisualize(x[index], input, extent_highs)
+        dict_to_plot[input] = DataToVisualize(x[index], "Input: " + input, extent_highs)
 
     return dict_to_plot
 
@@ -217,14 +239,14 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
         plt.imshow(datapoint.data.T ,**datapoint.imshowargs)
 
         plt.gca().invert_yaxis()
-        plt.ylabel("x [m]")
+        plt.ylabel("y [m]")
         _aligned_colorbar()
 
     if num_subplots == 1:
         plt.sca(axes)
     else:
         plt.sca(axes[-1])
-    plt.xlabel("y [m]")
+    plt.xlabel("x [m]")
     plt.tight_layout()
     plt.savefig(f"{name_pic}.{settings_pic['format']}", **settings_pic)
     plt.clf()
@@ -295,10 +317,10 @@ def plot_avg_error_cellwise(dataloader, summed_error_pic, settings_pic: dict):
     extent = (0,int(extent_highs[0]),int(extent_highs[1]),0)
 
     plt.figure()
-    plt.imshow(summed_error_pic.T, cmap="RdBu_r", extent=extent)
+    plt.imshow(summed_error_pic.T, cmap="RdBu_r", extent=extent, vmax=0.33)
     plt.gca().invert_yaxis()
-    plt.ylabel("x [m]")
-    plt.xlabel("y [m]")
+    plt.ylabel("y [m]")
+    plt.xlabel("x [m]")
     plt.title("Cellwise averaged error [°C]")
     _aligned_colorbar()
 

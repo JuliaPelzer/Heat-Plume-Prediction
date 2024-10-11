@@ -3,12 +3,14 @@ from torch import save, tensor, cat, load, equal
 import pathlib
 
 class UNetParallel(nn.Module):
-    def __init__(self, in_channels=2, out_channels=1, init_features=64, depth=5, kernel_size=3, padding_mode="replicate", dilation = 1, par_depth = 3, par_dil = (4,1), par_kern = (4,2)):
+    def __init__(self, in_channels=2, out_channels=1, init_features=64, depth=5, kernel_size=4, padding_mode="replicate", dilation = 1, par_depth = 3, par_dil = (6,1), par_kern = (6,3)):
+    #def __init__(self, in_channels=2, out_channels=1, init_features=64, depth=5, kernel_size=3, padding_mode="replicate", dilation = 1, par_depth = 3, par_dil = (4,1), par_kern = (4,2)):
         super().__init__()
         features = init_features        
         self.encoders = nn.ModuleList()
         self.pools = nn.ModuleList()
         self.parallel = nn.ModuleList()
+        meta_model = []
 
         for _ in range(par_depth):
             self.parallel.append(UNetParallel._block(features, features, kernel_size=par_kern, padding_mode=padding_mode, dilation = par_dil))
@@ -19,7 +21,17 @@ class UNetParallel(nn.Module):
             in_channels = features
             features *= 2
         self.encoders.append(UNetParallel._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
+        for i in range(3):
+            meta_model.append({"kernel_size" : kernel_size,"stride":1, "dilation": 1})
 
+        for i in range(3):
+            meta_model.append({"kernel_size" : kernel_size,"stride":1, "dilation": 1})
+        meta_model.append({"kernel_size" : 2,"stride":2, "dilation": 1})
+    
+        for _ in range(par_depth):
+            for i in range(3):
+                meta_model.append({"kernel_size" : 6,"stride":1, "dilation": 6})
+        
         self.upconvs = nn.ModuleList()
         self.decoders = nn.ModuleList()
         for _ in range(depth):
@@ -28,6 +40,7 @@ class UNetParallel(nn.Module):
             features = features // 2
 
         self.conv = nn.Conv2d(in_channels=features, out_channels=out_channels, kernel_size=1)
+        calc_receptive_field(meta_model)
 
     def forward(self, x: tensor) -> tensor:
         encodings = []
@@ -178,3 +191,12 @@ class UNetBC(UNetParallel):
                 features, features, kernel_size, bias=True,),
             nn.ReLU(inplace=True),
         )
+
+def calc_receptive_field(meta_model):
+    field_size = 1
+    mult_stride = 1
+
+    for i,curr_layer in enumerate(meta_model):
+        field_size = field_size + ((curr_layer["kernel_size"]-1) * curr_layer["dilation"] * mult_stride)
+        mult_stride = mult_stride * curr_layer["stride"]
+    print(f"receptive field of current network is:{field_size}")

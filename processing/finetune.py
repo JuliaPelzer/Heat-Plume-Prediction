@@ -25,7 +25,7 @@ from ray.train import RunConfig
 from ray.tune.search.optuna import OptunaSearch
 from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits
 
-def tune_nn(settings: SettingsTraining, num_samples=200, max_num_epochs=18, gpus_per_trial=1, ):
+def tune_nn(settings: SettingsTraining, num_samples=200, max_num_epochs=20, gpus_per_trial=1, ):
     if settings.problem == "turbnet":
         config = {
             "features_exp": tune.choice(range(2,8)),
@@ -54,9 +54,9 @@ def tune_nn(settings: SettingsTraining, num_samples=200, max_num_epochs=18, gpus
             "depth": tune.choice([2,3,4,5]),
             "kernel_size": tune.choice([3,4,5,6,7]),
             "weight_decay": tune.choice([1e-5]),
-            "padding_mode": tune.choice(['zeros','replicate']),
-            "dilation": tune.choice([1,2,3]),
-            "down_kernel": tune.choice([3,5,7,9,11])
+            "padding_mode": tune.choice(['replicate']),
+            "dilation": tune.choice([1]),
+            "down_kernel": tune.choice([1])
         }
     else:
         config = {

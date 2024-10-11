@@ -199,7 +199,7 @@ def apply_iterative(model: UNet, settings: SettingsTraining, domain, run_id, inf
         domain.plot("t",settings.destination / run_id ,f"domain_step_pre_{current}",corner_ll=single_hps[current].corner_ll,corner_ur=single_hps[current].corner_ur)
         domain.add_hp(single_hps[current])
         stepswise_to_plot[f"step {current+1}"] = DataToVisualize(domain.prediction.clone().detach(), f"Prediction after step {current+1} in [°C]",extent_highs_domain)
-        domain.plot("t",settings.destination / run_id ,f"domain_step_{current}",corner_ll=single_hps[current].corner_ll,corner_ur=single_hps[current].corner_ur)
+        domain.plot("t",settings.destination / run_id ,f"Step {current + 1}",corner_ll=single_hps[current].corner_ll,corner_ur=single_hps[current].corner_ur)
         domain.inputs[4] = domain.prediction.clone().detach()
         single_hps = domain.extract_hp_boxes("cpu")
 
