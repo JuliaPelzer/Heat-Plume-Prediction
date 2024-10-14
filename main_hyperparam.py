@@ -51,21 +51,20 @@ def init_data(settings: SettingsTraining, seed=1):
     # if settings.case == "test":
     #     split_ratios = [0.0, 0.0, 1.0]
 
-    dataset = TrainDataset.restrict_data(dataset, settings.data_n)
-    print('!------------------------------------------------------------------------------------------------------------------!')
-    print('Dataset restricted to size ' + str(len(dataset)))
-    print('!------------------------------------------------------------------------------------------------------------------!')
-
     if settings.rotate_inference and settings.case == 'train':
         dataset = TrainDataset.rotate_data(dataset)
         
     datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     dataloaders = {}
     try:
-        dataloaders["train"] = DataLoader(TrainDataset.augment_data(datasets[0], settings.augmentation_n, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
-        dataloaders["val"] = DataLoader(TrainDataset.augment_data(datasets[1], 0, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
+        dataloaders["train"] = DataLoader(TrainDataset.augment_data(TrainDataset.restrict_data(datasets[0], int(settings.data_n*split_ratios[0])), settings.augmentation_n, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
+        dataloaders["val"] = DataLoader(TrainDataset.augment_data(TrainDataset.restrict_data(datasets[1], int(settings.data_n*split_ratios[1])), 0, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
     except: pass
-    dataloaders["test"] = DataLoader(TrainDataset.augment_data(datasets[2], 0, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
+    dataloaders["test"] = DataLoader(TrainDataset.augment_data(datasets[2], 0, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=False, num_workers=0)
+
+    print('!------------------------------------------------------------------------------------------------------------------!')
+    print(f'Dataset restricted to size: train:{len(dataloaders["train"])}, validation:{len(dataloaders["val"])}, test:{len(dataloaders["test"])}')
+    print('!------------------------------------------------------------------------------------------------------------------!')
 
     return dataset.input_channels, dataloaders
 
@@ -120,12 +119,14 @@ def run_eval(config = None):
         times["time_end"] = time.perf_counter()    
         print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
         log_params = solver.best_model_params
-        wandb.log({'val RMSE':log_params['val RMSE']})
-        wandb.log({'train RMSE':log_params['train RMSE']})
-        wandb.log({'epoch found':log_params['epoch']})
-        wandb.log({'best val_loss':log_params['loss']})
-        wandb.log({'best train_loss':log_params['train loss']})
-        wandb.log({'dataset':settings.dataset_raw})
+        wandb.log({
+            'val RMSE': log_params['val RMSE'],
+            'train RMSE': log_params['train RMSE'],
+            'epoch found': log_params['epoch'],
+            'best val_loss': log_params['loss'],
+            'best train_loss': log_params['train loss'],
+            'dataset': settings.dataset_raw
+        })
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)

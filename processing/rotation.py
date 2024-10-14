@@ -5,8 +5,8 @@ from torchvision.transforms import InterpolationMode
 from itertools import product, repeat
 import math
 
-# function to rotate one datapoint counterclockwise (with pressure)
-def rotate(data, angle):
+# function to rotate one datapoint counter-clockwise (with pressure as input)
+def rotate(data : torch.tensor, angle : int) -> torch.tensor:
     data_out = torch.zeros_like(data)
     # rotate all scalar fields
     for i in range(data.shape[0]):
@@ -14,40 +14,27 @@ def rotate(data, angle):
     
     return data_out
 
-# rotate a datapoint such that direction matches specified direction and return rerotated inference (with pressure)
-def rotate_and_infer(datapoint, grad_vec, model, info, device):
-    #calculate gradient and get angle, margin at borders to allow for circular mask
-    p_ind = info['Inputs']['Liquid Pressure [Pa]']['index']
-    center = int(datapoint[p_ind].shape[0]/2)
-    start = 5
-    end = datapoint[p_ind].shape[0] - 5
-    dif = end - start
-
-    angle = get_rotation_angle([(datapoint[p_ind][end][center].item() - datapoint[p_ind][start][center].item())/dif, 
-                                (datapoint[p_ind][center][end].item() - datapoint[p_ind][center][start].item())/dif], grad_vec)
+# rotate a datapoint such that direction matches specified direction and return rerotated prediction (with pressure as input)
+def rotate_and_infer(datapoint : torch.tensor, grad_vec : list, model : torch.nn.Module, info, device : str) -> torch.tensor:
+    # calculate gradient and get angle for aligning data point
+    angle = get_rotation_angle(get_pressure_grad(datapoint,info), grad_vec)
     x = rotate(datapoint, angle)
 
-    #get inference
+    # get inference
     x = x.to(device).unsqueeze(0)
     y_out = model(x).to(device)
 
-    #rotate result back
+    # rotate result back
     y_out = rotate(y_out.cpu().detach(), 360 - angle)
     return y_out
 
-# rotate a datapoint such that direction matches specified direction and return rerotated inference (with pressure)
-def rotate_and_infer_batch(batch, grad_vec, model, info, device):
+# rotate a batch such that direction matches specified direction and return rerotated inference (with pressure as input)
+def rotate_and_infer_batch(batch : torch.tensor, grad_vec : list, model : torch.nn.Module, info, device : str) -> torch.tensor:
     y_out_list = []
-    #calculate gradient and get angle, margin at borders to allow for circular mask
-    p_ind = info['Inputs']['Liquid Pressure [Pa]']['index']
-    center = int(batch[0][p_ind].shape[0]/2)
-    start = 5
-    end = batch[0][p_ind].shape[0] - 5
-    dif = end - start
     
     for datapoint in batch:
-        angle = get_rotation_angle([(datapoint[p_ind][end][center].item() - datapoint[p_ind][start][center].item())/dif, 
-                                (datapoint[p_ind][center][end].item() - datapoint[p_ind][center][start].item())/dif], grad_vec)
+        #calculate gradient and get angle for aligning data point
+        angle = get_rotation_angle(get_pressure_grad(datapoint,info), grad_vec)
         x = rotate(datapoint, angle)
 
         #get inference
@@ -59,13 +46,13 @@ def rotate_and_infer_batch(batch, grad_vec, model, info, device):
         y_out_list.append(y_out)
     return torch.stack(y_out_list)
 
-# get angle to rotate a counterclockwise to match b's direction
-def get_rotation_angle(a,b):
+# get angle to rotate a counter-clockwise to match b's direction
+def get_rotation_angle(a : list,b :list) -> int:
     # calculate the dot product and the determinant
     dot_product = np.dot(a, b)
     determinant = a[0] * b[1] - a[1] * b[0]
     
-    # calculate the angle in radians
+    # calculate the angle
     angle = np.degrees(np.arctan2(determinant, dot_product))
     
     # turn angle positive if necessary
@@ -74,74 +61,67 @@ def get_rotation_angle(a,b):
     
     return angle
 
-#build mask to cut out circular field from input, based on:
-#https://quva-lab.github.io/escnn/api/escnn.nn.html?highlight=maskmodule#escnn.nn.MaskModule
-def build_mask_gauss(
-        s,
-        dim: int = 2,
-        margin: float = 0.0,
-        sigma: float = 2.0,
-        dtype=torch.float32,
-):
-    mask = torch.zeros(1, 1, *repeat(s, dim), dtype=dtype)
-    c = (s-1) / 2
-    t = (c - margin/100.*c)**2
-    for k in product(range(s), repeat=dim):
-        r = sum((x - c)**2 for x in k)
-        if r > t:
-            mask[(..., *k)] = math.exp((t - r) / sigma**2)
-        else:
-            mask[(..., *k)] = 1.
-    return mask
+# get pressure gradient encoded by the data points pressure field
+def get_pressure_grad(datapoint : torch.tensor, info) -> list:
+    
+    # get indices for calculating gradient and leave border of size 5 so that masks dont interfere
+    p_ind = info['Inputs']['Liquid Pressure [Pa]']['index']
+    center = int(datapoint[p_ind].shape[0]/2)
+    start = 5
+    end = datapoint[p_ind].shape[0] - 5
+    dif = end - start
 
-#build mask to cut out circular field from input, based on:
-#https://quva-lab.github.io/escnn/api/escnn.nn.html?highlight=maskmodule#escnn.nn.MaskModule
-#returns tensor with just 0 and 1
-def build_mask(
-        s,
-        dim: int = 2,
-        dtype=torch.float32,
-):
+    # calculate gradient
+    return [(datapoint[p_ind][end][center].item() - datapoint[p_ind][start][center].item())/dif, 
+                                (datapoint[p_ind][center][end].item() - datapoint[p_ind][center][start].item())/dif]
+
+# build mask to cut out circular field from input, based on:
+# https://quva-lab.github.io/escnn/api/escnn.nn.html?highlight=maskmodule#escnn.nn.MaskModule
+# returns tensor with just 0 and 1
+def build_mask(s : int, dim: int = 2, dtype=torch.float32) -> torch.tensor:
     mask = torch.zeros(1, 1, *repeat(s, dim), dtype=dtype)
-    c = (s-1) / 2  # Center of the tensor
-    r_max = c**2  # Maximum radius squared for the circle to fit
+    c = (s-1) / 2  # center of the tensor
+    r_max = c**2  # maximum radius squared for the circle to fit
 
     for k in product(range(s), repeat=dim):
         r = sum((x - c)**2 for x in k)
         if r <= r_max:
-            mask[(..., *k)] = 1.  # Inside the circle
+            mask[(..., *k)] = 1.  # inside the circle
         else:
-            mask[(..., *k)] = 0.  # Outside the circle
+            mask[(..., *k)] = 0.  # outside the circle
     return mask
 
-def mask_size(s, dim: int = 2):
-    c = (s-1) / 2  # Center of the tensor
-    r_max = c**2  # Maximum radius squared for the circle to fit
+# get number of cells inside circle described by mask
+def mask_size(s, dim: int = 2) -> int:
+    c = (s-1) / 2  # center of the tensor
+    r_max = c**2  # maximum radius squared for the circle to fit
     pixels = 0.
 
     for k in product(range(s), repeat=dim):
         r = sum((x - c)**2 for x in k)
         if r <= r_max:
-            pixels += 1.  # Inside the circle
+            pixels += 1.  # inside the circle
     return pixels
 
-#cut out circular field of data
-def mask_tensor(data):
+# cut out circular field of data
+def mask_tensor(data : torch.tensor) -> torch.tensor:
     data_out = torch.zeros_like(data)
     mask = build_mask(data.shape[1], dtype = data.dtype)
+    
+    #apply mask to each channel
     for i in range(data.shape[0]):
         data_out[i] = data[i]*mask
     
     return data_out
 
 #cut out circular field of data for batch
-def mask_batch(batch):
+def mask_batch(batch : torch.tensor) -> torch.tensor:
     return torch.stack([mask_tensor(data) for data in batch])
 
 # FUNCTIONS TO USE IN COMBINATION WITH GRADIENT, ARTIFACTS OF EARLIER TINKERING ===> UNSUPPORTED!
 
-# function to rotate one datapoint counterclockwise (with gradient)
-def rotate_w_gradient(data, angle, info):
+# function to rotate one datapoint counter-clockwise (with gradient)
+def rotate_w_gradient(data : torch.tensor, angle : int, info) -> torch.tensor:
     x_grad_ind = y_grad_ind = -1
     data_out = torch.zeros_like(data)
 
@@ -169,7 +149,7 @@ def rotate_w_gradient(data, angle, info):
     return data_out
 
 # rotate a datapoint such that direction matches specified direction and return rerotated inference (with gradient)
-def rotate_and_infer_w_gradient(datapoint, grad_vec, model, info, device):
+def rotate_and_infer_w_gradient(datapoint : torch.tensor, grad_vec : list, model : torch.nn.Module, info, device : str) -> torch.tensor:
     # rotate datapoint
     x_grad_ind = info['Inputs']['Pressure Gradient [-]']['index']
     y_grad_ind = info['Inputs']['Pressure Gradient [|]']['index']

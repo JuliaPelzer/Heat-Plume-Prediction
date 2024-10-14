@@ -33,23 +33,22 @@ def init_data(settings: SettingsTraining, seed=1):
     split_ratios = [0.7, 0.2, 0.1]
     # if settings.case == "test":
     #     split_ratios = [0.0, 0.0, 1.0]
-    
-    dataset = TrainDataset.restrict_data(dataset, settings.data_n)
-    print('------------------------------------------------------------------------------------------------------------------')
-    print('Dataset restricted to size ' + str(len(dataset)))
-    print('------------------------------------------------------------------------------------------------------------------')
 
+    # rotate data for Oriented Boxes approach
     if settings.rotate_inference and settings.case == 'train':
         dataset = TrainDataset.rotate_data(dataset)
-
+        
     datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     dataloaders = {}
     try:
-        dataloaders["train"] = DataLoader(TrainDataset.augment_data(datasets[0], settings.augmentation_n, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
-        dataloaders["val"] = DataLoader(TrainDataset.augment_data(datasets[1], 0, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
+        dataloaders["train"] = DataLoader(TrainDataset.augment_data(TrainDataset.restrict_data(datasets[0], int(settings.data_n*split_ratios[0])), settings.augmentation_n, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
+        dataloaders["val"] = DataLoader(TrainDataset.augment_data(TrainDataset.restrict_data(datasets[1], int(settings.data_n*split_ratios[1])), 0, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
     except: pass
-    #dont shuffle to omitt additional rounding errors
     dataloaders["test"] = DataLoader(TrainDataset.augment_data(datasets[2], 0, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=False, num_workers=0)
+
+    print('!------------------------------------------------------------------------------------------------------------------!')
+    print(f'Dataset restricted to size: train:{len(dataloaders["train"])}, validation:{len(dataloaders["val"])}, test:{len(dataloaders["test"])}')
+    print('!------------------------------------------------------------------------------------------------------------------!')
 
     return dataset.input_channels, dataloaders
 
@@ -111,6 +110,7 @@ def run(settings: SettingsTraining):
         visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", pic_format=pic_format, amount_datapoints_to_visu=10, rotate_inference=settings.rotate_inference, mask=True) #amount_datapoints_to_visu=5,
         times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device, rotate_inference=settings.rotate_inference, mask=True)
         mean_error_strings = []
+        # print MAE for equivariance
         for angle in [0,30,45,60,90]:
             summed_dif_pic = infer_all_rotate_and_summed_pic(model, dataloaders[which_dataset], settings.device, rotate_inference=settings.rotate_inference, mask=True, angle = angle)
             plot_avg_error_rotated_cellwise(dataloaders[which_dataset], summed_dif_pic, {"folder" : settings.destination, "format": pic_format}, angle=angle)
@@ -151,7 +151,7 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
         time_start = time.perf_counter()
 
         if settings.rotate_inference:
-            y_out = rotate_and_infer(data.squeeze(0), [-1,0], model, load_yaml(settings.destination, 'info'), settings.device).to(settings.device)
+            y_out = rotate_and_infer(data.squeeze(0), [-1,0], model, load_yaml(model_name, 'info'), settings.device).to(settings.device)
         else:
             y_out = model(data.to(settings.device)).to(settings.device)
 

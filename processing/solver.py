@@ -84,11 +84,11 @@ class Solver(object):
                 self.model.eval()
                 val_epoch_loss = self.run_epoch(self.val_dataloader, device)
 
-                # Logging
+                # Logging with wandb
                 if use_wandb:
-                    wandb.log({'train_loss':train_epoch_loss})
-                    wandb.log({'val_loss':val_epoch_loss})
-                    wandb.log({'learning rate':self.opt.param_groups[0]['lr']})
+                    wandb.log({'train_loss':train_epoch_loss,
+                               'val_loss':val_epoch_loss,
+                               'learning rate':self.opt.param_groups[0]['lr']})
 
                 writer.add_scalar("train_loss", train_epoch_loss, epoch)
                 writer.add_scalar("val_loss", val_epoch_loss, epoch)

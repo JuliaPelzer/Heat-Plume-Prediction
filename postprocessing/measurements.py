@@ -122,7 +122,6 @@ def measure_loss(model: UNet, dataloaders: Dict[str, DataLoader], settings: Sett
             domain_size = rt.mask_size(y_pred.shape[2])
         else:
             domain_size = y_pred.shape[2] * y_pred.shape[3]
-        print(domain_size)
         mse_loss /= (no_datapoints * domain_size)
         mae_closs /= (no_datapoints * domain_size)
         rmse_closs /=  (no_datapoints * domain_size)
@@ -146,13 +145,6 @@ def measure_loss(model: UNet, dataloaders: Dict[str, DataLoader], settings: Sett
         if vT_case == "temperature":
             results[case]["PBT (percentage bigger than threshold 0.1C in [%]"] = output_pbt
     return results
-
-def percentage_misclassification(y_pred, y, delta):
-    abs_diff = torch.abs(y_pred - y)
-    diff_delta = abs_diff > delta
-    count_delta = torch.sum(diff_delta).item()
-    perc_delta = count_delta / math.prod(y.shape)
-    return perc_delta
 
 def save_all_measurements(settings:SettingsTraining, len_dataset, times, solver:Solver=None, errors:Dict={}):
     with open(Path.cwd() / "runs" / settings.destination / f"measurements_{settings.case}.yaml", "w") as f:

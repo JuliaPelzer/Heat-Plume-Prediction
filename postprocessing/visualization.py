@@ -75,11 +75,13 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
             x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
             y = labels[datapoint_id]
 
+            # rotate data point if Oriented Boxes approach is used
             if rotate_inference:
                 y_out = rt.rotate_and_infer(x.squeeze(0), [-1,0], model, info, device).to(device)
             else:
                 y_out = model(x).to(device)
 
+            # apply circular mask
             if mask:
                 y = rt.mask_tensor(y.cpu()).to(device)
                 y_out = rt.mask_tensor(y_out.cpu()[0]).unsqueeze(0).to(device)
@@ -194,6 +196,7 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, r
             x = rt.rotate(inputs[datapoint_id],angle).to(device)
             x = torch.unsqueeze(x, 0)
 
+            # rotate data point if Oriented Boxes approach is used
             if rotate_inference:
                 start_time = time.perf_counter()
                 y_out = rt.rotate_and_infer(x.squeeze(0), [-1,0], model, info, device).to(device)
@@ -205,6 +208,7 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, r
             
             y = rt.rotate(labels[datapoint_id],angle)
 
+            # apply circular mask
             if mask:
                 y = rt.mask_tensor(y.cpu()).to(device)
                 y_out = rt.mask_tensor(y_out.cpu()[0]).unsqueeze(0).to(device)
@@ -225,7 +229,7 @@ def infer_all_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, r
 def infer_all_rotate_and_summed_pic(model: UNet, dataloader: DataLoader, device: str, rotate_inference: bool = False, mask: bool = True, angle: int = 0):
     '''
     sum inference time (including reverse-norming)
-    pixelwise error between pixelwise error over all datapoints and pixelwise error over all rotated datapoints
+    pixelwise error between all datapoints and all rotated datapoints
     '''
     
     norm = dataloader.dataset.dataset.norm
@@ -242,10 +246,11 @@ def infer_all_rotate_and_summed_pic(model: UNet, dataloader: DataLoader, device:
             x = inputs[datapoint_id].to(device)
             x = torch.unsqueeze(x, 0)
 
-            #get rotated data
+            # get rotated data
             x_rot = rt.rotate(inputs[datapoint_id],angle).to(device)
             x_rot = torch.unsqueeze(x_rot, 0)
 
+            # get inference for rotated and unrotated data
             if rotate_inference:
                 y_out = rt.rotate_and_infer(x.squeeze(0), [-1,0], model, info, device).to(device)
                 y_out_rot = rt.rotate_and_infer(x_rot.squeeze(0), [-1,0], model, info, device).to(device)
@@ -253,7 +258,7 @@ def infer_all_rotate_and_summed_pic(model: UNet, dataloader: DataLoader, device:
                 y_out = model(x).to(device)
                 y_out_rot = model(x_rot).to(device)
             
-            #rotate prediction for rotated data back
+            # rotate prediction for rotated data back
             y_out_rot = rt.rotate(y_out_rot, 360 - angle)
 
             if mask:
@@ -263,6 +268,8 @@ def infer_all_rotate_and_summed_pic(model: UNet, dataloader: DataLoader, device:
             # reverse transform for plotting real values
             y_out_rot = norm.reverse(y_out_rot.cpu().detach()[0],"Labels")[0]
             y_out = norm.reverse(y_out.cpu().detach()[0],"Labels")[0]
+
+            #calculate error between inference of rotated and unrotated input
             summed_error_pic += abs(y_out - y_out_rot)
 
             current_id += 1
@@ -271,7 +278,7 @@ def infer_all_rotate_and_summed_pic(model: UNet, dataloader: DataLoader, device:
     return summed_error_pic
 
 def plot_avg_error_rotated_cellwise(dataloader, summed_error_pic_dif, settings_pic: dict, angle: int):
-    # plot avg error cellwise AND return time measurements for inference
+    # plot avg error cellwise between predictions of rotated and unrotated inputs
 
     info = dataloader.dataset.dataset.info
     extent_highs = (np.array(info["CellsSize"][:2]) * dataloader.dataset[0][0][0].shape)
