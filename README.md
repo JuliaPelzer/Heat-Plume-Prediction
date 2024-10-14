@@ -43,12 +43,14 @@
   Only scalar fields are supported (`pksi` as input).
   
 - **New Arguments:**
-  - `--augmentation_n`: Adds augmented versions of each data point by rotating each data point with `augmentation_n` angles uniformly sampled from (0°, 360°). If `augmentation_n < 0`, it adds versions rotated by 90°, 180°, and 270°. (Default: `0`)
+  - `--augmentation_n`: Adds augmented versions of each data point by rotating each data point with `augmentation_n` angles uniformly sampled from (0°, 360°). <br>
+    If `augmentation_n < 0`, it adds versions rotated by 90°, 180°, and 270°. (Default: `0`)
   - `--rotate_inference`: 
     - **During Training:** Aligns all data points with a chosen direction. (Default: `False`)
     - **During Inference:** Rotates data points for inference to align with a chosen direction and rotates the predictions back. (Default: `False`)
   - `--use_ecnn`: Enables the use of equivariant UNet. (Default: `False`)
-  - `--data_n`: Restricts the dataset to `data_n` data points. The test set remains unaffected. Setting `data_n <= 0` or larger than the number of data points results in no restriction. (Default: `-1`)
+  - `--data_n`: Restricts the dataset to `data_n` data points. The test set remains unaffected. <br>
+    Setting `data_n <= 0` or larger than the number of data points results in no restriction. (Default: `-1`)
 
 - **Experimental Arguments (Apply before training or inference):**
   - `--mask`: Applies a mask to all data. (Default: `False`)
