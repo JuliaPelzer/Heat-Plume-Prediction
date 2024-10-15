@@ -52,9 +52,14 @@
   - `--data_n`: Restricts the dataset to `data_n` data points. The test set remains unaffected. <br>
     Setting `data_n <= 0` or larger than the number of data points results in no restriction. (Default: `-1`)
 
-- **Experimental Arguments (Apply before training or inference):**
+- **Arguments for Experimenting (Apply before training or inference):**
   - `--mask`: Applies a mask to all data. (Default: `False`)
   - `--rotate_inputs`: Rotates all data by the specified angle. (Default: `0`)
+
+- **Logging with wandb**
+  - login to wandb account with `wandb login`.
+  - In `main_hyperparam.py` set wandb setting (l.23-l.36) as desired.
+  - Run `main_hyperparam.py` the same way as `main.py`.
     
 ## Training a 2nd stage model (2HP-NN): !excluded on this branch!
 - for running a 2HP-NN you need the prepared 2HP-dataset in datasets_prepared_dir_2hp (paths.yaml)
