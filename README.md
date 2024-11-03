@@ -19,39 +19,47 @@
 
 ## Main.py
 - all operations are executed via main.py and the following main arguments:
-    --case: operation of current exection, e.g `train` for training a network, `iterative` for iterative application and `prep_xhp` for preparing dataset with multiple heat pumps  (default `train`)
-    --dataset_raw: name of the raw dataset saved in the raw directory specified in paths.yaml (default `dataset_2d_small_1000dp`)
-    --dataset_prep: name of the prepared dataset saved in the prep directory specified in paths.yaml (default ``)
-    --model: model name saved in models directory specified in paths.yaml (default `default`)
-    --destination: destination folder where the results of the execution are saved (default ``)
+  - --case: operation of current exection, e.g `train` for training a network, `iterative` for iterative application and `prep_xhp` for preparing dataset with multiple heat pumps  (default `train`)
+  - --dataset_raw: name of the raw dataset saved in the raw directory specified in paths.yaml (default `dataset_2d_small_1000dp`)
+  - --dataset_prep: name of the prepared dataset saved in the prep directory specified in paths.yaml (default ``)
+  - --model: model name saved in models directory specified in paths.yaml (default `default`)
+  - --destination: destination folder where the results of the execution are saved (default ``)
 
 - optional arguments:
-    --device: device for model training/inference (default `cuda:0`)
-    --epochs: number of training epochs (default `10000`)
-    --inputs: make sure, they are the same as in the model (default `gksit`)
-    --visualize: visualize the results (default `False`)
-    --only_prep: flag for bypassing dataset preparation when only prep data is available (default `False`)
-    --save_inference: flag for saving inference (default `False`)
-    --problem: type of CNN for current execution (default `2stages` which is a standard U-net)
-    --notes: not used in this fork
-    --len_box: length in y-direction that the datapoints should be cut off (default `256`). Make sure, this number is less or equal to the length of the simulation run.
-    --skip_per_dir: not used in this fork
+  - --device: device for model training/inference (default `cuda:0`)
+  - --epochs: number of training epochs (default `10000`)
+  - --inputs: make sure, they are the same as in the model (default `gksit`)
+  - --visualize: visualize the results (default `False`)
+  - --only_prep: flag for bypassing dataset preparation when only prep data is available (default `False`)
+  - --save_inference: flag for saving inference (default `False`)
+  - --problem: type of CNN for current execution (default `2stages` which is a standard U-net)
+  - --notes: not used in this fork
+  - --len_box: length in y-direction that the datapoints should be cut off (default `256`). Make sure, this number is less or equal to the length of the simulation run.
+  - --skip_per_dir: not used in this fork
 
 
 ## Training a model:
 - for training you need a dataset in datasets_prepared_dir or default_raw_dir (paths.yaml)
-- run python main.py --dataset_prep 12HP_2500dp --epoch 8000 --problem quad --inputs gksit --visualize True --device cuda:0 --destination unet_quad
+- execute
+     ```
+     python main.py --dataset_prep 12HP_2500dp --epoch 8000 --problem quad --inputs gksit --visualize True --device cuda:0 --destination unet_quad
+     ```
 
 ## Iterative application:
 - for iterative application you need the model in models_1hp_dir (paths.yaml)  and the dataset in default_raw_dir (paths.yaml)
 - ensure that the model parameters are the same in e.g. networks/unet.py 
-- run python main.py --dataset_raw dataset_xiaoyu_5dp_5hp_fixedPK --case iterative --model unet_stand --problem 2stages --inputs gksit --destination seq_5hp_large
+- execute
+  ```
+  python main.py --dataset_raw dataset_xiaoyu_5dp_5hp_fixedPK --case iterative --model unet_stand --problem 2stages --inputs gksit --destination seq_5hp_large
+  ```
 
 ## Generating prepared dataset with multiple heat pumps:
 - you need the model in models_1hp_dir (paths.yaml) and the dataset in default_raw_dir (paths.yaml)
 - the images of the dataset end up in `runs/2hpnn`, the resulting dataset in datasets_prepared_dir_2hp (paths.yaml)
-- run python main.py --dataset_raw dataset_5dp_5hp_fixedPK --problem 2stages --inputs gksit --model unet_large_tuned --visualize True --case prep_xhp --destination 5hp_dataset --device cpu
-
+- execute
+```
+ python main.py --dataset_raw dataset_5dp_5hp_fixedPK --problem 2stages --inputs gksit --model unet_large_tuned --visualize True --case prep_xhp --destination 5hp_dataset --device cpu
+```
 
 ## Finding the results:
 - resulting model (`model.pt`) + normalization parameters (info.yaml) used can be found in `runs/PROBLEM/DESTINATION` with `PROBLEM` in [1hpnn, 2hpnn] and `DESTINATION` being the user defined or default name in the call of main.py
