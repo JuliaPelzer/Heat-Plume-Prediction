@@ -14,7 +14,8 @@ from postprocessing.visualization import visualizations
 
 from data_stuff.utils import SettingsTraining
 from networks.unet import weights_init, UNet
-from networks.unetHalfPad import UNetHalfPad
+from networks.unetQuad import UNetQuad
+from networks.unetParallel import UNetParallel
 
 @dataclass
 class Solver(object):
@@ -100,7 +101,12 @@ class Solver(object):
                         #     writer.add_histogram(name, param, epoch)
 
             except KeyboardInterrupt:
-                model_tmp = UNetHalfPad(in_channels=len(settings.inputs), out_channels=1) # UNet
+                if settings.problem == "2stages":
+                    model_tmp = UNet(in_channels=len(settings.inputs), out_channels=1) # UNet
+                elif settings.problem == "quad":
+                    model_tmp = UNetQuad(in_channels=len(settings.inputs), out_channels=1)
+                else:
+                    model_tmp = UNetParallel(in_channels=len(settings.inputs), out_channels=1)
                 model_tmp.load_state_dict(self.best_model_params["state_dict"])
                 model_tmp.to(settings.device)
                 model_tmp.save(settings.destination, model_name=f"interim_model_e{epoch}.pt")
@@ -159,7 +165,7 @@ class Solver(object):
         # check if path contains lr-schedule, else use default one
         if not path.exists():
             logging.warning(f"Could not find lr-schedule at {path}. Using default lr-schedule instead.")
-            path = pathlib.Path.cwd() / "Heat-Plume-Prediction_temp"/ "processing" / "lr_schedules"
+            path = pathlib.Path.cwd() / "processing" / "lr_schedules"
             lr_schedule_file = "default_lr_schedule.csv" if not case_2hp else "default_lr_schedule_2hp.csv"
             path = path / lr_schedule_file
 

@@ -1,94 +1,60 @@
 # Begin working
 - clone the repository
 - install the requirements: `pip install -r requirements.txt`
-- download the raw / prepared data, (optional models and data sets for 2nd stage) 
+- download the raw / prepared data from darus
 - set the paths in paths.yaml (see later)
 
 ## Exemplary paths.yaml file:
 
     ```
-    default_raw_dir: /scratch/sgs/pelzerja/datasets # where the raw 1st stage data is stored
-    datasets_prepared_dir: /home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN # where the prepared 1st stage data is stored
-    datasets_raw_domain_dir: /scratch/sgs/pelzerja/datasets/2hps_demonstrator_copy_of_local
-    datasets_prepared_domain_dir: /home/pelzerja/pelzerja/test_nn/datasets_prepared/2HP_domain
-    prepared_1hp_best_models_and_data_dir: /home/pelzerja/pelzerja/test_nn/1HP_NN_preparation_BEST_models_and_data
-    models_2hp_dir: /home/pelzerja/pelzerja/test_nn/1HP_NN/runs
-    datasets_prepared_dir_2hp: /home/pelzerja/pelzerja/test_nn/datasets_prepared/2HP_NN
+    default_raw_dir: /scratch/zhangxu/datasets/raw # where the raw data is stored
+    datasets_prepared_dir: /scratch/zhangxu/datasets/prepared # where the prepared data is stored
+    datasets_raw_domain_dir: /scratch/zhangxu/datasets/raw
+    datasets_prepared_domain_dir: /home/zhangxu/test_nn/datasets_prepared/2HP_domain
+    prepared_1hp_best_models_and_data_dir: /home/zhangxu/test_nn/best
+    models_1hp_dir: /home/zhangxu/test_nn/1HP_NN/runs
+    models_2hp_dir: /home/zhangxu/test_nn/1HP_NN/runs/2hpnn
+    datasets_prepared_dir_2hp: /scratch/zhangxu/datasets/prepared/2HP_boxes
     ```
 
-## Training a 1st stage model (1HP-NN):
-- run main.py
+## Main.py
+- all operations are executed via main.py and the following main arguments:
+    --case: operation of current exection, e.g `train` for training a network, `iterative` for iterative application and `prep_xhp` for preparing dataset with multiple heat pumps  (default `train`)
+    --dataset_raw: name of the raw dataset saved in the raw directory specified in paths.yaml (default `dataset_2d_small_1000dp`)
+    --dataset_prep: name of the prepared dataset saved in the prep directory specified in paths.yaml (default ``)
+    --model: model name saved in models directory specified in paths.yaml (default `default`)
+    --destination: destination folder where the results of the execution are saved (default ``)
 
-    ```
-    python main.py --dataset_raw NAME_OF_DATASET --problem 2stages
-    ```
-    optional arguments:
-    --inputs: make sure, they are the same as in the model (default `gksi`)
+- optional arguments:
+    --device: device for model training/inference (default `cuda:0`)
+    --epochs: number of training epochs (default `10000`)
+    --inputs: make sure, they are the same as in the model (default `gksit`)
     --visualize: visualize the results (default `False`)
+    --only_prep: flag for bypassing dataset preparation when only prep data is available (default `False`)
+    --save_inference: flag for saving inference (default `False`)
+    --problem: type of CNN for current execution (default `2stages` which is a standard U-net)
+    --notes: not used in this fork
     --len_box: length in y-direction that the datapoints should be cut off (default `256`). Make sure, this number is less or equal to the length of the simulation run.
+    --skip_per_dir: not used in this fork
 
-## Infer a 1st stage model:
-- run main.py:
 
-    ```
-    python main.py --dataset_raw NAME_OF_DATASET --case test --model PATH_TO_MODEL (after "runs/") --problem 2stages
-    
-    optional arguments:
-    --inputs: make sure, they are the same as in the model (default `gksi`)
-    --visualize: visualize the results (default `False`)
-    ```
-## Training a 2nd stage model (2HP-NN): !excluded on this branch!
-- for running a 2HP-NN you need the prepared 2HP-dataset in datasets_prepared_dir_2hp (paths.yaml)
-- for preparing 2HP-NN: expects that 1HP-NN exists and trained on; for 2HP-NN (including preparation) run main.py with the following arguments:
+## Training a model:
+- for training you need a dataset in datasets_prepared_dir or default_raw_dir (paths.yaml)
+- run python main.py --dataset_prep 12HP_2500dp --epoch 8000 --problem quad --inputs gksit --visualize True --device cuda:0 --destination unet_quad
 
-    ```
-    python main.py --dataset_raw NAME_OF_DATASET --case_2hp True --inputs INPUTS (rather preparation case from 1HP-NN) --problem 2stages
-    more information on required arguments:
-    --inputs: make sure, they are the same as in the model (default `gksi`) + the number of datapoints -> e.g. `gksi1000`
-    -- model: not required, automatically (depending on the input case) taken from paths.yaml:prepared_1hp_best_models_and_data_dir
+## Iterative application:
+- for iterative application you need the model in models_1hp_dir (paths.yaml)  and the dataset in default_raw_dir (paths.yaml)
+- ensure that the model parameters are the same in e.g. networks/unet.py 
+- run python main.py --dataset_raw dataset_xiaoyu_5dp_5hp_fixedPK --case iterative --model unet_stand --problem 2stages --inputs gksit --destination seq_5hp_large
 
-    optional arguments:
-    --visualize: visualize the results (default `False`)
-    --case: `test`, `train` or `finetune` (default `train`)
-    ```
+## Generating prepared dataset with multiple heat pumps:
+- you need the model in models_1hp_dir (paths.yaml) and the dataset in default_raw_dir (paths.yaml)
+- the images of the dataset end up in `runs/2hpnn`, the resulting dataset in datasets_prepared_dir_2hp (paths.yaml)
+- run python main.py --dataset_raw dataset_5dp_5hp_fixedPK --problem 2stages --inputs gksit --model unet_large_tuned --visualize True --case prep_xhp --destination 5hp_dataset --device cpu
 
-## Infer a 2nd stage model: !excluded on this branch!
-
-- as inferring a 1st stage model but with model name from trained 2nd stage model
-
--- case: `test`
-
-## Training an extend plumes model: !excluded in this commit!
-- train a model for the first box (e.g. 1HPNN) or via `problem extend1`, e.g.
-
-    ```
-    python3 main.py --problem extend1 --dataset_raw dataset_medium_10dp
-
-    optional arguments:
-    --device: `cuda:0` or `cuda:1` etc. or `cpu` (default `cuda:0`)
-    --visualize: visualize the results (default `False`)
-    --notes: string input to get a `notes.txt` file in model folder
-    --epochs: number of epochs to train
-    --destination: define a user specific name for the destination folder of the trained model (default build from dataset name + inputs)
-    --len_box: where should the dataset be cut off (length) to only train on the first box (=length of first box)
-    ```
-- save prepared dataset (paths.yaml:datasets_prepared_dir / extend_plumes) with extension "extend1" to not confuse it with extend2, where full length of the dataset is required
-- extend plumes idea: each simulation run is cut into several datapoints of length `len_box`. From the inputs+temperature field of the prior (lefthand) box, the temperature field of the next box is predicted.
-- train a model for the extension of boxes via `problem extend2`, e.g.
-    ```
-    python3 main.py --problem extend2 --dataset_raw dataset_medium_10dp --inputs gk --len_box 128 --skip_per_dir 32
-
-    arguments:
-    -- inputs: tipp: exclude `s` (signed distance function of positions of heat pump) because of difficulties with arbitrary long fields but length-dependent `s` and `i` (one hot encoding of position of heat pump) 
-    -- len_box: length of each box predicted and used for training (perceptive field)
-    --skip_per_dir: if skip=len_box: no overlap between different datapoints. skip should never be larger than len_box, otherwise there are parts of the simulation run that are never seen in training.
-    ```
-
-## Infering and combining both models of extend plumes:
-- see `extend_plumes.py:pipeline_infer_extend_plumes` and `__main__` on how to use it.
 
 ## Finding the results:
-- resulting model (`model.pt`) + normalization parameters (info.yaml) used can be found in `runs/PROBLEM/DESTINATION` with `PROBLEM` in [1hpnn, 2hpnn, allin1, extend_plumes1, extend_plumes2] and `DESTINATION` being the user defined or default name in the call of main.py
+- resulting model (`model.pt`) + normalization parameters (info.yaml) used can be found in `runs/PROBLEM/DESTINATION` with `PROBLEM` in [1hpnn, 2hpnn] and `DESTINATION` being the user defined or default name in the call of main.py
 - this folder also contains visualisations if any were made during the training/inference
 - prepared datasets are in datasets_prepared (paths.yaml:`datasets_prepared_dir/PROBLEM`)
 

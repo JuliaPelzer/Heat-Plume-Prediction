@@ -29,6 +29,7 @@ class SettingsTraining:
     model: str = None
     test: bool = False
     case_2hp: bool = False
+    prepare_xhp: bool = False
     visualize: bool = False
     only_prep: bool = False
     save_inference: bool = False

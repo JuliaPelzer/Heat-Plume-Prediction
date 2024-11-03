@@ -33,11 +33,11 @@ def test_temp(model: UNet, settings: SettingsTraining):
          info = yaml.safe_load(file)
 
     model.eval()  
-    index = 0
+    count = 0
     for run_file in tqdm(list_runs, desc="2HP prepare", total=len(list_runs)):
-        if index > 50:
+        if count > 50:
             break
-        index += 1
+        count += 1
         # for each run, configure save destination
         run_id = f'{run_file.split(".")[0]}'
         pathlib.Path(settings.destination / run_id).mkdir(parents=True, exist_ok=True)
@@ -51,6 +51,7 @@ def test_temp(model: UNet, settings: SettingsTraining):
             logging.warning(f"Skipping {run_id}")
             continue
         
+        # plot inital domain
         dict_to_plot = {}
         norm = NormalizeTransform(info)
         extent_highs = (np.array(info["CellsSize"][:2]) * domain.inputs.shape[-2:])
@@ -68,7 +69,7 @@ def test_temp(model: UNet, settings: SettingsTraining):
         name_pic = settings.destination / run_id / "domain_inputs"
         plot_datafields(dict_to_plot, name_pic, settings_pic)
 
-
+        # apply iterative or batch
         if batch:
             apply_batch(model,settings,domain,run_id,info,settings_pic)
         else:
@@ -78,6 +79,7 @@ def test_temp(model: UNet, settings: SettingsTraining):
     print(f"visualization saved in: {settings.destination}")
     time_end = time.perf_counter()
 
+# batch application, deprecated
 def apply_batch(model: UNet, settings: SettingsTraining, domain, run_id, info, settings_pic):
     norm = NormalizeTransform(info)
     single_hps = domain.extract_hp_boxes("cpu")

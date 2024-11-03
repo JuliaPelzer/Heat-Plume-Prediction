@@ -138,15 +138,8 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
     wid_diff = 0
     skipped = 0
     for inputs, labels, fname in dataloader:
-        print(fname)
-        if "RUN_503" not in fname:
-            continue
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
-            the_list = ["RUN_503"]
-            if fname[datapoint_id] not in the_list:
-                print("hi")
-                continue
             name_pic = f"{plot_path}_{fname[datapoint_id]}"
 
             x = torch.unsqueeze(inputs[datapoint_id].to(device), 0)
@@ -359,7 +352,6 @@ def _isolines_measurements(data: Dict[str, DataToVisualize], name_pic: str, figs
             # calc maximum width and length of 1K-isoline
             for level in CS.allsegs:
                 for seg in level:
-                    # print(seg[:,0].max(), seg[:,0].min(), seg[:,1].max(), seg[:,1].min())
                     right_bound = max(right_bound, seg[:,0].max())
                     left_bound = min(left_bound, seg[:,0].min())
                     upper_bound = max(upper_bound, seg[:,1].max())

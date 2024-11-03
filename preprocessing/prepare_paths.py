@@ -63,11 +63,11 @@ def set_paths_2hpnn(dataset_name: str, preparation_case: str, model_name: str = 
                 elif "dataset" in path.name:
                     dataset_model_trained_with_prep_path = prepared_1hp_dir / path.name
     else:
-        model_1hp_path = pathlib.Path(paths["models_1hp_dir"]) / model_name
+        model_1hp_path = pathlib.Path(paths["models_1hp_dir"]) / "1hpnn" / model_name
         dataset_model_trained_with_prep_path = model_1hp_path
     
     dataset_raw_path = datasets_raw_domain_dir / dataset_name
-    inputs = re_split_number_text(str(preparation_case))[0]
+    inputs = preparation_case
     dataset_1st_prep_path = datasets_prepared_domain_dir / f"{dataset_name} inputs_{inputs}"
     if dataset_prep == "":
         dataset_prep_2hp_path = f"{dataset_name} inputs_{preparation_case} boxes"
@@ -95,14 +95,10 @@ def extend_paths_for_problem(problem:str, default_raw_dir: pathlib.Path, destina
         default_raw_dir = default_raw_dir / "giant_manyhps"
         destination_dir = destination_dir / "allin1"
         datasets_prepared_dir = datasets_prepared_dir / "giant_manyhps"
-    elif problem in ["2stages","parallel","rect"]:
+    elif problem in ["2stages","parallel","quad"]:
         default_raw_dir = default_raw_dir / "1hp_boxes"
         destination_dir = destination_dir / "1hpnn"
         datasets_prepared_dir = datasets_prepared_dir / "1hp_boxes"
-    elif problem == "turbnet":
-        default_raw_dir = default_raw_dir / "turbnet"
-        destination_dir = destination_dir / "turbnet"
-        datasets_prepared_dir = datasets_prepared_dir / "turbnet"
     else:
         raise ValueError(f"problem {problem} not known")
     return default_raw_dir, destination_dir, datasets_prepared_dir

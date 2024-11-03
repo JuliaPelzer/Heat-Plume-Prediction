@@ -8,14 +8,11 @@ import yaml
 from torch.utils.data import DataLoader, random_split
 from torch.nn import MSELoss
 
-from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits
+from data_stuff.dataset import SimulationDataset, get_splits
 from data_stuff.utils import SettingsTraining
-from networks.unet import UNet, UNetBC
-from networks.unetHalfPad import UNetHalfPad
-from networks.unetRectKernel import UNetRectKernel
+from networks.unet import UNet
+from networks.unetQuad import UNetQuad
 from networks.unetParallel import UNetParallel
-from networks.turbnet import TurbNetG
-from networks.turbnetnoskip import TurbNetNoSkipG
 from processing.solver import Solver
 from processing.finetune import tune_nn
 from preprocessing.prepare import prepare_data_and_paths
@@ -25,13 +22,7 @@ from postprocessing.test_temp import test_temp
 from torchsummary import summary
 
 def init_data(settings: SettingsTraining, seed=1):
-    if settings.problem in ["2stages", "turbnet", "parallel", "rect"]:
-        dataset = SimulationDataset(settings.dataset_prep)
-    elif settings.problem == "extend1":
-        dataset = DatasetExtend1(settings.dataset_prep, box_size=settings.len_box)
-    elif settings.problem == "extend2":
-        dataset = DatasetExtend2(settings.dataset_prep, box_size=settings.len_box, skip_per_dir=settings.skip_per_dir)
-        settings.inputs += "T"
+    dataset = SimulationDataset(settings.dataset_prep)
     print(f"Length of dataset: {len(dataset)}")
     generator = torch.Generator().manual_seed(seed)
 
@@ -65,16 +56,10 @@ def run(settings: SettingsTraining):
     # model
     if settings.problem == "2stages":
         model = UNet(in_channels=input_channels).float()
-    elif settings.problem in ["extend1", "extend2"]:
-        model = UNetHalfPad(in_channels=input_channels).float()
-    elif settings.problem == "turbnet":
-        model = TurbNetG(in_channels=input_channels).float()
-    elif settings.problem == "turb-ni":
-        model = TurbNetNoSkipG(in_channels=input_channels).float()
     elif settings.problem == "parallel":
         model = UNetParallel(in_channels=input_channels).float()
-    elif settings.problem == "rect":
-        model = UNetRectKernel(in_channels=input_channels).float()
+    elif settings.problem == "quad":
+        model = UNetQuad(in_channels=input_channels).float()
 
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, map_location=settings.device)
@@ -83,11 +68,10 @@ def run(settings: SettingsTraining):
         visualize_dataset(dataloaders["test"], settings.device, plot_path=settings.destination / f"plot_vis", amount_datapoints_to_visu=20, pic_format="png")
         return
 
-    if settings.case_2hp:
+    if settings.case == "iterative":
         model.to("cpu")
         model = test_temp(model,settings)
         return model
-    
     
     model.to(settings.device)
     solver = None
@@ -97,7 +81,7 @@ def run(settings: SettingsTraining):
         finetune = True if settings.case == "finetune" else False
         solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn, finetune=finetune)
         try:
-            solver.load_lr_schedule(settings.destination / "learning_rate_history.csv", settings.case_2hp)
+            solver.load_lr_schedule(settings.destination / "learning_rate_history.csv", False)
             times["time_initializations"] = time.perf_counter()
             solver.train(settings)
             times["time_training"] = time.perf_counter()
@@ -137,10 +121,6 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
     # push all datapoints through and save all outputs
     if settings.problem == "2stages":
         model = UNet(in_channels=in_channels).float()
-    elif settings.problem in ["extend1", "extend2"]:
-        model = UNetHalfPad(in_channels=in_channels).float()
-    elif settings.problem == "turbnet":
-        model = TurbNetG(in_channels=in_channels).float()  
 
     model.load(model_name, map_location=settings.device)
     model.eval()
@@ -169,15 +149,14 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_prep", type=str, default="")
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--epochs", type=int, default=10000)
-    parser.add_argument("--case", type=str, choices=["train", "test", "finetune", "hypertune", "visualize"], default="train")
+    parser.add_argument("--case", type=str, choices=["train", "test", "finetune", "hypertune", "visualize", "iterative", "prep_xhp"], default="train")
     parser.add_argument("--model", type=str, default="default") # required for testing or finetuning
     parser.add_argument("--destination", type=str, default="")
-    parser.add_argument("--inputs", type=str, default="gksi") #choices=["gki", "gksi", "pksi", "gks", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100", "t", "gkiab", "gksiab", "gkt"]
-    parser.add_argument("--case_2hp", type=bool, default=False)
+    parser.add_argument("--inputs", type=str, default="gksit") #choices=["gki", "gksi", "pksi", "gks", "gksi100", "ogksi1000", "gksi1000", "pksi100", "pksi1000", "ogksi1000_finetune", "gki100", "t", "gkiab", "gksiab", "gkt"]
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--only_prep", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
-    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2","turbnet","turb-no","parallel","rect"], default="extend1")
+    parser.add_argument("--problem", type=str, choices=["2stages","parallel","quad"], default="2stages")
     parser.add_argument("--notes", type=str, default="")
     parser.add_argument("--len_box", type=int, default=256)
     parser.add_argument("--skip_per_dir", type=int, default=256)
@@ -185,8 +164,7 @@ if __name__ == "__main__":
     settings = SettingsTraining(**vars(args))
 
     settings = prepare_data_and_paths(settings)
-
-    model = run(settings)
-
-    if args.save_inference:
-        save_inference(settings.model, len(args.inputs), settings)
+    if not settings.case == "prep_xhp":
+        model = run(settings)
+        if args.save_inference:
+            save_inference(settings.model, len(args.inputs), settings)

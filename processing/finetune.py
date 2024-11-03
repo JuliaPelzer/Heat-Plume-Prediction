@@ -1,8 +1,7 @@
 from functools import partial
 from networks.unet import UNet, UNetBC
-from networks.turbnet import TurbNetG
 from networks.unetParallel import UNetParallel
-from networks.unetRectKernel import UNetRectKernel
+from networks.unetQuad import UNetQuad
 import torch
 from torch.nn import Module, MSELoss, modules
 from torch.optim import Adam, Optimizer, RMSprop
@@ -26,14 +25,7 @@ from ray.tune.search.optuna import OptunaSearch
 from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits
 
 def tune_nn(settings: SettingsTraining, num_samples=200, max_num_epochs=20, gpus_per_trial=1, ):
-    if settings.problem == "turbnet":
-        config = {
-            "features_exp": tune.choice(range(2,8)),
-            "lr": tune.choice(1e-5,7e-4,5e-4,3e-4,1e-4,7e-3,5e-3,3e-3, 1e-3),
-            "dropout": tune.choice([0.0,0.1,0.2,0.3,0.4,0.5]),
-            "weight_decay": tune.choice(1e-5,7e-4,5e-4,3e-4,1e-4,7e-3,5e-3,3e-3, 1e-3),
-        }
-    elif settings.problem == "parallel":
+    if settings.problem == "parallel":
         kernel_sizes = [(4*i,i) for i in range(2,5)]
         kernel_sizes = kernel_sizes + [(2*j,j) for j in range(2,5)]
         config = {
@@ -47,7 +39,7 @@ def tune_nn(settings: SettingsTraining, num_samples=200, max_num_epochs=20, gpus
             "par_dil": tune.choice([(6,1),(4,1),(2,1),(1,1),(6,2),(4,2),(2,2)]),
             "par_kern": tune.choice([(4,1),(8,2),(12,3),(16,4),(2,1),(4,2),(8,4),(16,8),(1,4),(2,8),(3,12)]),
         }
-    elif settings.problem == "rect":
+    elif settings.problem == "quad":
         config = {
             "features": tune.choice([2**i for i in range(4,7)]),
             "lr": tune.choice([1e-4]),
@@ -113,9 +105,7 @@ def tune_nn(settings: SettingsTraining, num_samples=200, max_num_epochs=20, gpus
 def train_mnist(config,settings=None):
     torch.cuda.empty_cache()
     input_channels, dataloaders = init_data(settings)
-    if settings.problem == "turbnet":
-        model = TurbNetG(in_channels=input_channels,channelExponent=config["features_exp"],dropout=config["dropout"]).float()
-    elif settings.problem == "parallel":
+    if settings.problem == "parallel":
         model = UNetParallel(in_channels=input_channels,
                             init_features=config["features"],
                             depth=config["depth"],
@@ -124,8 +114,8 @@ def train_mnist(config,settings=None):
                             par_depth=config["par_depth"],
                             par_dil=config["par_dil"],
                             par_kern=config["par_kern"]).to(settings.device)
-    elif settings.problem == "rect":
-        model = UNetRectKernel(in_channels=input_channels,init_features=config["features"],depth=config["depth"],padding_mode=config["padding_mode"],dilation=config["dilation"],down_kernel=config["down_kernel"]).to(settings.device)
+    elif settings.problem == "quad":
+        model = UNetQuad(in_channels=input_channels,init_features=config["features"],depth=config["depth"],padding_mode=config["padding_mode"],dilation=config["dilation"],down_kernel=config["down_kernel"]).to(settings.device)
     else:
         model = UNet(in_channels=input_channels,init_features=config["features"],depth=config["depth"],padding_mode=config["padding_mode"],dilation=config["dilation"]).to(settings.device)
     optimizer = Adam(model.parameters(), lr=config["lr"], weight_decay=config["weight_decay"])
@@ -181,7 +171,7 @@ def test_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: modul
 
 
 def init_data(settings: SettingsTraining, seed=1):
-    if settings.problem in ["2stages", "turbnet","parallel","rect"]:
+    if settings.problem in ["2stages", "parallel","quad"]:
         dataset = SimulationDataset(settings.dataset_prep)
     elif settings.problem == "extend1":
         dataset = DatasetExtend1(settings.dataset_prep, box_size=settings.len_box)

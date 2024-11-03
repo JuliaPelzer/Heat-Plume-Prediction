@@ -2,7 +2,7 @@ import torch.nn as nn
 from torch import save, tensor, cat, load, equal
 import pathlib
 
-class UNetRectKernel(nn.Module):
+class UNetQuad(nn.Module):
     def __init__(self, in_channels=2, out_channels=1, init_features=64, depth=5, kernel_size=4, padding_mode="replicate", dilation = 1, early = True, down_kernel=1):
         super().__init__()
         features = init_features        
@@ -14,7 +14,7 @@ class UNetRectKernel(nn.Module):
             make_quad = depth - 1
         meta_model = []
         for _ in range(depth):
-            self.encoders.append(UNetRectKernel._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
+            self.encoders.append(UNetQuad._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
             for i in range(3):
                 meta_model.append({"kernel_size" : kernel_size,"stride":1, "dilation": dilation})
             if _ == make_quad:
@@ -26,22 +26,18 @@ class UNetRectKernel(nn.Module):
             in_channels = features
             features *= 2
         
-        self.encoders.append(UNetRectKernel._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
+        self.encoders.append(UNetQuad._block(in_channels, features, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
         for i in range(3):
             meta_model.append({"kernel_size" : kernel_size,"stride":1, "dilation": dilation})
 
         self.upconvs = nn.ModuleList()
         self.decoders = nn.ModuleList()
         for _ in range(depth):
-            print(_)
-            print(depth-1)
             if _ == depth-1:
-                print("hello")
-                print(_)
                 self.upconvs.append(nn.ConvTranspose2d(features, features//2, kernel_size=(4,1), stride=(4,1)))
             else:
                 self.upconvs.append(nn.ConvTranspose2d(features, features//2, kernel_size=2, stride=2))
-            self.decoders.append(UNetRectKernel._block(features, features//2, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
+            self.decoders.append(UNetQuad._block(features, features//2, kernel_size=kernel_size, padding_mode=padding_mode, dilation = dilation))
             features = features // 2
 
         self.conv = nn.Conv2d(in_channels=features, out_channels=out_channels, kernel_size=1)
