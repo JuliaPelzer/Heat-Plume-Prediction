@@ -27,7 +27,7 @@ def prepare_dataset_for_1st_stage(paths: Paths1HP, settings: SettingsTraining, i
         cutlengthtrafo=False
 
     power2trafo=True
-    if settings.case == "test" or settings.case_2hp:
+    if settings.case == "test" and settings.case_2hp:
         power2trafo=False
         # get info of training
         with open(info_file_path, "r") as file:

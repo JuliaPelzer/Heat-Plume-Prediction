@@ -129,20 +129,21 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
 
     measure = False
     vis = True
+    amount_datapoints_to_visu = 999
     if measure:
         vis = False
-        amount_datapoints_to_visu = 50
+        amount_datapoints_to_visu = 10
     current_id = 0
     len_diff = 0
     wid_diff = 0
     skipped = 0
     for inputs, labels, fname in dataloader:
         print(fname)
-        #if "RUN_826" not in fname:
-        #    continue
+        if "RUN_503" not in fname:
+            continue
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
-            the_list = ['RUN_581', 'RUN_2091', 'RUN_1457', 'RUN_184', 'RUN_1363', 'RUN_727', 'RUN_1587', 'RUN_869', 'RUN_1728', 'RUN_2399', 'RUN_1662', 'RUN_1228', 'RUN_713', 'RUN_1331', 'RUN_1390', 'RUN_1021', 'RUN_978', 'RUN_877', 'RUN_1689', 'RUN_1894', 'RUN_560', 'RUN_1475', 'RUN_373', 'RUN_792', 'RUN_1304', 'RUN_908', 'RUN_532', 'RUN_13', 'RUN_1872', 'RUN_61', 'RUN_2237', 'RUN_1918', 'RUN_1445', 'RUN_1530', 'RUN_1799', 'RUN_1071', 'RUN_541', 'RUN_2189', 'RUN_636', 'RUN_5']
+            the_list = ["RUN_503"]
             if fname[datapoint_id] not in the_list:
                 print("hi")
                 continue
@@ -191,10 +192,11 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     temp_min = min(y.min(), y_out.min())
     extent_highs = (np.array(info["CellsSize"][:2]) * x.shape[-2:])
 
+    # hardcode here for same scale
     dict_to_plot = {
-        "t_true": DataToVisualize(y, "Label: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-        "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]", extent_highs, {"vmax": temp_max, "vmin": temp_min}),
-        "error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]", extent_highs),
+        "t_true": DataToVisualize(y, "Label: Temperature in [°C]", extent_highs, {"vmax": 11.3, "vmin": temp_min}),
+        "t_out": DataToVisualize(y_out, "Prediction: Temperature in [°C]", extent_highs, {"vmax": 11.3, "vmin": temp_min}),
+        "error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]", extent_highs,{"vmax": 0.2, "vmin": 0}),
     }
     inputs = info["Inputs"].keys()
     for input in inputs:
@@ -236,7 +238,10 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
 
         #         CS = plt.contour(torch.flip(datapoint.data, dims=[1]).T, **datapoint.contourargs)
         #     plt.clabel(CS, inline=1, fontsize=10)
-        plt.imshow(datapoint.data.T ,**datapoint.imshowargs)
+        if(datapoint.name == "Absolute error in [°C]"):
+            plt.imshow(datapoint.data.T ,**datapoint.imshowargs, vmax=0.2)
+        else:
+            plt.imshow(datapoint.data.T ,**datapoint.imshowargs, vmax=11.08, vmin=10.6)
 
         plt.gca().invert_yaxis()
         plt.ylabel("y [m]")
