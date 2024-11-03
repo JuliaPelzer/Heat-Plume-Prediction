@@ -50,7 +50,7 @@
 - ensure that the model parameters are the same in e.g. networks/unet.py 
 - execute
   ```
-  python main.py --dataset_raw dataset_xiaoyu_5dp_5hp_fixedPK --case iterative --model unet_stand --problem 2stages --inputs gksit --destination seq_5hp_large
+  python main.py --dataset_raw 5HP --case iterative --model unet_stand --problem 2stages --inputs gksit --destination seq_5hp_large
   ```
 
 ## Generating prepared dataset with multiple heat pumps:
@@ -58,7 +58,7 @@
 - the images of the dataset end up in `runs/2hpnn`, the resulting dataset in datasets_prepared_dir_2hp (paths.yaml)
 - execute
 ```
- python main.py --dataset_raw dataset_5dp_5hp_fixedPK --problem 2stages --inputs gksit --model unet_large_tuned --visualize True --case prep_xhp --destination 5hp_dataset --device cpu
+ python main.py --dataset_raw 5HP --problem 2stages --inputs gksit --model unet_large_tuned --visualize True --case prep_xhp --destination 5hp_dataset --device cpu
 ```
 
 ## Finding the results:
