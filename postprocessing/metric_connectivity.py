@@ -1,15 +1,10 @@
 import numpy as np
-import torch
-import matplotlib.pyplot as plt
 from pathlib import Path
-from copy import deepcopy
 
 from preprocessing.datasets.dataset import DataPoint
 from processing.networks.unetVariants import UNetNoPad2
 from processing.networks.unet import UNet
 from postprocessing.visualization import reverse_norm_one_dp
-from postprocessing.visu_utils import _aligned_colorbar
-from postprocessing.cmap_jp import new_cmap
 
 def unify_size(inputs, required_size):
     # expect square
