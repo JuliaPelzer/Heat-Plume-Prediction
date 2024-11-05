@@ -1,10 +1,12 @@
 
+# Based on the implementation by Rohit Panda (https://sladewinter.medium.com/video-frame-prediction-using-convlstm-network-in-pytorch-b5210a6ce582)
+
 import torch
 import torch.nn as nn
 from torch import save, tensor, cat, load
 import pathlib
 
-# Original ConvLSTM cell as proposed by Shi et al.
+# Original ConvLSTM cell as proposed by Shi et al. (after Rohit Panda)
 class ConvLSTMCell(nn.Module):
 
     def __init__(self, in_channels, out_channels, activation, frame_size, conv_features, kernel_sizes):
@@ -20,6 +22,7 @@ class ConvLSTMCell(nn.Module):
 
         layers = []
         
+        # Rohit Panda adapted this idea from https://github.com/ndrplz/ConvLSTM_pytorch
         layers.append(nn.Conv2d(
             in_channels=in_channels + out_channels, 
             out_channels=conv_features[0], 
@@ -31,7 +34,6 @@ class ConvLSTMCell(nn.Module):
         layers.append(nn.ReLU(inplace=True))
 
         for i in range(1, len(conv_features)):
-            # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
             layers.append(nn.Conv2d(
                 in_channels=conv_features[i-1],
                 out_channels=conv_features[i],
@@ -52,7 +54,6 @@ class ConvLSTMCell(nn.Module):
 
         layers.append(nn.ReLU(inplace=True))
 
-        # Create a Sequential container with the layers
         self.conv = nn.Sequential(*layers)
 
         # Initialize weights for Hadamard Products
@@ -62,16 +63,14 @@ class ConvLSTMCell(nn.Module):
 
     def forward(self, X, H_prev, C_prev):
 
-        # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch   
-        assert len(X.size()) == 4, f'expected 4 but got {X.size()}'
-        assert len(H_prev.size()) == 4, f'expected 4 but got {H_prev.size()}'
+        # Rohit Panda adapted this idea from https://github.com/ndrplz/ConvLSTM_pytorch
         conv_output = self.conv[0](torch.cat([X, H_prev], dim=1))
         conv_output.to('cuda')
         
         for i in range(1, len(self.conv)):
             conv_output = self.conv[i](conv_output)
 
-        # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
+        # Rohit Panda adapted this idea from https://github.com/ndrplz/ConvLSTM_pytorch
         i_conv, f_conv, C_conv, o_conv = torch.chunk(conv_output, chunks=4, dim=1)
 
         input_gate = torch.sigmoid(i_conv + self.W_ci * C_prev )
@@ -90,7 +89,7 @@ class ConvLSTMCell(nn.Module):
     @staticmethod
     def _block(in_channels, features, kernel_size=5, padding_mode="same"):
         return nn.Sequential(
-            # PaddingCircular(kernel_size, direction="both"),
+            
             nn.Conv2d(
                 in_channels=in_channels,
                 out_channels=features,
@@ -100,7 +99,6 @@ class ConvLSTMCell(nn.Module):
                 bias=True,
             ),
             nn.ReLU(inplace=True),      
-            # PaddingCircular(kernel_size, direction="both"),
             nn.Conv2d(
                 in_channels=features,
                 out_channels=features,
@@ -111,13 +109,11 @@ class ConvLSTMCell(nn.Module):
             ),
             nn.BatchNorm3d(num_features=features),
             nn.ReLU(inplace=True),      
-            # PaddingCircular(kernel_size, direction="both"),
             nn.Conv2d(
                 in_channels=features,
                 out_channels=features,
                 kernel_size=kernel_size,
                 padding="same",
-                # padding_mode=padding_mode,
                 bias=True,
             ),        
             nn.ReLU(inplace=True),
@@ -134,10 +130,10 @@ class ConvLSTM(nn.Module):
         self.prev_boxes = prev_boxes
         self.extend = extend
 
-        # We will unroll this over time steps
+        # Initialize encoder cell and unroll
         self.convLSTMcell1 = ConvLSTMCell(in_channels, out_channels, activation, frame_size, conv_features,kernel_sizes)
 
-        # initialize last cel
+        # Initialize decoder cell and unroll
         self.convLSTMcell2 = ConvLSTMCell(in_channels-1, out_channels, activation, frame_size, conv_features, kernel_sizes)
 
     def forward(self, X):
@@ -185,7 +181,7 @@ class Seq2Seq(nn.Module):
         self.prev_boxes = prev_boxes
         self.extend = extend
 
-        # Add First layer (Different in_channels than the rest)
+        # Add first ConvLSTM layer
         self.sequential.add_module(
             "convlstm1", ConvLSTM(
                 in_channels=in_channels, out_channels=enc_conv_features[-1],  
@@ -197,7 +193,7 @@ class Seq2Seq(nn.Module):
             "batchnorm1", nn.BatchNorm3d(num_features=enc_conv_features[-1])
         ) 
 
-        # Add rest of the layers
+        # Add rest of the ConvLSTM layers
         for l in range(2, num_layers+1):
 
             self.sequential.add_module(
@@ -212,7 +208,7 @@ class Seq2Seq(nn.Module):
                 f"batchnorm{l}", nn.BatchNorm3d(num_features=enc_conv_features[-1])
                 ) 
 
-        # Add Convolutional Layer to predict output frame
+        # Add convolution to predict output frame
         self.conv = nn.Sequential()
 
         self.conv.add_module("dec_conv1", nn.Conv2d(
@@ -247,10 +243,7 @@ class Seq2Seq(nn.Module):
                 padding=(dec_kernel_sizes[-1] - 1) // 2,  # Correct padding for 'same'
                 bias=True
             )
-        )
-
-        #self.conv.add_module("relu_last", nn.ReLU(inplace=True))
-        
+        )       
 
         
 
@@ -259,18 +252,21 @@ class Seq2Seq(nn.Module):
         # Forward propagation through all the layers
         output = self.sequential(X)
         
-        # decode result
+        # get dimensions
         batch_size, _ , _, height, width = output.size()
-        new_output = torch.zeros(batch_size, 1, self.extend, height, width, device='cuda')
+
+        # initialize decoded output
+        decoded_output = torch.zeros(batch_size, 1, self.extend, height, width, device='cuda')
 
         for pred_box in range(self.extend):
             curr_output = output[:,:,self.prev_boxes+pred_box]
-            #assert curr_output.shape == [50, 64, 64, 64], f'got {curr_output.shape}'
-            new_output[:,:,pred_box] = self.conv(curr_output)
             
-        new_output = torch.reshape(new_output, (new_output.shape[0], new_output.shape[1], width*self.extend, height))
+            # decode current output
+            decoded_output[:,:,pred_box] = self.conv(curr_output)
+            
+        decoded_output = torch.reshape(decoded_output, (decoded_output.shape[0], decoded_output.shape[1], width*self.extend, height))
         
-        return nn.Sigmoid()(new_output)
+        return nn.Sigmoid()(decoded_output)
     
     def save(self, path:pathlib.Path, model_name: str = "model.pt"):
         save(self.state_dict(), path/model_name)

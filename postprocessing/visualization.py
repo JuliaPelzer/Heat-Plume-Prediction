@@ -83,8 +83,6 @@ def visualizations(model: UNet, dataloader: DataLoader, device: str, amount_data
             dict_to_plot = prepare_data_to_plot(x, y, y_out, info)
 
             plot_datafields(dict_to_plot, name_pic, settings_pic)
-            # plot_isolines(dict_to_plot, name_pic, settings_pic)
-            # measure_len_width_1K_isoline(dict_to_plot)
 
             if current_id >= amount_datapoints_to_visu-1:
                 return None
@@ -126,8 +124,6 @@ def visualizations_convLSTM(model: UNet, dataloader: DataLoader, device: str, pr
                 x, y, y_out = reverse_norm_one_dp(x_copy, y, y_out_copy, norm)
                 _,_, y_out_it = reverse_norm_one_dp(x_copy, y_copy, y_out_it, norm)
                 x_out = x[ -1, :prev_boxes ,:,:].squeeze().reshape(64*prev_boxes, 64)
-                # y_out = torch.cat((x_out, y_out.squeeze()),dim=0)
-                # y_out_it = torch.cat((x_out, y_out_it.squeeze()),dim=0)
 
                 y = torch.cat((x[-1][:prev_boxes].reshape(prev_boxes*64,64), y.squeeze()), dim=0)
                 y_out = torch.cat((x[-1][:prev_boxes].reshape(prev_boxes*64,64), y_out.squeeze()), dim=0)
@@ -174,10 +170,6 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
     y_out = y_out.reshape((extend+prev_boxes)*64,64)
     y = y.reshape((64*(prev_boxes+extend)), 64)
 
-    # labels =  torch.load(f"/import/sgs.scratch/hofmanja/datasets_prepared/extend_plumes/ep_medium_1000dp_only_vary_dist inputs_gksi/Labels/RUN_{0}.pt", map_location=torch.device('cpu'))
-    # y_long = labels[0][:8*64]
-    # y_long = y_long * (15.600794792175293 - 10.600003242492676) + 10.600003242492676
-
     dict_to_plot = {     
         "sdf" : DataToVisualize(sdf, "Input: Signed Distance Function", (0,length,64,0), cmap="viridis"), 
         #"press" : DataToVisualize(press, "Input: Pressure Gradient", (0,640,64,0), {"vmax": press_max, "vmin": press_min}, cmap="viridis"),
@@ -188,7 +180,6 @@ def prepare_data_to_plot_convLSTM(x: torch.Tensor, y: torch.Tensor, y_out:torch.
         "t_out_it": DataToVisualize(y_out_it, "Iterative prediction: Temperature in [°C]",(0,length_unrolled,64,0), {"vmax": temp_max, "vmin": temp_min}),
          "error": DataToVisualize(torch.abs(y-y_out), "Error",(0,length,64,0), {"vmin": 0, "vmax": 2}),
     }
-    #"error": DataToVisualize(torch.abs(y-y_out), "Absolute error in [°C]",(length_temp,length,64,0)),
 
     return dict_to_plot
 
@@ -234,38 +225,6 @@ def plot_datafields(data: Dict[str, DataToVisualize], name_pic: str, settings_pi
     plt.tight_layout()
     plt.savefig(f"{name_pic}.{settings_pic['format']}", **settings_pic)
 
-    
-def plot_datafields_convLSTM(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
-    # plot datafields (temperature true, temperature out, error, physical variables (inputs))
-
-    # num_subplots = len(data)
-    # fig, axes = plt.subplots()
-    # fig, axes = plt.subplots(num_subplots, 19, figsize=(30,10), sharex=True)
-    # fig.set_figheight(num_subplots)
-    
-    # for row_index, (name, datapoint) in enumerate(data.items()):
-    #     if len(datapoint.data.shape) > 2: 
-    #         for column_index, datapoint_time_step in enumerate(datapoint.data):
-    #             plt.sca(axes[row_index][column_index])
-    #             plt.title(datapoint.name)
-    #             plt.imshow(datapoint_time_step, **datapoint.imshowargs)
-    #             plt.gca().invert_yaxis()
-    #     else:
-    #         plt.sca(axes[row_index][0])
-    #         #plt.title(datapoint.name)
-    #         plt.imshow(datapoint.data[0], **datapoint.imshowargs)
-    #         plt.gca().invert_yaxis()
-
-    #     plt.ylabel("x [m]")
-    #     _aligned_colorbar()
-
-    #     plt.ylabel("x [m]")
-    #     _aligned_colorbar()
-
-    #plt.sca(axes[-1])
-    #plt.xlabel("y [m]")
-    #plt.tight_layout()
-    plt.savefig(f"{name_pic}.{settings_pic['format']}", **settings_pic)
 
 def plot_isolines(data: Dict[str, DataToVisualize], name_pic: str, settings_pic: dict):
     # plot isolines of temperature fields

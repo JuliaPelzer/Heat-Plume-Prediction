@@ -60,11 +60,11 @@ class Solver(object):
         device = settings.device
         self.model = self.model.to(device)
         #writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
-        print("Model loaded")
-
+        print("Model loaded" )
+        
         epochs = tqdm(range(settings.epochs), desc="epochs", disable=False)
+                  
         for epoch in epochs:
-            print(f'epoch: {epoch}')
             try:
                 # Set lr according to schedule
                 if epoch in self.lr_schedule.keys():
@@ -84,8 +84,13 @@ class Solver(object):
                 writer.add_scalar("val_loss", val_epoch_loss, epoch)
                 writer.add_scalar(
                     "learning_rate", self.opt.param_groups[0]["lr"], epoch)
-                epochs.set_postfix_str(
-                    f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")
+                epochs.set_postfix(
+                    train_loss=f"{train_epoch_loss:.2e}",
+                    val_loss=f"{val_epoch_loss:.2e}",
+                    lr=f"{self.opt.param_groups[0]['lr']:.1e}"
+                )
+                tqdm.write(f'Epoch {epoch} - train_loss: {train_epoch_loss:.2e}, val_loss: {val_epoch_loss:.2e}')
+
                 
                 # Keep best model
                 if self.best_model_params is None or val_epoch_loss < self.best_model_params["loss"]:
@@ -139,25 +144,6 @@ class Solver(object):
         if log_val_epoch:
             file.close()
     
-    def plot_inputs_and_labels(self, inputs,label):
-        """ plot examplary input and label"""
-        #if settings.net == "convLSTM":
-        max_temp:float=0
-        min_temp:float=20
-        for i in range(inputs.shape[0]):
-            time_step = inputs[i]
-            min_temp = torch.min(time_step) if torch.min(time_step) < min_temp else min_temp
-            max_temp = torch.max(time_step) if torch.max(time_step) > max_temp else max_temp
-        
-        fig,ax = plt.subplots(1, len(inputs)+1, figsize=(10,2))
-        for i in range(inputs.shape[0]):
-            ax[i].imshow(inputs[i].T, cmap='hot',vmin=min_temp, vmax=max_temp)
-            ax[i].set_xlabel(f't={i}')
-        
-        ax[len(inputs)].imshow(label[0], cmap='hot',vmin=min_temp, vmax=max_temp)
-        ax[len(inputs)].set_xlabel('label')
-
-        plt.savefig("/home/hofmanja/test_nn/input_label_convLSTM.png")
 
     def run_epoch(self, dataloader: DataLoader, device: str):
         epoch_loss = 0.0

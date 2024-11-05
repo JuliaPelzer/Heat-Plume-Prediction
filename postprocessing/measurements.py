@@ -113,7 +113,6 @@ def measure_loss(model: UNet, dataloader: DataLoader, device: str, loss_func: mo
     mae_closs_first/=count
     mse_closs_last /=count
     mae_closs_last /=count
-    print(f"count: {count}")
 
     return {"mean squared error": mse_loss, "mean squared error in [°C^2]": mse_closs, 
             "mean absolute error": mae_loss, "mean absolute error in [°C]": mae_closs,

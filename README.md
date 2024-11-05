@@ -1,105 +1,56 @@
 # Begin working
 - clone the repository
 - install the requirements: `pip install -r requirements.txt`
-- download the raw / prepared data, (optional models and data sets for 2nd stage) 
-- set the paths in paths.yaml (see later)
+- download the raw / prepared data, (optional models) 
+- set the paths in paths.yaml (see below)
 
 ## Exemplary paths.yaml file:
 
-    ```
-    default_raw_dir: /scratch/sgs/pelzerja/datasets # where the raw 1st stage data is stored
-    datasets_prepared_dir: /home/pelzerja/pelzerja/test_nn/datasets_prepared/1HP_NN # where the prepared 1st stage data is stored
-    datasets_raw_domain_dir: /scratch/sgs/pelzerja/datasets/2hps_demonstrator_copy_of_local
-    datasets_prepared_domain_dir: /home/pelzerja/pelzerja/test_nn/datasets_prepared/2HP_domain
-    prepared_1hp_best_models_and_data_dir: /home/pelzerja/pelzerja/test_nn/1HP_NN_preparation_BEST_models_and_data
-    models_2hp_dir: /home/pelzerja/pelzerja/test_nn/1HP_NN/runs
-    datasets_prepared_dir_2hp: /home/pelzerja/pelzerja/test_nn/datasets_prepared/2HP_NN
-    ```
+    default_raw_dir: /import/sgs.scratch/hofmanja/datasets
+    datasets_prepared_dir: /import/sgs.scratch/hofmanja/datasets_prepared
+    modesl: /home/hofmanja/test_nn/runs
+    
 
-## Training a 1st stage model (1HP-NN):
+## Training a model:
 - run main.py
 
     ```
-    python main.py --time_step_to_predict
-    ```
-    optional arguments:
-    --inputs: make sure, they are the same as in the model (default `gksi`)
-    --visualize: visualize the results (default `False`)
+    python main.py 
 
-## Infer a 1st stage model:
+    optional arguments:
+    --epochs
+    --inputs: permeability (k), sdf (sf), gradient (g), material id (i), default is ks
+    --prev_boxes: how many boxes are used as input
+    --extend: how many boxes are predicted
+    --num_layers: number of convLSTM layers
+    --enc_conv_features: array of number of features used in the encoding convolution
+    --dec_conv_features: array of number of features used in the decoding convolution
+    --enc_kernel_sizes: array of kernel sizes in the encoding convolution
+    --dec_kernel_sizes: array of kernel sizes in the decoding convolution
+    ```
+
+## Testing a model and visualizing results:
 - run main.py:
 
     ```
-    python main.py --dataset_raw NAME_OF_DATASET --case test --model PATH_TO_MODEL (after "runs/") --problem 2stages
+    python main.py --case test --model PATH_TO_MODEL (after "runs/") 
     
-    optional arguments:
-    --inputs: make sure, they are the same as in the model (default `gksi`)
+    optional arguments (must match the model):
+    --inputs: permeability (k), sdf (sf), gradient (g), material id (i), default is ks
+    --prev_boxes: how many boxes are used as input
+    --extend: how many boxes are predicted
+    --num_layers: number of convLSTM layers
+    --enc_conv_features: array of number of features used in the encoding convolution
+    --dec_conv_features: array of number of features used in the decoding convolution
+    --enc_kernel_sizes: array of kernel sizes in the encoding convolution
+    --dec_kernel_sizes: array of kernel sizes in the decoding convolution
     --visualize: visualize the results (default `False`)
     ```
-## Visualize the results:
-
-- produce data by executing the following code for each time step of interest (e.g. 3-20)
-
-    ```
-    python main.py --case test --model PATH_TO_MODEL (after "/extend_plumes2") --time_step_to_visualize 3
-    ```
-- separate visualization by executing vis_entire_plume.py
-
-
-## Training a 2nd stage model (2HP-NN): !excluded on this branch!
-- for running a 2HP-NN you need the prepared 2HP-dataset in datasets_prepared_dir_2hp (paths.yaml)
-- for preparing 2HP-NN: expects that 1HP-NN exists and trained on; for 2HP-NN (including preparation) run main.py with the following arguments:
-
-    ```
-    python main.py --dataset_raw NAME_OF_DATASET --case_2hp True --inputs INPUTS (rather preparation case from 1HP-NN) --problem 2stages
-    more information on required arguments:
-    --inputs: make sure, they are the same as in the model (default `gksi`) + the number of datapoints -> e.g. `gksi1000`
-    -- model: not required, automatically (depending on the input case) taken from paths.yaml:prepared_1hp_best_models_and_data_dir
-
-    optional arguments:
-    --visualize: visualize the results (default `False`)
-    --case: `test`, `train` or `finetune` (default `train`)
-    ```
-
-## Infer a 2nd stage model: !excluded on this branch!
-
-- as inferring a 1st stage model but with model name from trained 2nd stage model
-
--- case: `test`
-
-## Training an extend plumes model:
-- train a model for the first box (e.g. 1HPNN) or via `problem extend1`, e.g.
-
-    ```
-    python3 main.py --problem extend1 --dataset_raw dataset_medium_10dp
-
-    optional arguments:
-    --device: `cuda:0` or `cuda:1` etc. or `cpu` (default `cuda:0`)
-    --visualize: visualize the results (default `False`)
-    --notes: string input to get a `notes.txt` file in model folder
-    --epochs: number of epochs to train
-    --destination: define a user specific name for the destination folder of the trained model (default build from dataset name + inputs)
-    --len_box: where should the dataset be cut off (length) to only train on the first box (=length of first box)
-    ```
-- save prepared dataset (paths.yaml:datasets_prepared_dir / extend_plumes) with extension "extend1" to not confuse it with extend2, where full length of the dataset is required
-- extend plumes idea: each simulation run is cut into several datapoints of length `len_box`. From the inputs+temperature field of the prior (lefthand) box, the temperature field of the next box is predicted.
-- train a model for the extension of boxes via `problem extend2`, e.g.
-    ```
-    python3 main.py --problem extend2 --dataset_raw dataset_medium_10dp --inputs gk --len_box 128 --skip_per_dir 32
-
-    arguments:
-    -- inputs: tipp: exclude `s` (signed distance function of positions of heat pump) because of difficulties with arbitrary long fields but length-dependent `s` and `i` (one hot encoding of position of heat pump) 
-    -- len_box: length of each box predicted and used for training (perceptive field)
-    --skip_per_dir: if skip=len_box: no overlap between different datapoints. skip should never be larger than len_box, otherwise there are parts of the simulation run that are never seen in training.
-    ```
-
-## Infering and combining both models of extend plumes:
-- see `extend_plumes.py:pipeline_infer_extend_plumes` and `__main__` on how to use it.
 
 ## Finding the results:
-- resulting model (`model.pt`) + normalization parameters (info.yaml) used can be found in `runs/PROBLEM/DESTINATION` with `PROBLEM` in [1hpnn, 2hpnn, allin1, extend_plumes1, extend_plumes2] and `DESTINATION` being the user defined or default name in the call of main.py
-- this folder also contains visualisations if any were made during the training/inference
-- prepared datasets are in datasets_prepared (paths.yaml:`datasets_prepared_dir/PROBLEM`)
+- resulting model (`model.pt`) + normalization parameters (info.yaml) used can be found in `runs/DESTINATION` with `DESTINATION` being the user defined or default name in the call of main.py
+- this folder also contains visualisations if any were made during the training/testing
+- prepared datasets are in datasets_prepared (paths.yaml:`datasets_prepared_dir/`)
 
 # Logging your training progress:
 - use command 
@@ -119,8 +70,3 @@
     sudo modprobe nvidia_uvm`
 
     if it does not help, you have to reboot
-
-# important commits
-- directly after paper submission (Oct. '23): cdc41426184756b9b1870e5c0f52d399bee0fae0
-- after clean up, one month after paper submission (Oct. '23): c8da3da
-- release for students to extend_plumes: (Mar. '24)3c4f97d62378d137970632
