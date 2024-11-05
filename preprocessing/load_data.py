@@ -8,11 +8,16 @@ def load_data(data_path: Path, time: str, variables: dict, dimensions_of_datapoi
     Load data from h5 file on data_path, but only the variables named in variables.get_ids() at time stamp variables.time
     Sets the values of each PhysicalVariable in variables to the loaded data.
     """
+    time_prediction = "   4 Time  2.75000E+01 y"
+
     data = dict()
     with h5py.File(data_path, "r") as file:
         for key in variables:  # properties
             try:
-                data[key] = torch.tensor(np.array(file[time][key]).reshape(dimensions_of_datapoint, order='F')).float()
+                if "velocity" in key.lower():
+                    data[key] = torch.tensor(np.array(file[time_prediction][key]).reshape(dimensions_of_datapoint, order='F')).float()
+                else:
+                    data[key] = torch.tensor(np.array(file[time][key]).reshape(dimensions_of_datapoint, order='F')).float()
             except KeyError:
                 if key == "SDF":
                     data[key] = torch.tensor(np.array(file[time]["Material ID"]).reshape(dimensions_of_datapoint, order='F')).float()
@@ -29,10 +34,13 @@ def load_data(data_path: Path, time: str, variables: dict, dimensions_of_datapoi
                 elif key == "Preprocessed Temperature [C]":
                     data[key] = additional_input.float()
                 else:
-                    raise KeyError(
-                        f"Key '{key}' not found in {data_path} at time {time}")
+                    if "velocity" in key: timi = time_prediction
+                    else: timi = time
+                    raise KeyError(f"Key '{key}' not found in {data_path} at time {timi}")
             if print_bool:
-                print(f"Loaded {key} at time {time} with shape {data[key].shape}")
+                if "velocity" in key: timi = time_prediction
+                else: timi = time
+                print(f"Loaded {key} at time {timi} with shape {data[key].shape}")
 
     return data
 
