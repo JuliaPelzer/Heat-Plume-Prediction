@@ -103,3 +103,7 @@ def example():
     print(loss)
     prediction = m.predict_forward({"temperature": temp, "permeability": perm})
     print(prediction)
+    print(prediction.shape)
+
+if __name__ == "__main__":
+    example()
