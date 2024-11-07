@@ -3,14 +3,13 @@ from torch import nn
 
 
 class CausalConv2d(nn.Module):
-    def __init__(self, level: int = 0) -> None:
+    def __init__(self, level: int = 0, kernel_size_x: int = 3, in_channels: int = 1, out_channels: int = 32) -> None:
         dilation = 2**level
         super().__init__()
-        kernel_size_x = 2
         self.padding_x = (kernel_size_x - 1) * dilation
         self.conv = nn.Conv2d(
-            in_channels=1,
-            out_channels=1,
+            in_channels=in_channels,
+            out_channels=out_channels,
             kernel_size=(kernel_size_x, 3),
             padding=(self.padding_x, 1),
             dilation=(dilation, 1),
@@ -23,9 +22,10 @@ class CausalConv2d(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, levels: int = 1):
+    def __init__(self, levels: int = 1, kernel_size_x: int = 3) -> None:
         super().__init__()
-        self.convs = nn.Sequential(*[CausalConv2d(level=i) for i in range(levels)])
+        self.convs = nn.Sequential(CausalConv2d(level=0, kernel_size_x=kernel_size_x, in_channels=1, out_channels=32),
+                                   *[CausalConv2d(level=i, kernel_size_x=kernel_size_x, in_channels=32*2**(i-1), out_channels=32*2**i) for i in range(1, levels)])
 
     def forward(self, x):
         return self.convs(x)
@@ -33,20 +33,21 @@ class Encoder(nn.Module):
 
 # %%
 class AutoRegressive(nn.Module):
-    def __init__(self, levels: int = 2) -> None:
+    def __init__(self, levels: int = 2, kernel_size_x: int = 3) -> None:
         super().__init__()
-        self.temp_enc = Encoder(levels=levels)
-        self.perm_enc = Encoder(levels=levels)
-        self.loss = nn.MSELoss()
+        self.temp_enc = Encoder(levels=levels, kernel_size_x=kernel_size_x)
+        self.perm_enc = Encoder(levels=levels, kernel_size_x=kernel_size_x)
+        self.decoder = nn.Sequential(CausalConv2d(level=levels, kernel_size_x=kernel_size_x, in_channels=32*2**levels, out_channels=1))
 
-    def forward(self, input: dict[str, torch.Tensor]):
+    def forward(self, inputs: torch.Tensor, label: torch.Tensor):
         """
 
-        temperature shape: (batch, 1, length, width)
-        permeability shape: (batch, 1, length, width)
+        inputs (=permeability) shape: (batch, 1, length, width)
+        label (=temperature) shape: (batch, 1, length, width)
         """
-        temperature = input["temperature"]
-        permeability = input["permeability"]
+        temperature = label #input["temperature"]
+        permeability = inputs #input["permeability"]
+        assert  permeability.shape[1] == 1, "Input (=Permeability) should have 1 channel"
 
         temp_enc = self.temp_enc(temperature[:, :, :-1, :])
         perm_enc = torch.flip(self.perm_enc(torch.flip(permeability, (2,))), (2,))
@@ -58,52 +59,60 @@ class AutoRegressive(nn.Module):
 
         return prediction
 
-    def get_loss(self, input: dict[str, torch.Tensor]):
+    def get_loss(self, inputs: torch.Tensor, label: torch.Tensor, loss_fn: nn.Module):
         """
 
-        temperature shape: (batch, 1, length, width)
-        permeability shape: (batch, 1, length, width)
+        inputs (=permeability) shape: (batch, 1, length, width)
+        label (=temperature) shape: (batch, 1, length, width)
         """
+        assert  inputs.shape[1] == 1, "Input (=Permeability) should have 1 channel"
 
-        temperature = input["temperature"]
-        prediction = self.forward(input)
+        temperature = label #input["temperature"]
+        prediction = self.forward(inputs)
 
-        loss = self.loss(prediction, temperature[:, :, 1:, :])
+        loss = loss_fn(prediction, temperature[:, :, 1:, :])
 
         return loss
 
-    def predict_forward(self, input: dict[str, torch.Tensor]):
+    def predict_forward(self, inputs: torch.Tensor, label: torch.Tensor):
         """
 
-        temperature shape: (batch, 1, length, width)
-        permeability shape: (batch, 1, length, width)
+        inputs (=permeability) shape: (batch, 1, length, width)
+        label (=temperature) shape: (batch, 1, length, width)
 
         temperature has starting values at index 0 in dimension 2, rest is zero
         """
 
-        steps = input["temperature"].shape[2]
+        steps = label.shape[2]
+        assert  inputs.shape[1] == 1, "Input (=Permeability) should have 1 channel"
 
         for i in range(1, steps):
-            prediction = self.forward(input)
+            prediction = self.forward(inputs=inputs, label=label)
             for j in range(1, i):
                 assert (
-                    input["temperature"][:, :, j, :] == prediction[:, :, j - 1, :]
+                    label[:, :, j, :] == prediction[:, :, j - 1, :]
                 ).all()
-            input["temperature"][:, :, i, :] = prediction[:, :, i - 1, :]
+            label[:, :, i, :] = prediction[:, :, i - 1, :]
 
-        return input["temperature"]
+        return label
 
-
+    
 def example():
     m = AutoRegressive()
     temp = torch.rand(2, 1, 10, 64)
     perm = torch.rand(2, 1, 10, 64)
 
-    loss = m.get_loss({"temperature": temp, "permeability": perm})
+    prediction = m(inputs = perm, label = temp)
+    loss = nn.MSELoss()(prediction, temp[:, :, 1:])
     print(loss)
-    prediction = m.predict_forward({"temperature": temp, "permeability": perm})
+
+    temp_pred_empty = torch.zeros_like(temp)
+    temp_pred_empty[:, :, 0, :] = temp[:, :, 0, :]
+    prediction = m.predict_forward(inputs = perm, label = temp_pred_empty)
+
     print(prediction)
     print(prediction.shape)
 
 if __name__ == "__main__":
     example()
+# %%

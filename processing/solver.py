@@ -33,8 +33,11 @@ class Solver(object):
         # contains the epoch and learning rate, when lr changes
         self.lr_schedule = {0: self.opt.param_groups[0]["lr"]}
 
-        if not self.finetune:
-            self.model.apply(weights_init)
+        try:
+            if not self.finetune:
+                self.model.apply(weights_init)
+        except AttributeError:
+            logging.warning("Should only fail if problem=autoregressive")
 
     def train(self, settings: SettingsTraining):
         manual_seed(0)
@@ -91,7 +94,7 @@ class Solver(object):
                         "training time in sec": (time.perf_counter() - start_time),
                     }
 
-                    if True:
+                    if False:
                         self.model.save(settings.destination, model_name=f"best_model_e{epoch}.pt")
 
                 # if log_val_epoch:
@@ -127,18 +130,20 @@ class Solver(object):
 
     def run_epoch(self, dataloader: DataLoader, device: str):
         epoch_loss = 0.0
-        for x, y in dataloader:
-            x = x.to(device)
-            y = y.to(device)
+        for inputs, labels in dataloader:
+            inputs = inputs.to(device)
+            labels = labels.to(device)
 
             if self.model.training:
                 self.opt.zero_grad()
 
-            y_pred = self.model(x)
-
+            try:
+                y_pred = self.model(inputs)
+            except:
+                y_pred = self.model(inputs, labels)
             required_size = y_pred.shape[2]
-            start_pos = (y.shape[2] - required_size)//2
-            y_reduced = y[:, :, start_pos:start_pos+required_size, :]
+            start_pos = (labels.shape[2] - required_size)//2
+            y_reduced = labels[:, :, start_pos:start_pos+required_size, :]
 
             loss = self.loss_func(y_pred, y_reduced)
 
