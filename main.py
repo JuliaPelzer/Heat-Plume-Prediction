@@ -8,13 +8,15 @@ import yaml
 from torch.utils.data import DataLoader, random_split
 from torch.nn import MSELoss
 
-from data_stuff.dataset import SimulationDataset, DatasetExtend1, DatasetExtend2, get_splits
-from data_stuff.utils import SettingsTraining
+from data_stuff.dataset import SimulationDataset, TrainDataset, DatasetExtend1, DatasetExtend2, get_splits
+from data_stuff.utils import SettingsTraining, load_yaml
 from networks.unet import UNet, UNetBC
 from networks.unetHalfPad import UNetHalfPad
+from networks.equivariantCNN import G_UNet
 from processing.solver import Solver
+from processing.rotation import rotate_and_infer
 from preprocessing.prepare import prepare_data_and_paths
-from postprocessing.visualization import plot_avg_error_cellwise, visualizations, infer_all_and_summed_pic
+from postprocessing.visualization import plot_avg_error_cellwise, plot_avg_error_rotated_cellwise, visualizations, infer_all_and_summed_pic, infer_all_rotate_and_summed_pic
 from postprocessing.measurements import measure_loss, save_all_measurements
 
 def init_data(settings: SettingsTraining, seed=1):
@@ -30,15 +32,23 @@ def init_data(settings: SettingsTraining, seed=1):
 
     split_ratios = [0.7, 0.2, 0.1]
     # if settings.case == "test":
-    #     split_ratios = [0.0, 0.0, 1.0] 
+    #     split_ratios = [0.0, 0.0, 1.0]
 
+    # rotate data for Oriented Boxes approach
+    if settings.rotate_inference and settings.case == 'train':
+        dataset = TrainDataset.rotate_data(dataset)
+        
     datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     dataloaders = {}
     try:
-        dataloaders["train"] = DataLoader(datasets[0], batch_size=50, shuffle=True, num_workers=0)
-        dataloaders["val"] = DataLoader(datasets[1], batch_size=50, shuffle=True, num_workers=0)
+        dataloaders["train"] = DataLoader(TrainDataset.augment_data(TrainDataset.restrict_data(datasets[0], int(settings.data_n*split_ratios[0])), settings.augmentation_n, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
+        dataloaders["val"] = DataLoader(TrainDataset.augment_data(TrainDataset.restrict_data(datasets[1], int(settings.data_n*split_ratios[1])), 0, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=True, num_workers=0)
     except: pass
-    dataloaders["test"] = DataLoader(datasets[2], batch_size=50, shuffle=True, num_workers=0)
+    dataloaders["test"] = DataLoader(TrainDataset.augment_data(datasets[2], 0, settings.mask, settings.rotate_inputs), batch_size=50, shuffle=False, num_workers=0)
+
+    print('!------------------------------------------------------------------------------------------------------------------!')
+    print(f'Dataset restricted to size: train:{len(dataloaders["train"])}, validation:{len(dataloaders["val"])}, test:{len(dataloaders["test"])}')
+    print('!------------------------------------------------------------------------------------------------------------------!')
 
     return dataset.input_channels, dataloaders
 
@@ -53,7 +63,10 @@ def run(settings: SettingsTraining):
     input_channels, dataloaders = init_data(settings)
     # model
     if settings.problem == "2stages":
-        model = UNet(in_channels=input_channels).float()
+        if settings.use_ecnn:
+            model = G_UNet(in_channels=input_channels).float()
+        else:
+            model = UNet(in_channels=input_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         model = UNetHalfPad(in_channels=input_channels).float()
     if settings.case in ["test", "finetune"]:
@@ -65,7 +78,7 @@ def run(settings: SettingsTraining):
         loss_fn = MSELoss()
         # training
         finetune = True if settings.case == "finetune" else False
-        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn, finetune=finetune)
+        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn, finetune=finetune, use_ecnn=settings.use_ecnn)
         try:
             solver.load_lr_schedule(settings.destination / "learning_rate_history.csv", settings.case_2hp)
             times["time_initializations"] = time.perf_counter()
@@ -88,22 +101,39 @@ def run(settings: SettingsTraining):
     if settings.case == "test":
         settings.visualize = True
         which_dataset = "test"
-        # errors = measure_loss(model, dataloaders[which_dataset], settings.device)
+        errors = measure_loss(model, dataloaders, settings, rotate_inference=settings.rotate_inference, mask = True)
+        print('----------------------------------------------------------------------------------')
+        print(errors)
+        print('----------------------------------------------------------------------------------')
     save_all_measurements(settings, len(dataloaders[which_dataset].dataset), times, solver) #, errors)
     if settings.visualize:
-        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", amount_datapoints_to_visu=5, pic_format=pic_format)
-        times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device)
+        visualizations(model, dataloaders[which_dataset], settings.device, plot_path=settings.destination / f"plot_{which_dataset}", pic_format=pic_format, amount_datapoints_to_visu=10, rotate_inference=settings.rotate_inference, mask=True) #amount_datapoints_to_visu=5,
+        times[f"avg_inference_time of {which_dataset}"], summed_error_pic = infer_all_and_summed_pic(model, dataloaders[which_dataset], settings.device, rotate_inference=settings.rotate_inference, mask=True)
+        mean_error_strings = []
+        # print MAE for equivariance
+        for angle in [0,30,45,60,90]:
+            summed_dif_pic = infer_all_rotate_and_summed_pic(model, dataloaders[which_dataset], settings.device, rotate_inference=settings.rotate_inference, mask=True, angle = angle)
+            plot_avg_error_rotated_cellwise(dataloaders[which_dataset], summed_dif_pic, {"folder" : settings.destination, "format": pic_format}, angle=angle)
+            mean_error_strings.append(f"Mean Error (Equivariance {angle}): {summed_dif_pic.mean()}")
+        
         plot_avg_error_cellwise(dataloaders[which_dataset], summed_error_pic, {"folder" : settings.destination, "format": pic_format})
+        for mean_error_string in mean_error_strings:
+            print(mean_error_string)
+        avg_inference_time = times[f"avg_inference_time of {which_dataset}"]
+        print(f"Avg inference Time: {avg_inference_time}")
         print("Visualizations finished")
         
     print(f"Whole process took {(times['time_end']-times['time_begin'])//60} minutes {np.round((times['time_end']-times['time_begin'])%60, 1)} seconds\nOutput in {settings.destination.parent.name}/{settings.destination.name}")
-
+    
     return model
 
 def save_inference(model_name:str, in_channels: int, settings: SettingsTraining):
     # push all datapoints through and save all outputs
     if settings.problem == "2stages":
-        model = UNet(in_channels=in_channels).float()
+        if settings.use_ecnn:
+            model = G_UNet(in_channels=in_channels).float()
+        else:
+            model = UNet(in_channels=in_channels).float()
     elif settings.problem in ["extend1", "extend2"]:
         model = UNetHalfPad(in_channels=in_channels).float()
     model.load(model_name, settings.device)
@@ -112,17 +142,29 @@ def save_inference(model_name:str, in_channels: int, settings: SettingsTraining)
     data_dir = settings.dataset_prep
     (data_dir / "Outputs").mkdir(exist_ok=True)
 
+    avg_time = 0.0
+    n_data = 0
+
     for datapoint in (data_dir / "Inputs").iterdir():
         data = torch.load(datapoint)
         data = torch.unsqueeze(data, 0)
         time_start = time.perf_counter()
-        y_out = model(data.to(settings.device)).to(settings.device)
+
+        if settings.rotate_inference:
+            y_out = rotate_and_infer(data.squeeze(0), [-1,0], model, load_yaml(model_name, 'info'), settings.device).to(settings.device)
+        else:
+            y_out = model(data.to(settings.device)).to(settings.device)
+
         time_end = time.perf_counter()
         y_out = y_out.detach().cpu()
         y_out = torch.squeeze(y_out, 0)
         torch.save(y_out, data_dir / "Outputs" / datapoint.name)
-        print(f"Inference of {datapoint.name} took {time_end-time_start} seconds")
-    
+        time_run = time_end-time_start
+        print(f"Inference of {datapoint.name} took {time_run} seconds")
+        avg_time += time_run
+        n_data += 1
+    avg_time /= n_data
+    print(f"Average inference time {avg_time}")
     print(f"Inference finished, outputs saved in {data_dir / 'Outputs'}")
 
 if __name__ == "__main__":
@@ -140,10 +182,16 @@ if __name__ == "__main__":
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
-    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2",], default="extend1")
+    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2",], default="2stages")
     parser.add_argument("--notes", type=str, default="")
     parser.add_argument("--len_box", type=int, default=256)
     parser.add_argument("--skip_per_dir", type=int, default=256)
+    parser.add_argument("--augmentation_n", type=int, default=0)
+    parser.add_argument("--rotate_inference", type=bool, default=False)
+    parser.add_argument("--use_ecnn", type=bool, default=False)
+    parser.add_argument("--mask", type=bool, default=False)
+    parser.add_argument("--rotate_inputs", type=int, default=0)
+    parser.add_argument("--data_n", type=int, default=-1)
     args = parser.parse_args()
     settings = SettingsTraining(**vars(args))
 

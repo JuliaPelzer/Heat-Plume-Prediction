@@ -2,10 +2,12 @@ import csv
 import logging
 import pathlib
 import time
+import wandb
 from dataclasses import dataclass
 
 from torch.nn import Module, MSELoss, modules
 from torch.optim import Adam, Optimizer
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch import manual_seed
@@ -14,6 +16,8 @@ from postprocessing.visualization import visualizations
 
 from data_stuff.utils import SettingsTraining
 from networks.unet import weights_init, UNet
+import networks.unet as unet
+import networks.equivariantCNN as ecnn
 from networks.unetHalfPad import UNetHalfPad
 
 @dataclass
@@ -26,6 +30,7 @@ class Solver(object):
     opt: Optimizer = Adam
     finetune: bool = False
     best_model_params: dict = None
+    use_ecnn: bool = False
 
     def __post_init__(self):
         self.opt = self.opt(self.model.parameters(),
@@ -34,9 +39,12 @@ class Solver(object):
         self.lr_schedule = {0: self.opt.param_groups[0]["lr"]}
 
         if not self.finetune:
-            self.model.apply(weights_init)
+            if self.use_ecnn:
+                self.model.apply(ecnn.weights_init)
+            else:
+                self.model.apply(unet.weights_init)
 
-    def train(self, settings: SettingsTraining):
+    def train(self, settings: SettingsTraining, use_wandb: bool = False):
         manual_seed(0)
         log_val_epoch = True
         if log_val_epoch:
@@ -55,6 +63,12 @@ class Solver(object):
         writer.add_graph(self.model, next(iter(self.train_dataloader))[0].to(device))
 
         epochs = tqdm(range(settings.epochs), desc="epochs", disable=False)
+
+        #-----------------------------------------lr--------------------------
+        # scheduler = CosineAnnealingLR(self.opt, T_max = len(epochs))
+        # self.opt.param_groups[0]["lr"] = 1e-4
+        #-----------------------------------------lr--------------------------
+
         for epoch in epochs:
             try:
                 # Set lr according to schedule
@@ -70,7 +84,12 @@ class Solver(object):
                 self.model.eval()
                 val_epoch_loss = self.run_epoch(self.val_dataloader, device)
 
-                # Logging
+                # Logging with wandb
+                if use_wandb:
+                    wandb.log({'train_loss':train_epoch_loss,
+                               'val_loss':val_epoch_loss,
+                               'learning rate':self.opt.param_groups[0]['lr']})
+
                 writer.add_scalar("train_loss", train_epoch_loss, epoch)
                 writer.add_scalar("val_loss", val_epoch_loss, epoch)
                 writer.add_scalar(
@@ -98,6 +117,9 @@ class Solver(object):
                         csv_writer_best.writerow([epoch, self.best_model_params["loss"], self.best_model_params["train loss"]])
                         # for name, param in self.model.named_parameters():
                         #     writer.add_histogram(name, param, epoch)
+                
+                #adjust lr
+                #scheduler.step()
 
             except KeyboardInterrupt:
                 model_tmp = UNetHalfPad(in_channels=len(settings.inputs), out_channels=1) # UNet
@@ -143,7 +165,7 @@ class Solver(object):
                 loss.backward()
                 self.opt.step()
 
-            epoch_loss += loss.detach().item()
+            epoch_loss += loss.detach().item()   
         epoch_loss /= len(dataloader)
         return epoch_loss
 
