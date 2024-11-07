@@ -76,7 +76,10 @@ def visualizations(model: UNet, dataloader: DataLoader, settings: SettingsTraini
 
             x = torch.unsqueeze(inputs[datapoint_id].to(settings.device), 0)
             y = labels[datapoint_id]
-            y_out = model(x).to(settings.device)
+            try:    
+                y_out = model(x).to(settings.device)
+            except:
+                y_out = model(x, y.unsqueeze(0).to(settings.device)).to(settings.device)
 
             x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
             dict_to_plot = prepare_data_to_plot(x, y, y_out, info)

@@ -26,6 +26,7 @@ from preprocessing.prepare_allin1 import preprocessing_allin1
 from processing.networks.encoder import Encoder
 from processing.networks.unet import UNet
 from processing.networks.unetVariants import UNetHalfPad, UNetHalfPad2
+from processing.networks.auto_regressive import AutoRegressive
 from processing.solver import Solver
 from utils.utils_data import SettingsTraining
 
@@ -34,7 +35,7 @@ from utils.utils_data import SettingsTraining
 # torch.cuda.empty_cache()
 
 def init_data(settings: SettingsTraining, seed=1):
-    if settings.problem == "2stages":
+    if settings.problem in ["2stages", "autoregressive"]:
         dataset = SimulationDataset(settings.dataset_prep)
     elif settings.problem == "extend1":
         dataset = DatasetExtend1(settings.dataset_prep, box_size=settings.len_box)
@@ -108,6 +109,8 @@ def run(settings: SettingsTraining, settings_val: SettingsTraining = None, setti
     elif settings.problem in ["extend2"]:
         model = UNetHalfPad2(in_channels=input_channels).float()
         # model = Encoder(in_channels=input_channels).float()
+    elif settings.problem == "autoregressive":
+        model = AutoRegressive().float()
 
     if settings.case in ["test", "finetune"]:
         model.load(settings.model, settings.device)
@@ -115,7 +118,6 @@ def run(settings: SettingsTraining, settings_val: SettingsTraining = None, setti
 
     if settings.case in ["train", "finetune"]:
         loss_fn = MSELoss()
-        # training
         finetune = True if settings.case == "finetune" else False
         solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss_fn, finetune=finetune)
         try:
@@ -133,7 +135,7 @@ def run(settings: SettingsTraining, settings_val: SettingsTraining = None, setti
         solver = None
 
     # save model
-    model.save(settings.destination)
+    # model.save(settings.destination)
 
     # visualization
     which_dataset = "val"
@@ -212,7 +214,7 @@ if __name__ == "__main__":
     parser.add_argument("--case_2hp", type=bool, default=False)
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--save_inference", type=bool, default=False)
-    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2",], default="allin1")
+    parser.add_argument("--problem", type=str, choices=["2stages", "allin1", "extend1", "extend2", "autoregressive"], default="allin1")
     parser.add_argument("--notes", type=str, default="")
     parser.add_argument("--len_box", type=int, default=64) # for extend:256
     parser.add_argument("--skip_per_dir", type=int, default=32)
