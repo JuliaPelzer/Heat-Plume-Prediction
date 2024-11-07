@@ -49,8 +49,8 @@ class SimulationDataset(Dataset):
         return len(self.input_names)
     
     def __getitem__(self, idx):
-        input = torch.load(self.path / "Inputs" / self.input_names[idx])
-        label = torch.load(self.path / "Labels" / self.label_names[idx])
+        input = torch.load(self.path / "Inputs" / self.input_names[idx])[:,64:]
+        label = torch.load(self.path / "Labels" / self.label_names[idx])[:,64:]
         return input, label
     
     def get_run_id(self, index):
