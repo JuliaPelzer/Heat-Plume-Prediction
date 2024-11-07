@@ -78,8 +78,10 @@ def visualizations(model: UNet, dataloader: DataLoader, settings: SettingsTraini
             y = labels[datapoint_id]
             try:    
                 y_out = model(x).to(settings.device)
-            except:
-                y_out = model(x, y.unsqueeze(0).to(settings.device)).to(settings.device)
+            except: # settings.problem=="autoregressive"
+                temp_pred_empty = torch.zeros_like(y.unsqueeze(0))
+                temp_pred_empty[:, :, 0, :] = y[:, 0, :]
+                y_out = model.predict_forward(inputs = inputs, label = temp_pred_empty.to(settings.device)).to(settings.device)
 
             x, y, y_out = reverse_norm_one_dp(x, y, y_out, norm)
             dict_to_plot = prepare_data_to_plot(x, y, y_out, info)
