@@ -101,7 +101,7 @@ def extend_paths_for_problem(problem:str, default_raw_dir: pathlib.Path, destina
         destination_dir = destination_dir / "1hpnn"
         datasets_prepared_dir = datasets_prepared_dir / "1hp_boxes"
     elif problem == "autoregressive":
-        default_raw_dir = default_raw_dir / "extend" #"1hp" / "const_k"
+        default_raw_dir = default_raw_dir / "1hp" / "const_k" #"extend" #
         destination_dir = destination_dir / "extend"
         datasets_prepared_dir = datasets_prepared_dir / "extend_plumes"
     else:
