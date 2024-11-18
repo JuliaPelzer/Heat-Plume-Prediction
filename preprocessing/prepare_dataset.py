@@ -34,8 +34,10 @@ def prepare_dataset(args:dict, info:dict = None, additional_inputs: torch.Tensor
     # if args.problem == "allin1":
     #     print("shape", additional_inputs.shape, "should be 4D?")
     #     exit()
-
-    transforms = get_transforms(problem=args["problem"])
+    if args["problem"] == "3d":
+        transforms = get_transforms(reduce_to_2D=False, reduce_to_2D_xy=False, power2trafo=False, problem="3d")
+    else:
+        transforms = get_transforms(problem=args["problem"])
     inputs = expand_property_names(args["inputs"])
     outputs = expand_property_names(args["outputs"])
     time_init = "   0 Time  0.00000E+00 y"
@@ -94,7 +96,10 @@ def prepare_dataset(args:dict, info:dict = None, additional_inputs: torch.Tensor
     info["CellsSize"] = cell_size.tolist()
     # change of size possible; order of tensor is in any case the other way around
     # assert 1 in y.shape, "y is not expected to have several output parameters"
-    assert len(y.shape) == 3, "y is expected to be 2D"
+    if args["problem"] == "3d":
+        assert len(y.shape) == 4, "y is expected to be 3D"
+    else:
+        assert len(y.shape) == 3, "y is expected to be 2D"
     dims = list(y.shape)[1:]
     info["CellsNumber"] = dims
     try:

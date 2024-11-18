@@ -39,7 +39,7 @@ if __name__ == "__main__":
     args["device"] = torch.device(f"cuda:{args['device']}" if not args["device"]=="cpu" else "cpu")
 
 
-    cheat = True # read in cla.yaml as settings-file for training
+    cheat = False # read in cla.yaml as settings-file for training
     if cheat:
         args["destination"] = Path("/home/pelzerja/pelzerja/test_nn/1HP_NN/runs/allin1") / args["destination"]
         current_destination = args["destination"]

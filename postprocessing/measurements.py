@@ -99,7 +99,7 @@ def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args
     if args["problem"] == "allin1":
         norm = dataloaders["train"].dataset.norm
         output_channels = dataloaders["train"].dataset.output_channels
-    elif args["problem"] in ["1hp", "2stages"]:
+    elif args["problem"] in ["1hp", "2stages", "3d"]:
         norm = dataloaders["train"].dataset.dataset.norm
         output_channels = dataloaders["train"].dataset.dataset.output_channels
     model.eval()
@@ -116,9 +116,10 @@ def measure_losses_paper24(model: UNet, dataloaders: Dict[str, DataLoader], args
             x = x.to(device).detach() # B,C,H,W
             y = y.to(device).detach()
             y_pred = model(x).to(device).detach()
-            required_size = y_pred.shape[2:]
-            start_pos = ((y.shape[2] - required_size[0])//2, (y.shape[3] - required_size[1])//2)
-            y = y[:, :, start_pos[0]:start_pos[0]+required_size[0], start_pos[1]:start_pos[1]+required_size[1]]
+            if args["problem"]!="3d":
+                required_size = y_pred.shape[2:]
+                start_pos = ((y.shape[2] - required_size[0])//2, (y.shape[3] - required_size[1])//2)
+                y = y[:, :, start_pos[0]:start_pos[0]+required_size[0], start_pos[1]:start_pos[1]+required_size[1]]
 
             # normed losses
             for channel in range(y_pred.shape[1]):

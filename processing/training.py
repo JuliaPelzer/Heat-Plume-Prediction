@@ -10,6 +10,7 @@ from datetime import datetime
 from postprocessing.visualization import (infer_all_and_summed_pic, plot_avg_error_cellwise, visualizations)
 from processing.networks.encoder import Encoder
 from processing.networks.unet import UNet
+from processing.networks.unet3d import UNet3d
 from processing.networks.unetVariants import UNetHalfPad2, UNetNoPad2
 from processing.solver import Solver
 from preprocessing.data_init import init_data, load_all_datasets_in_full
@@ -20,13 +21,20 @@ def train(args: dict):
     torch.manual_seed(1)
     multiprocessing.set_start_method("spawn", force=True)
 
-    input_channels, output_channels, dataloaders = init_data(args)
+
+    # model
+    if args["problem"]=="3d":
+        model = UNet3d(in_channels=input_channels).float()
+        input_channels, dataloaders = init_data(args)
+        output_channels=1
+    else:
+        input_channels, output_channels, dataloaders = init_data(args)
+
     if output_channels == 1:
         vT_case = "temperature"
     elif output_channels == 2:
         vT_case = "velocities"
 
-    # model
     if args["problem"] in ["1hp", "2stages", "test"]:
         model = UNet(in_channels=input_channels).float()
     elif args["problem"] in ["extend"]:

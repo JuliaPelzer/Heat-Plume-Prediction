@@ -8,7 +8,7 @@ from preprocessing.datasets.dataset_cuts_jit import SimulationDatasetCuts
 from preprocessing.datasets.dataset_extend import DatasetExtend, DatasetEncoder, random_split_extend
 
 def init_data(args:dict, seed=1):
-    if args["problem"] in ["2stages", "1hp", "test"]:
+    if args["problem"] in ["2stages", "1hp", "test", "3d"]:
         dataset = Dataset1stBox(args["data_prep"], box_size=args["len_box"])
     elif args["problem"] == "extend":
         dataset = DatasetExtend(args["data_prep"], box_size=args["len_box"], skip_per_dir=args["skip_per_dir"])
@@ -27,7 +27,7 @@ def init_data(args:dict, seed=1):
 
     split_ratios = [0.7, 0.2, 0.1]
     generator = torch.Generator().manual_seed(seed)
-    if args["problem"] in ["2stages", "1hp", "test"]:
+    if args["problem"] in ["2stages", "1hp", "test", "3d"]:
         datasets = random_split(dataset, get_splits(len(dataset), split_ratios), generator=generator)
     elif args["problem"] == "extend":
         datasets = random_split_extend(dataset, get_splits(len(dataset.input_names), split_ratios), generator=generator)
@@ -35,7 +35,7 @@ def init_data(args:dict, seed=1):
         datasets = [dataset_train, dataset_val, dataset_test]
 
     dataloaders = {}
-    batchsize = 20
+    batchsize = 6
     try:
         dataloaders["train"] = DataLoader(datasets[0], batch_size=batchsize, shuffle=True, num_workers=0)
         dataloaders["val"] = DataLoader(datasets[1], batch_size=batchsize, shuffle=True, num_workers=0)
@@ -63,6 +63,6 @@ def load_all_datasets_in_full(args: dict):
             except: pass
         else:
             dataset = Dataset1stBox(args["data_prep"])
-            dataloader = DataLoader(dataset, batch_size=50, shuffle=False, num_workers=0)
+            dataloader = DataLoader(dataset, batch_size=6, shuffle=False, num_workers=0)
             dataloaders[case] = dataloader
     return dataloaders    

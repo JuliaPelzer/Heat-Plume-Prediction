@@ -385,7 +385,7 @@ def get_transforms(reduce_to_2D: bool = True, reduce_to_2D_xy: bool = True, powe
     if power2trafo:
         transforms_list.append(PowerOfTwoTransform())
     transforms_list.append(SignedDistanceTransform())
-    if problem in ["extend1", "extend2"]:
+    if problem in ["extend1", "extend2", "3d"]:
         transforms_list.append(PositionalEncodingTransform())
     elif problem == "allin1":
         transforms_list.append(MultiHPDistanceTransform())

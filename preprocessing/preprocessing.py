@@ -3,7 +3,7 @@ from pathlib import Path
 import torch
 from tqdm.auto import tqdm
 import matplotlib
-matplotlib.use('QtAgg')
+matplotlib.use('Agg')#'QtAgg'
 import matplotlib.pyplot as plt
 
 from preprocessing.prepare_dataset import prepare_dataset, is_unprepared
