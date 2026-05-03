@@ -1,0 +1,52 @@
+[project]
+name = "heatplume-prediction"
+version = "1.0.0"
+readme = "README.md"
+requires-python = ">=3.12"
+
+dependencies = [
+    "torch",
+    "torchvision",
+    "tqdm",
+    "matplotlib",
+    "numpy",
+    "scipy",
+    "pyyaml",
+    "h5py",
+    "tensorboard",
+    "nvidia-ml-py",
+    "torchmetrics",
+    "scikit-image",
+    "optuna",
+    "jupyterlab",
+    "jupyterlab-optuna",
+    "joblib",
+    "cuda-python",
+    "pydantic",
+    "lic",
+    "requests",
+]
+
+[tool.setuptools]
+package-dir = {"heatplume" = "code"}
+packages = ["heatplume"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "UP", "I", "N", "B", "T20"]
+ignore = [
+  "E501", # Line too long
+  "N803", # Argument name should be snake_case
+  "N802", # Function name should be snake_case
+  "N815", # Variable in function should be named in snake_case
+  "N806", # Variable in function should be named in snake_case
+  "N812", # Variable in function should be named in snake_case
+  "N816"  # Variable in function should be named in snake_case
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

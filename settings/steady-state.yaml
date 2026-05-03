@@ -1,0 +1,128 @@
+run_configuration:
+  run_name: steady-state
+  dataset: dataset_giant_100hp_varyK
+  seed: 2406
+  device: cuda:0
+  use_velocity_model: false
+
+  pipeline:
+    - clean: data_prep
+    - clean: results-step1
+    - clean: results-step2
+    - step1: train
+    - step2: run
+    - clean: results-step3
+    - step3: train
+
+general_configuration:
+  step1:
+    datapoints:
+      validation: [0]
+      test: [1]
+      train: [2]
+    general:
+      epochs: 100
+      visualize: true
+    scheduler:
+      type: ReduceLROnPlateau
+      init_lr: 1e-4
+      mode: min
+      factor: 0.2
+      patience: 10
+      threshold: 1e-3
+      min_lr: 1e-6
+    model_parameters:
+      network: unet
+      inputs: [p, k, i]
+      outputs: [x, y]
+      batchsize: 20
+      kernel_size: 5
+      depth: 4
+      init_features: 32
+      stride: 1
+      dilation: 1
+      norm: batchnorm
+      repeat_inner: false
+      skip_per_dir: 16
+      len_box: 256
+      train_loss: MSE
+      bool_cutouts: true
+      optimizer_switch: false
+      optimizer: Adam
+      activation: ReLU
+
+  step2:
+    streamlines:
+      samples: 10000
+      steps: 5000
+      diffusion_scale: 0.05
+      diffusion_base: 1.8
+    directsolver:
+      samples: 150000
+      steps: 5000
+    physical_parameters:
+      resolution_m: 5.0
+      duration_years: 27.5
+      porosity_frac: 0.25
+      rock_density_kg_per_m3: 2800.0
+      rock_specific_heat_J_per_kgK: 2000.0
+      water_density_kg_per_m3: 1000.0
+      water_specific_heat_J_per_kgK: 4180.0
+      thermal_conductivity_dry_W_per_mK: 0.65
+      thermal_conductivity_wet_W_per_mK: 1.0
+      thickness_aquifer_m: 1.0
+      longitudinal_dispersivity_m: 1.0
+      transverse_dispersivity_h_m: 0.1
+      ambient_temperature_C: 10.6
+      temperature_spread_C: 5.0
+      injection_temperature_C:
+        time_unit: year
+        values:
+          0.0: 15.6
+          1.0: 15.6
+      injection_rate_m3_per_s:
+        time_unit: year
+        values:
+          0.0: 0.00024
+          1.0: 0.00024
+
+  step3:
+    datapoints:
+      train: [0]
+      validation: [1]
+      test: [2]
+    general:
+      epochs: 300
+      visualize: true
+    scheduler:
+      type: ReduceLROnPlateau
+      init_lr: 1e-3
+      mode: min
+      factor: 0.2
+      patience: 10
+      threshold: 1e-3
+      min_lr: 1e-6
+    model_parameters:
+      network: unet
+      inputs: [p, k, i, x, y, 1, 2, 3, 5, 7]
+      outputs: [t]
+      batchsize: 20
+      kernel_size: 3
+      depth: 3
+      init_features: 64
+      stride: 1
+      dilation: 1
+      norm: batchnorm # instancenorm, groupnorm
+      repeat_inner: false
+      skip_per_dir: 8
+      len_box: 256
+      train_loss: Huber
+      bool_cutouts: true
+      optimizer_switch: false
+      optimizer: AdamW
+      activation: LeakyReLU
+
+paths:
+  datasets_raw: ../datasets
+  datasets_prep: ../datasets_prep
+  results: ../results
