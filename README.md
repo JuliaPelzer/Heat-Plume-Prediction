@@ -19,11 +19,25 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-### Run
+
+### Dataset Setup
+
+1. Download the [seasonal dataset](https://doi.org/10.18419/DARUS-5877) (`datasets/paper-results-seasonal`) and save it to:
+   `datasets/paper-results-seasonal`
+2. Download the [steady-state dataset](https://doi.org/10.18419/DARUS-4156) (`random_perm_3dp.zip`), unzip and save it to:
+   `datasets/dataset_giant_100hp_varyK`
+
+
+### Model Training
+
+While pre-trained models are available in DaRUS, you can train custom models using the dedicated pipelines for each dataset. Run the following commands from the root directory:
+
+**Train Steady-State Model:**
 ```sh
 python -m code settings/steady-state.yaml
 ```
 
+**Train Seasonal Model:**
 ```sh
 python -m code settings/seasonal.yaml
 ```
@@ -113,10 +127,6 @@ general_configuration:
 ```
 
 For a comprehensive list of all configuration options, refer to `template.yaml`.
-
-## Pre-trained Models
-
-TODO: links to darus for Velocity and Temperature models
 
 
 ## Acknowledgements
