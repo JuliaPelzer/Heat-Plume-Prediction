@@ -1,0 +1,253 @@
+run_configuration:
+  run_name: template_name                   # Name of the current experiment run
+  dataset: template_dataset                 # Identifier for the dataset to load
+  seed: 2406                                # Random seed to ensure reproducible results
+  device: cuda:0                            # Compute device ('cpu', 'cuda:0', 'cuda:1', etc.)
+  use_velocity_model: true                  # If true, uses model to calculate velocities; otherwise loads optimal velocities
+
+  pipeline:                                 # Sequence of execution steps
+    - clean: data_prep                      # Cleans data preparation cache
+    - clean: results-step1                  # Cleans results from step 1
+    - clean: results-step2                  # Cleans results from step 2
+    - clean: results-step3                  # Cleans results from step 3 (be careful with this, as it will also delete trained models)
+    - step1: train                          # Train velocity model [options: test, train, hopt, finetune]
+    - step2: run                            # Execute physics simulation [options: run]
+    - step3: train                          # Train temperature model [options: test, train, hopt, finetune]
+
+general_configuration:
+  step1:
+    datapoints:                             # Data indices selection
+      validation: [0, 1]                    # Indicies of data points used for validation
+      test: [2, 3]                          # Indicies of data points used for test
+      train: [4, 5]                         # Indicies of data points used for training
+    general:
+      epochs: 20                            # Number of training cycles
+      visualize: true                       # Enable generation of plot/visualizations during training
+    scheduler:                              # Learning rate scheduler configuration
+      type: ReduceLROnPlateau               # Scheduler type
+      init_lr: 1e-4                         # Initial learning rate
+      mode: min                             # Minimize the monitored metric
+      factor: 0.2                           # Factor by which LR is reduced
+      patience: 10                          # Epochs to wait before reducing LR
+      threshold: 1e-3                       # Threshold for measuring new optimum
+      min_lr: 1e-6                          # Lower bound for learning rate
+    # scheduler:                            # Alternative StepLR configuration (commented out)
+    #   init_lr: 0.01
+    #   type: StepLR
+    #   step_size: 100
+    #   gamma: 0.1
+    model_parameters:                       # Neural Network configuration
+      network: unet                         # Architecture type
+      inputs: [p, k, i]                     # Input channels (Pressure, Permeability, Heatpump Location)
+      outputs: [x, y]                       # Output channels (Velocity X, Velocity Y)
+      batchsize: 20                         # Training batch size
+      kernel_size: 5                        # Convolution kernel size
+      depth: 4                              # Depth of the U-Net (number of downsampling layers)
+      init_features: 32                     # Number of filters in the first layer
+      stride: 1                             # Convolution stride
+      dilation: 1                           # Convolution dilation rate
+      norm: batchnorm                       # Normalization layer type
+      repeat_inner: false                   # Repeat inner layers flag
+      skip_per_dir: 16                      # Skips for cutout calculation
+      len_box: 256                          # Spatial dimension for cutouts
+      train_loss: MSE                       # Loss function
+      bool_cutouts: true                    # Enable cutout data augmentation
+      optimizer_switch: false               # Toggle to switch optimizers mid-training
+      optimizer: Adam                       # Optimizer type
+      activation: ReLU                      # Activation function
+    hopt_parameters:                        # Hyperparameter Optimization search space
+      network: [unet]
+      inputs: [[p, k, i]]
+      outputs: [[x, y]]
+      batchsize: [2, 4, 8, 16]
+      kernel_size: [3, 5, 7]
+      depth: [4, 5, 6, 7]
+      init_features: [4, 8, 16, 32, 64]
+      stride: [1, 2]
+      dilation: [1, 2, 4]
+      norm: [batchnorm, groupnorm, None]
+      repeat_inner: [True, False]
+      skip_per_dir: [64, 32, 16, 8]
+      len_box: [1280, 640, 320, 160]
+      train_loss: [MSE, MAE]
+      bool_cutouts: [True, False]
+      optimizer_switch: [True, False]
+      optimizer: [Adam, SGD]
+      activation: [ReLU, Tanh, Sigmoid, LeakyReLU]
+
+  step2:
+    streamlines:                            # Streamline tracing configuration
+      samples: 10000                        # Number of particles/samples
+      steps: 5000                           # Time steps
+      diffusion_scale: 0.05                 # Scale factor for diffusion random walk
+      diffusion_base: 1.8                   # Base diffusion coefficient
+    directsolver:                           # Direct numerical solver settings
+      samples: 150000                       # Number of particles/samples for direct solver
+      steps: 5000                           # Time steps for direct solver
+    physical_parameters:                    # Constants defining the physical environment
+      resolution_m: 5.0                     # Grid resolution in meters
+      duration_years: 27.5                  # Total simulation duration
+      porosity_frac: 0.25                   # Rock porosity fraction
+      rock_density_kg_per_m3: 2800.0        # Density of the solid matrix
+      rock_specific_heat_J_per_kgK: 2000.0  # Specific heat capacity of rock
+      water_density_kg_per_m3: 1000.0       # Density of the fluid
+      water_specific_heat_J_per_kgK: 4180.0 # Specific heat capacity of water
+      thermal_conductivity_dry_W_per_mK: 0.65 # Thermal conductivity of dry rock
+      thermal_conductivity_wet_W_per_mK: 1.0 # Thermal conductivity of wet rock
+      thickness_aquifer_m: 1.0              # Aquifer vertical thickness
+      longitudinal_dispersivity_m: 1.0      # Dispersivity along flow direction
+      transverse_dispersivity_h_m: 0.1      # Dispersivity perpendicular to flow
+      ambient_temperature_C: 10.6           # Background temperature
+      temperature_spread_C: 5.0             # Temperature spread for heat pump
+      injection_temperature_C:              # Time-variant Injection Temperature Profile
+        time_unit: year
+        values:                             # Key: Time fraction (year), Value: Temp (C)
+          0.00000: 5.6
+          0.02740: 5.6
+          0.05479: 5.6
+          0.08219: 5.6
+          0.10959: 5.6
+          0.13699: 5.6
+          0.16438: 5.6
+          0.19178: 5.6
+          0.21918: 5.6
+          0.24658: 5.6
+          0.27397: 5.6
+          0.30137: 5.6
+          0.32877: 15.6                     # Start of seasonal heating phase
+          0.35616: 15.6
+          0.38356: 15.6
+          0.41096: 15.6
+          0.43836: 15.6
+          0.46575: 15.6
+          0.49315: 15.6
+          0.52055: 15.6
+          0.54795: 15.6
+          0.57534: 15.6
+          0.60274: 15.6
+          0.63014: 15.6
+          0.65753: 15.6
+          0.68493: 15.6
+          0.71233: 15.6
+          0.73973: 5.6                      # Return to cooling phase
+          0.76712: 5.6
+          0.79452: 5.6
+          0.82192: 5.6
+          0.84932: 5.6
+          0.87671: 5.6
+          0.90411: 5.6
+          0.93151: 5.6
+          0.95890: 5.6
+          0.98630: 5.6
+          1.00000: 5.6
+      injection_rate_m3_per_s:              # Time-variant Injection Rate Profile
+        time_unit: year
+        values:                             # Key: Time fraction (year), Value: Flow rate (m3/s)
+          0.00000: 0.0013300686453449914
+          0.02740: 0.0013381589703715733
+          0.05479: 0.0014426100029950762
+          0.08219: 0.0013013673920304952
+          0.10959: 0.0010032388263792999
+          0.13699: 0.0008635786471559158
+          0.16438: 0.0006709114328722228
+          0.19178: 0.0008131867795603625
+          0.21918: 0.0006823074902020868
+          0.24658: 0.0004679526207516612
+          0.27397: 0.0005373136952713894
+          0.30137: 0.00040749698817571105
+          0.32877: 0.001424995901086334
+          0.35616: 0.0012982453682746015
+          0.38356: 0.0019039079530458643
+          0.41096: 0.0010152073141227221
+          0.43836: 0.0023889154323936935
+          0.46575: 0.001870818391661012
+          0.49315: 0.0016499528096792005
+          0.52055: 0.0020558574377759617
+          0.54795: 0.0019942757553788725
+          0.57534: 0.0014126301707442753
+          0.60274: 0.0019089540803873132
+          0.63014: 0.0016478102345908994
+          0.65753: 0.001559329461156966
+          0.68493: 0.0008674061610848798
+          0.71233: 0.0008435234041894134
+          0.73973: 0.0006968785652095219
+          0.76712: 0.0003861035742103141
+          0.79452: 0.0004062002923373152
+          0.82192: 0.0007396565894398022
+          0.84932: 0.0010756883814148114
+          0.87671: 0.000981352872782536
+          0.90411: 0.0011947955837213402
+          0.93151: 0.001009977353487458
+          0.95890: 0.000893663124212539
+          0.98630: 0.0014145377053988591
+          1.00000: 0.0014145377053988591
+
+  step3:
+    datapoints:                             # Datapoint indices
+      validation: [0, 1]                    # Indicies of data points used for validation
+      test: [2, 3]                          # Indicies of data points used for test
+      train: [4, 5]                         # Indicies of data points used for training
+    general:
+      epochs: 300
+      visualize: true
+      model_path: temperature_model
+    scheduler:
+      type: ReduceLROnPlateau
+      init_lr: 1e-3
+      mode: min
+      factor: 0.2
+      patience: 10
+      threshold: 1e-3
+      min_lr: 1e-6
+    # scheduler:                            # Alternative StepLR settings
+    #   type: StepLR
+    #   init_lr: 0.01
+    #   step_size: 100
+    #   gamma: 0.1
+    model_parameters:
+      network: unet
+      inputs: [p, k, i, x, y, 1, 2, 3, 5, 7]
+      outputs: [t]
+      batchsize: 20
+      kernel_size: 3
+      depth: 3
+      init_features: 64
+      stride: 1
+      dilation: 1
+      norm: batchnorm
+      repeat_inner: false
+      skip_per_dir: 8
+      len_box: 256
+      train_loss: Huber
+      bool_cutouts: true
+      optimizer_switch: false
+      optimizer: AdamW
+      activation: ReLU
+    # model_parameters:                     # Alternative RNN architecture
+    #   network: rnn
+    #   inputs: [p, k, i, x, y, 1, 2, 3, 5, 7]
+    #   outputs: [t]
+    hopt_parameters:                        # Hyperparameter optimization config for Step 3
+      network: [unet]
+      inputs: [[k, i, x, y, 1, 2, 3, 5, 7]]
+      outputs: [[t]]
+      batchsize: [2, 4, 8, 16]
+      kernel_size: [3, 5, 7]
+      depth: [4, 5, 6, 7]
+      init_features: [4, 8, 16, 32, 64]
+      stride: [1, 2]
+      dilation: [1, 2, 4]
+      norm: [batchnorm, groupnorm, None]
+      repeat_inner: [True, False]
+      skip_per_dir: [64, 32, 16, 8]
+      len_box: [1280, 640, 320, 160]
+      train_loss: [MSE, MAE]
+      bool_cutouts: [True, False]
+      optimizer_switch: [True, False]
+      optimizer: [Adam, SGD]
+      activation: [ReLU, Tanh, Sigmoid, LeakyReLU]
+
+paths:
+  datasets_raw: ../datasets                 # Directory containing raw input data
+  datasets_prep: ../datasets_prep           # Directory for preprocessed intermediate data
+  results: ../results                       # Output directory for logs, models, and predictions
