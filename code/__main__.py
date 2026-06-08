@@ -17,7 +17,7 @@ def clean_target(config: Any, target: str) -> None:
     """Remove specific artifact directories based on the target identifier."""
     if target == "data_prep":
         path = config.paths.datasets_prep / config.run_configuration.dataset
-    elif target in {"results-step1", "results-step2", "results-step3"}:
+    elif target in {"results-step1", "results-step2", "results-step3", "results-step4"}:
         path = config.paths.results / config.run_configuration.run_name / target.replace("results-", "")
     else:
         raise ValueError(f"Unknown clean target: {target}")
@@ -49,6 +49,9 @@ def main() -> None:
     log.set_log_level_debug() if args.verbose else log.set_log_level_info()
 
     config: Any = parse_config(args.config_path)
+    log.configure_logging(
+        log_path=config.paths.results / config.run_configuration.run_name / "log.txt", clear_handlers=False
+    )
     set_seed(config.run_configuration.seed)
 
     if config.run_configuration.device != "cpu":

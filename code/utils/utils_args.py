@@ -51,6 +51,12 @@ def load_time_steps(path: Path) -> list[float]:
     return times
 
 
+def load_time_steps_full_str(path: Path) -> list[str]:
+    with h5py.File(path, "r") as file:
+        times = [str(key) for key in file.keys()]
+    return times
+
+
 # Convert tensors to Python-native types
 def convert_to_python_datatypes(data):
     if isinstance(data, Tensor):

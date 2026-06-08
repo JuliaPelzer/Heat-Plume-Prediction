@@ -6,6 +6,7 @@ from code.utils import logging as log  # noqa: F401
 from pathlib import Path
 
 import torch
+from torch import nonzero
 from tqdm import tqdm
 
 
@@ -150,10 +151,76 @@ class ToTensorTransform:
         return result
 
 
-def get_transforms(reduce_to_2D: bool = True):
+class SignedDistanceTransform:
+    """
+    Transform class to calculate signed distance transform for material id.
+    This transform takes a dict of tensors as input and returns a dict of tensors.
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, data: dict):
+        log.info("Start SignedDistanceTransform")
+
+        # check if Material ID is in data (inputs vs. labels)
+        if "Material ID" not in data.keys():
+            log.info("No material ID in data, no SignedDistanceTransform")
+            return data
+
+        def get_loc_hp():  # TODO clean up - this appearsquite often in various forms
+            if "Material ID" in data.keys():
+                loc_hp = nonzero(data["Material ID"] == torch.max(data["Material ID"]))
+                if loc_hp.numel() == 0:
+                    return None
+                if loc_hp.shape[0] > 1:
+                    log.info(f"loc_hp returns more than one position: {loc_hp.shape[0]}")
+                log.info(f"loc_hp: {loc_hp}")
+                return loc_hp
+
+        loc_hp = get_loc_hp()
+        if loc_hp is None:
+            log.info("No hp location found, skipping SignedDistanceTransform")
+            return data
+        log.info(f"Keys in data: {data.keys()}")
+        data["SDF"] = self.sdf(data["SDF"].float(), loc_hp.float())
+        log.info("SignedDistanceTransform done")
+        return data
+
+    def sdf(self, data: torch.tensor, loc_hp: torch.tensor):
+        # loc_hp: (N, D), data: (H, W) or (D1, D2, D3)
+        dims = data.dim()
+        if dims not in (2, 3):
+            raise ValueError(f"SDF expects 2D or 3D data, got {dims}D")
+
+        if loc_hp.dim() == 1:
+            loc_hp = loc_hp.unsqueeze(0)
+
+        # build grid of coordinates
+        coords = [torch.arange(s, device=data.device, dtype=data.dtype) for s in data.shape]
+        grid = torch.stack(torch.meshgrid(*coords, indexing="ij"), dim=-1)  # (*shape, D)
+        grid_flat = grid.reshape(-1, dims)
+
+        # compute distance to closest hp for each grid point
+        dists = torch.cdist(grid_flat.unsqueeze(0), loc_hp.unsqueeze(0)).squeeze(0)  # (P, N)
+        min_dist = dists.min(dim=1).values.reshape(data.shape)
+
+        min_dist = 1 - min_dist / min_dist.max()
+        return min_dist
+
+
+def get_transforms(reduce_to_2D: bool = True, inputs=None):
     transforms_list = []
     if reduce_to_2D:
         transforms_list.append(ReduceTo2DTransform())
+    log.info(f"Inputs for get_transforms: {inputs}")
+    if inputs:
+        if isinstance(inputs, str):
+            has_sdf = "s" in inputs
+        else:
+            has_sdf = "sdf" in inputs
+        if has_sdf:
+            transforms_list.append(SignedDistanceTransform())
 
     transforms = ComposeTransform(transforms_list)
     return transforms

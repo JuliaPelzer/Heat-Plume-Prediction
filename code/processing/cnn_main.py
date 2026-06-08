@@ -7,25 +7,21 @@ from optuna.trial import TrialState
 
 
 def step_cnn(run_configuration: RunConfiguration, paths: Paths, step_config: MLStepConfig, step_name: str, mode: str):
-    args = {
-        "case": mode,
-        "model": paths.results / run_configuration.run_name / step_name,
-        "outputs": "".join(step_config.model_parameters.outputs),
-        "visualize": step_config.general.visualize,
-        "data_prep": paths.datasets_prep,
-        "data_raw": paths.datasets_raw / run_configuration.dataset,
-        "destination": paths.results / run_configuration.run_name / step_name,
-        "epochs": step_config.general.epochs,
-        "datapoint_test": step_config.datapoints.test,
-        "datapoint_validate": step_config.datapoints.validation,
-        "datapoint_train": step_config.datapoints.train,
-        "device": run_configuration.device,
-        "scheduler": step_config.scheduler,
-    }
-    # TODO unused params:
-    # - network
-    # - optimizer
-    # - activation
+    args = {}
+    args["case"] = mode
+    args["device"] = run_configuration.device
+    args["model"] = paths.results / run_configuration.run_name / step_name
+    args["data_prep"] = paths.datasets_prep
+    args["data_raw"] = paths.datasets_raw / run_configuration.dataset
+    args["destination"] = paths.results / run_configuration.run_name / step_name
+
+    args["visualize"] = step_config.general.visualize
+    args["previous_results"] = step_config.previous_results
+    args["epochs"] = step_config.general.epochs
+    args["datapoint_test"] = step_config.datapoints.test
+    args["datapoint_validate"] = step_config.datapoints.validation
+    args["datapoint_train"] = step_config.datapoints.train
+    args["scheduler"] = step_config.scheduler
 
     args["destination"].mkdir(parents=True, exist_ok=True)
 
@@ -83,20 +79,37 @@ def step_cnn(run_configuration: RunConfiguration, paths: Paths, step_config: MLS
             log.info(f"    {key}: {value}")
     else:
         parameter = step_config.model_parameters
-        args["len_box"] = parameter.len_box
-        args["skip_per_dir"] = parameter.skip_per_dir
-        args["stride"] = parameter.stride
-        args["dilation"] = parameter.dilation
-        args["activation_fct"] = parameter.activation
-        args["norm"] = parameter.norm
-        args["repeat_inner"] = parameter.repeat_inner
-        args["optimizer_switch"] = parameter.optimizer_switch
-        args["bool_cutouts"] = parameter.bool_cutouts
-        args["batchsize"] = parameter.batchsize
-        args["depth"] = parameter.depth
-        args["init_features"] = parameter.init_features
-        args["kernel_size"] = parameter.kernel_size
+
+        args["network"] = parameter.network.lower()
         args["inputs"] = "".join(parameter.inputs)
+        args["outputs"] = "".join(parameter.outputs)
+        args["batchsize"] = parameter.batchsize
+        args["stride"] = parameter.stride
+        args["skip_per_dir"] = parameter.skip_per_dir
+        args["len_box"] = parameter.len_box
         args["train_loss"] = parameter.train_loss
+        args["bool_cutouts"] = parameter.bool_cutouts
+        args["optimizer_switch"] = parameter.optimizer_switch
+        args["optimizer"] = parameter.optimizer
+        args["activation_fct"] = parameter.activation
+
+        if parameter.network == "unet":
+            args["kernel_size"] = parameter.kernel_size
+            args["depth"] = parameter.depth
+            args["init_features"] = parameter.init_features
+            args["dilation"] = parameter.dilation
+            args["norm"] = parameter.norm
+            args["repeat_inner"] = parameter.repeat_inner
+        elif parameter.network in ["convlstm", "rnn", "lstm"]:
+            args["visualize_interval"] = parameter.visualize_interval
+            args["overfit"] = parameter.overfit
+            args["overfit_on"] = parameter.overfit_on
+            args["time_steps_to_predict"] = parameter.time_steps_to_predict
+            args["num_layers"] = parameter.rnn_num_layers
+            args["enc_conv_features"] = parameter.enc_conv_features
+            args["dec_conv_features"] = parameter.dec_conv_features
+            args["enc_kernel_sizes"] = parameter.enc_kernel_sizes
+            args["dec_kernel_sizes"] = parameter.dec_kernel_sizes
+            args["max_simulation_timestep"] = parameter.max_simulation_timestep
 
         training(args)

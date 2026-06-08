@@ -5,6 +5,7 @@ import h5py
 import lic
 import numpy as np
 import torch
+from scipy.ndimage import gaussian_filter
 
 
 def load_raw_data(
@@ -21,6 +22,9 @@ def load_raw_data(
     """
     def fct_reshape(x):
         return x.reshape(dimensions_of_datapoint)
+
+    if not isinstance(time_prediction, str):
+        time_prediction = time_prediction[0]  # only first time step for velocity fields
     data = {}
 
     with h5py.File(data_path, "r") as file:
@@ -33,6 +37,9 @@ def load_raw_data(
                     v_x = data["Liquid X-Velocity [m_per_y]"].squeeze(-1).numpy()
                     v_y = data["Liquid Y-Velocity [m_per_y]"].squeeze(-1).numpy()
                     lic_result = lic.lic(v_y, v_x, length=30)  # x and y are flipped for consistency
+                    # Apply contrast enhancement manually
+                    lic_result = (lic_result - lic_result.min()) / (lic_result.max() - lic_result.min())
+                    lic_result = gaussian_filter(lic_result, sigma=0.75)
                     data["Line Integral Convolution"] = torch.from_numpy(lic_result).float()
                 else:
                     data[key] = torch.tensor(fct_reshape(np.array(file[time][key]))).float()
@@ -44,6 +51,8 @@ def load_raw_data(
                     empty_field = torch.ones(list(dimensions_of_datapoint)).float()
                     pressure_grad = get_pressure_gradient(data_path)
                     data[key] = empty_field * pressure_grad
+                elif key == "SDF":
+                    data[key] = torch.tensor(fct_reshape(np.array(file[time]["Material ID"]))).float()
                 else:
                     if "velocity" in key:
                         timi = time_prediction

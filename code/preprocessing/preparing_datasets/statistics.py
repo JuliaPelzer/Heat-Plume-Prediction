@@ -19,19 +19,25 @@ class WelfordStatistics:
 
     def add_data(self, x: dict):
         for key, value in x.items():
+            # Convert to CPU tensor and summarizing scalar statistics to avoid shape mismatch between inputs and labels
+            value_tensor = value.detach().cpu()
+            value_mean = value_tensor.mean()
+            value_min = value_tensor.min()
+            value_max = value_tensor.max()
+
             if key not in self.__ns:
-                self.__ns[key] = 0
-                self.__means[key] = torch.zeros_like(value)
-                self.__m2s[key] = 0
-                self.__mins[key] = value.min()
-                self.__maxs[key] = value.max()
-            # use Welford's online algorithm
-            self.__ns[key] += 1
-            delta = value - self.__means[key]
-            self.__means[key] += delta / self.__ns[key]
-            self.__m2s[key] += delta * (value - self.__means[key].mean())
-            self.__mins[key] = torch.min(self.__mins[key], value.min())
-            self.__maxs[key] = torch.max(self.__maxs[key], value.max())
+                self.__ns[key] = 1
+                self.__means[key] = value_mean
+                self.__m2s[key] = torch.tensor(0.0)
+                self.__mins[key] = value_min
+                self.__maxs[key] = value_max
+            else:
+                self.__ns[key] += 1
+                delta = value_mean - self.__means[key]
+                self.__m2s[key] += delta * (value_mean - self.__means[key])
+                self.__means[key] += delta / self.__ns[key]
+                self.__mins[key] = torch.min(self.__mins[key], value_min)
+                self.__maxs[key] = torch.max(self.__maxs[key], value_max)
 
     def mean(self):
         result = dict()

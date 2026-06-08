@@ -131,13 +131,14 @@ def initialize_velocity_model(
     return model, model_dir
 
 
-def _run_preprocessing(inputs: list[str], outputs: list[str], base: Path, raw: Path, destination_path: Path) -> Path:
+def _run_preprocessing(network: str, inputs: list[str], outputs: list[str], base: Path, raw: Path, destination_path: Path) -> Path:
     """Helper for repeated preprocessing directory setup and execution."""
     i_str, o_str = "".join(inputs), "".join(outputs)
     target_dir = get_data_prep_path(base, i_str, o_str, raw)
     make_data_prep_dir(target_dir)
     preprocessing(
         {
+            "network": network,
             "inputs": i_str,
             "outputs": o_str,
             "data_raw": raw,
@@ -169,8 +170,9 @@ def execute_streamline_pipeline(config: AppConfig, mode: str) -> None:
     step3_in, step3_out = gen_conf.step3.model_parameters.inputs, gen_conf.step3.model_parameters.outputs
 
     # Preprocessing
-    step1_dir = _run_preprocessing(step1_in, step1_out, prep_path, dataset_path, results_path)
-    step2_dir = _run_preprocessing(step2_in, step2_out, prep_path, dataset_path, results_path)
+    network = gen_conf.step3.model_parameters.network
+    step1_dir = _run_preprocessing(network, step1_in, step1_out, prep_path, dataset_path, results_path)
+    step2_dir = _run_preprocessing(network, step2_in, step2_out, prep_path, dataset_path, results_path)
 
     # Initialization
     device = torch.device(run_conf.device)

@@ -3,7 +3,7 @@ run_configuration:
   dataset: dataset_giant_100hp_varyK
   seed: 2406
   device: cuda:0
-  use_velocity_model: false
+  use_velocity_model: true
 
   pipeline:
     - clean: data_prep
@@ -123,6 +123,6 @@ general_configuration:
       activation: LeakyReLU
 
 paths:
-  datasets_raw: ../datasets
-  datasets_prep: ../datasets_prep
-  results: ../results
+  datasets_raw: ./datasets
+  datasets_prep: ./datasets_prep
+  results: ./results

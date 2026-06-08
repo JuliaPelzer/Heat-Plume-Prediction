@@ -5,11 +5,10 @@ from typing import Annotated, Any, Literal, TypeVar
 import numpy as np
 import torch
 import yaml
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, BeforeValidator, Field, ValidationError
+
 
 # --- Helper Types & Validators ---
-
-
 def force_string(v: Any) -> str:
     """Coerces any input to string."""
     return str(v)
@@ -18,9 +17,8 @@ def force_string(v: Any) -> str:
 CoercedString = Annotated[str, BeforeValidator(force_string)]
 T = TypeVar("T", bound=BaseModel)
 
+
 # --- Configuration Models ---
-
-
 class Datapoints(BaseModel):
     """Defines split sizes for datasets."""
 
@@ -46,6 +44,7 @@ class ReduceLROnPlateauConfig(BaseModel):
     patience: int
     threshold: float
     min_lr: float
+    early_stop_patience: int | None = None
 
 
 class StepLRConfig(BaseModel):
@@ -55,9 +54,18 @@ class StepLRConfig(BaseModel):
     init_lr: float
     step_size: int
     gamma: float
+    early_stop_patience: int | None = None
 
 
-SchedulerConfig = Annotated[ReduceLROnPlateauConfig | StepLRConfig, Field(discriminator="type")]
+class ConstantLRConfig(BaseModel):
+    """Configuration for constant learning rate (no scheduler)."""
+
+    type: Literal["constant"]
+    init_lr: float
+    early_stop_patience: int | None = None
+
+
+SchedulerConfig = Annotated[ReduceLROnPlateauConfig | StepLRConfig | ConstantLRConfig, Field(discriminator="type")]
 
 
 class UNetParameters(BaseModel):
@@ -67,13 +75,7 @@ class UNetParameters(BaseModel):
     inputs: list[CoercedString]
     outputs: list[CoercedString]
     batchsize: int
-    kernel_size: int
-    depth: int
-    init_features: int
     stride: int
-    dilation: int
-    norm: str | None
-    repeat_inner: bool
     skip_per_dir: int
     len_box: int
     train_loss: str
@@ -82,14 +84,40 @@ class UNetParameters(BaseModel):
     optimizer: str
     activation: str
 
+    kernel_size: int
+    depth: int
+    init_features: int
+    dilation: int
+    norm: str | None
+    repeat_inner: bool
+
 
 class RNNParameters(BaseModel):
     """Hyperparameters specific to RNN architecture."""
 
-    model_config = ConfigDict(extra="allow")  # TODO @Johanna: Allow dynamic fields for incomplete implementation
     network: Literal["rnn"]
     inputs: list[CoercedString]
     outputs: list[CoercedString]
+    batchsize: int
+    stride: int
+    skip_per_dir: int
+    len_box: int
+    train_loss: str
+    bool_cutouts: bool
+    optimizer_switch: bool
+    optimizer: str
+    activation: str
+
+    visualize_interval: int | None
+    overfit: bool = False
+    overfit_on: int | None
+    time_steps_to_predict: list[list[int]]
+    rnn_num_layers: int
+    enc_conv_features: list[int] = [32, 64, 128, 256, 512]
+    dec_conv_features: list[int] = [512, 256, 128, 64, 32]
+    enc_kernel_sizes: list[int] = [5, 5, 5, 5, 5]
+    dec_kernel_sizes: list[int] = [5, 5, 5, 5, 5]
+    max_simulation_timestep: int = 55
 
 
 ModelConfig = Annotated[UNetParameters | RNNParameters, Field(discriminator="network")]
@@ -125,6 +153,7 @@ class MLStepConfig(BaseModel):
     general: GeneralSettings
     scheduler: SchedulerConfig
     model_parameters: ModelConfig
+    previous_results: Path | None = None
     hopt_parameters: HoptParameters | None = None
 
 

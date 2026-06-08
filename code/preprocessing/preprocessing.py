@@ -2,7 +2,7 @@ from code.preprocessing.preparing_datasets import raw_data_loading as load
 from code.preprocessing.preparing_datasets.statistics import WelfordStatistics
 from code.preprocessing.transforms import ToTensorTransform, get_transforms, normalize
 from code.utils import logging as log  # noqa: F401
-from code.utils.utils_args import is_empty, load_time_steps, load_yaml, save_yaml
+from code.utils.utils_args import is_empty, load_time_steps, load_time_steps_full_str, load_yaml, save_yaml
 from pathlib import Path
 
 import h5py
@@ -13,12 +13,13 @@ from tqdm import tqdm
 
 def preprocessing(args: dict):
     log.info("Preparing dataset")
-    network = args.get("network", "unet").lower()
+    network = args["network"]
     if is_unprepared(args["data_prep"]):
         info = load_yaml(args["model"] / "info.yaml") if args["case"] != "train" else None
 
         if network in ["convlstm", "rnn", "lstm"]:
             info = prepare_dataset_for_sequence(args, info=info)
+            log.info("Preparing dataset...")
         else:
             info = prepare_dataset(args, info=info)
     else:
@@ -62,7 +63,7 @@ def prepare_dataset(args: dict, info: dict = None):
             String of characters, each of which is either x, y, z, p, t, k, i, s, g, ...
     """
 
-    transforms = get_transforms()
+    transforms = get_transforms(inputs=args["inputs"])
     inputs = expand_property_names(args["inputs"])
     outputs = expand_property_names(args["outputs"])
     time_init = "   0 Time  0.00000E+00 y"
@@ -90,6 +91,30 @@ def prepare_dataset(args: dict, info: dict = None):
         time_prediction = get_time_prediction(data_path)
         x = load.load_raw_data(data_path, time_init, inputs, dims, time_prediction, print_bool=print_bool)
         y = load.load_raw_data(data_path, time_prediction, outputs, dims, time_prediction, print_bool=print_bool)
+
+        # For step4: if temperature is requested in inputs, replace with step3 prediction
+        if "t" in args.get("inputs", "") and args.get("previous_results") is not None:
+            result_path = Path(args["previous_results"])
+            prediction_file = result_path / f"{run}.pt"
+            log.info(f"Prediction_file: {prediction_file}")
+            if prediction_file.exists():
+                predicted_t = torch.load(prediction_file)
+                # If loaded as sequence or extra dims, reduce to single channel/time shape for direct use as input
+                if predicted_t.ndim == 4:
+                    # common step3 shape from model (1,time,H,W or time,1,H,W)
+                    if predicted_t.shape[0] == 1:
+                        predicted_t = predicted_t[0]
+                    if predicted_t.shape[1] == 1:
+                        predicted_t = predicted_t.squeeze(1)
+                    if predicted_t.ndim == 3 and predicted_t.shape[0] > 1:
+                        predicted_t = predicted_t[-1]
+                if predicted_t.ndim == 2:
+                    predicted_t = predicted_t.unsqueeze(0)
+                # overwrite raw temperature channel
+                x["Temperature [C]"] = predicted_t
+            else:
+                raise FileNotFoundError(f"Step3 prediction not found: {prediction_file}")
+
         print_bool = False
         loc_hp = load.get_hp_location(x)
         x = transforms(x, loc_hp=loc_hp)
@@ -155,10 +180,14 @@ def prepare_dataset(args: dict, info: dict = None):
 
 
 def prepare_dataset_for_sequence(args: dict, info: dict = None):
-    transforms = get_transforms()
+    transforms = get_transforms(inputs=args["inputs"])
+    log.info("Transforms: ", [transform.__class__.__name__ for transform in transforms.transforms])
+    log.info("Args Inputs:", args["inputs"])
+
     inputs = expand_property_names(args["inputs"])
     outputs = expand_property_names(args["outputs"])
-    times = load_time_steps(Path(args["data_raw"], "RUN_" + str(args["datapoint_train"]), "pflotran.h5"))
+    times_str = load_time_steps_full_str(Path(args["data_raw"], "RUN_0", "pflotran.h5"))
+    times = load_time_steps(Path(args["data_raw"], "RUN_0", "pflotran.h5"))
     time_init = times[0]
     time_prediction = times[1:]
 
@@ -174,13 +203,35 @@ def prepare_dataset_for_sequence(args: dict, info: dict = None):
     data_paths, runs = load.detect_datapoints(args["data_raw"])
     total = len(data_paths)
     print_bool = False
-    for data_path, run in tqdm(zip(data_paths, runs, strict=True), desc="Converting", total=total):
-        x = load.load_raw_data(data_path, time_init, inputs, dims, time_prediction[0], print_bool=print_bool)
+    for data_path, run in tqdm(zip(data_paths, runs), desc="Converting", total=total):
+        x = load.load_raw_data(data_path, times_str[0], inputs, dims, times_str[1], print_bool=print_bool)
+
+        # For step4: if temperature is requested in inputs, replace with step3 prediction
+        if "t" in args.get("inputs", "") and args.get("previous_results") is not None:
+            result_path = Path(args["previous_results"])
+            prediction_file = result_path / f"{run}.pt"
+            if prediction_file.exists():
+                predicted_t = torch.load(prediction_file)
+                # If loaded as sequence or extra dims, reduce to single spatial channel
+                if predicted_t.ndim == 4:
+                    if predicted_t.shape[0] == 1:
+                        predicted_t = predicted_t[0]
+                    if predicted_t.ndim == 3 and predicted_t.shape[0] == 1:
+                        predicted_t = predicted_t.squeeze(0)
+                    if predicted_t.ndim == 3 and predicted_t.shape[0] > 1:
+                        predicted_t = predicted_t[-1]
+                if predicted_t.ndim == 2:
+                    predicted_t = predicted_t.unsqueeze(0)
+                log.info(f"Shape of predicted_t: {predicted_t.size()}")
+                x["Temperature [C]"] = predicted_t
+            else:
+                raise FileNotFoundError(f"Step3 prediction not found: {prediction_file}")
 
         y = {output: [] for output in outputs}
-        for time in time_prediction:
+        for time in times_str:
             for output in outputs:
-                value = load.load_raw_data(data_path, time, [output], dims, time_prediction, print_bool=print_bool)[
+                log.info(f"times_str[1:]: {times_str[1:]}")
+                value = load.load_raw_data(data_path, time, [output], dims, times_str[1:], print_bool=print_bool)[
                     output
                 ]
                 value = torch.unsqueeze(value, dim=0)  # (channels, time, H, W)
@@ -264,6 +315,7 @@ def expand_property_names(properties: str):
         "g": "Pressure Gradient [-]",
         "i": "Material ID",
         "t": "Temperature [C]",
+        "s": "SDF",
         "l": "Line Integral Convolution",
         "d": "Streamlines Faded [-]",
         "c": "Streamlines Faded Outer [-]",
