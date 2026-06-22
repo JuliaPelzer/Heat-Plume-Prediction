@@ -195,6 +195,6 @@ general_configuration:
       activation: LeakyReLU
 
 paths:
-  datasets_raw: ../datasets
-  datasets_prep: ../datasets_prep
-  results: ../results
+  datasets_raw: ./datasets
+  datasets_prep: ./datasets_prep
+  results: ./results

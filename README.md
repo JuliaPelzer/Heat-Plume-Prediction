@@ -14,6 +14,7 @@ This project introduces a hybrid machine learning and physics-based approach to 
 
 ### Setup
 ```sh
+module load python/3.12.9
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -21,12 +22,18 @@ pip install -e .
 
 
 ### Dataset Setup
-
-1. Download the [seasonal dataset](https://doi.org/10.18419/DARUS-5877) (`datasets/paper-results-seasonal`) and save it to:
-   `datasets/paper-results-seasonal`
-2. Download the [steady-state dataset](https://doi.org/10.18419/DARUS-4156) (`random_perm_3dp.zip`), unzip and save it to:
-   `datasets/dataset_giant_100hp_varyK`
-
+download datasets automatically (hint: when the darus is still private create a file `.darus_apikey` with the api-key of darus)
+```sh
+git submodule update --init --recursive --force
+cd darus_data_download
+pip install -r requirements.txt
+python scripts/get_data.py
+unzip scripts/data/datasets-100-heat-pumps-synthetic-permeability-fields-simulation-raw-3-1-data-points/random_perm_3dp.zip
+mv dataset_giant_100hp_varyK/ ../datasets/
+mv scripts/data/student-thesis-on-transient-adaptation-of-lgcnn/datasets/ ../datasets/
+mv scripts/data/student-thesis-on-transient-adaptation-of-lgcnn/probabilistic-lgcnn/results/ ../results/
+cd ..
+```
 
 ### Model Training
 

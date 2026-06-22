@@ -4,6 +4,7 @@
 /datasets
 /datasets_prep
 /results
+.darus_apikey
 
 # Latex
 *.log
