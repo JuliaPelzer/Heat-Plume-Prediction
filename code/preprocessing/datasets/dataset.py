@@ -69,8 +69,9 @@ class DatasetBasis(Dataset):
             input, label = self.__load_datapoint(i)
         else:
             if i not in self.cache:
+                free_mem, total_mem = torch.cuda.mem_get_info()
                 input, label = self.__load_datapoint(i)
-                if self.cache_mode == "cuda":
+                if self.cache_mode == "cuda": # and free_mem > 1024**4:
                     input = input.to(self.cache_device)
                     label = label.to(self.cache_device)
                 self.cache[i] = input, label
