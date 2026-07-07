@@ -54,6 +54,7 @@ def training(args: Dict):
 
         # save model 
         training_time = datetime.now() - training_time
+        model.load_state_dict(solver.best_model_params["state_dict"])
         model.save(args["destination"])
         solver.save_metrics_separate_yaml(args["destination"], model.num_of_params(), args["epochs"], training_time.total_seconds(), args["device"])
 
