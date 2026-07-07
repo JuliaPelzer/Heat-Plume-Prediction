@@ -126,7 +126,7 @@ def make_streamlines(Qinj2D, vx, vy, dims, offset:str=None, faded: bool=True, se
     integrator = integrate_velocity(x, y, vx/resolution, vy/resolution)
     t_end = 10*365 # adaptation because velocities not in [m/y] but in [m/d] now
     # for hp in tqdm(pos_hps, desc="Calculating streamlines"):
-    for hp in pos_hps:
+    for hp in tqdm(pos_hps, desc="Calculating streamlines"):
         sol = calc_streamline(integrator, (x.max(),y.max()), np.array(hp).T, t_end=t_end, t_steps=t_end//5, **kwargs) #tsteps: 10y*365d a one step every 5days
         streamlines.append(sol)
     # print("Time for calculating streamlines: ", datetime.now()-time, " seconds")

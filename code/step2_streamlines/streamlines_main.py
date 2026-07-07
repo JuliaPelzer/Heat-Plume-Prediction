@@ -1,4 +1,5 @@
 import argparse
+from asyncio import run
 from shutil import copytree
 import time
 import signal
@@ -7,7 +8,7 @@ import torch
 from tqdm.auto import tqdm
 import numpy as np
 
-from step2_streamlines.streamlines_helpers import make_streamlines, save_new_datapoint, correct_info, extend_inputs_dims
+from streamlines_helpers import make_streamlines, save_new_datapoint, correct_info, extend_inputs_dims
 from utils.utils_args import load_yaml
 from preprocessing.transforms import NormalizeTransform
 
@@ -38,6 +39,7 @@ def build_streamlines(dataset_path:Path=None, **kwargs):
 
     runs_tqdm = tqdm([run for run in (destination / "Inputs").iterdir() if run.name.endswith(".pt")], desc="Processing runs")
     for run in runs_tqdm:
+        print(run.stem)
         runs_tqdm.set_postfix_str(f"{run.stem}")
         start_time = time.time()
         inputs = torch.load(run)
@@ -75,9 +77,8 @@ if __name__ == "__main__":
     PATH_DATA_PREP = Path("/scratch/sgs/pelzerja/datasets_prepared/bm/")
 
     # argparse for dataset_name with default
-    dataset_name = "step1_overfit1"
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", type=str, default=dataset_name, help="Name of the dataset folder in PATH_DATA_PREP.")
+    parser.add_argument("--data", type=str, default="step1_overfit1", help="Name of the dataset folder in PATH_DATA_PREP.")
     args = parser.parse_args()
     dataset_name = args.data
 
