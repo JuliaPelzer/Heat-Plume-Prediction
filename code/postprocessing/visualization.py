@@ -49,7 +49,6 @@ def visualizations(model: UNet, dataloader: DataLoader, args: dict, amount_datap
     
     current_id = 0
     for inputs, labels in dataloader:
-        print(inputs.shape, labels.shape, "shape of inputs and labels")
         len_batch = inputs.shape[0]
         for datapoint_id in range(len_batch):
             name_pic = f"{plot_path}_{current_id}"
@@ -86,7 +85,7 @@ def prepare_data_to_plot(x: torch.Tensor, y: torch.Tensor, y_out:torch.Tensor, i
     required_size = y_out.shape
     start_pos = ((y.shape[1] - required_size[1])//2, (y.shape[2] - required_size[2])//2)
     y_reduced = y[:,start_pos[0]:start_pos[0]+required_size[1], start_pos[1]:start_pos[1]+required_size[2]]
-    
+
     outs_max = [max(y_reduced[i].max(), y_out[i].max()) for i in range(len(y_reduced))]
     outs_min = [min(y_reduced[i].min(), y_out[i].min()) for i in range(len(y_reduced))]
     
@@ -126,27 +125,28 @@ def aligned_colorbar(*args, **kwargs):
     plt.colorbar(*args, cax=cax, **kwargs)
 
 def interim_visu(model, dataloader, path_desti, device):
-    for inputs, labels in dataloader:
-        len_batch = inputs.shape[0]
-        # for dp_in, dp_lab in zip(inputs, labels):
-        y_outs = model.infer(inputs.to(device), device)
+    with torch.no_grad():
+        for inputs, labels in dataloader:
+            len_batch = inputs.shape[0]
+            # for dp_in, dp_lab in zip(inputs, labels):
+            y_outs = model.infer(inputs.to(device), device)
 
-        plt.figure(figsize=(12,12))
-        for i in range(len_batch):
-            plt.subplot(len_batch, 3, (i + 1) * 3 - 2)
-            plt.imshow(labels[i,0].cpu().numpy(), origin="lower", cmap="RdBu_r")#,vmin=0,vmax=1)
-            plt.title(f"Label {i}")
-            aligned_colorbar()
+            plt.figure(figsize=(12,12))
+            for i in range(len_batch):
+                plt.subplot(len_batch, 3, (i + 1) * 3 - 2)
+                plt.imshow(labels[i,0].cpu().numpy(), origin="lower", cmap="RdBu_r")#,vmin=0,vmax=1)
+                plt.title(f"Label {i}")
+                aligned_colorbar()
 
-            plt.subplot(len_batch, 3, (i + 1) * 3 - 1)
-            plt.imshow(y_outs[i,0].cpu().detach().numpy(), origin="lower", cmap="RdBu_r")#,vmin=0,vmax=1)
-            plt.title(f"Prediction {i}")
-            aligned_colorbar()
+                plt.subplot(len_batch, 3, (i + 1) * 3 - 1)
+                plt.imshow(y_outs[i,0].cpu().detach().numpy(), origin="lower", cmap="RdBu_r")#,vmin=0,vmax=1)
+                plt.title(f"Prediction {i}")
+                aligned_colorbar()
 
-            plt.subplot(len_batch, 3, (i + 1) * 3 - 0)
-            plt.imshow(torch.abs(labels[i,0].cpu() - y_outs[i,0].cpu().detach()), origin="lower", cmap="RdBu_r")#,vmin=0,vmax=1)
-            plt.title(f"Error {i}")
-            aligned_colorbar()
-        plt.tight_layout()
-        plt.savefig(path_desti, dpi=300)
-        break
+                plt.subplot(len_batch, 3, (i + 1) * 3 - 0)
+                plt.imshow(torch.abs(labels[i,0].cpu() - y_outs[i,0].cpu().detach()), origin="lower", cmap="RdBu_r")#,vmin=0,vmax=1)
+                plt.title(f"Error {i}")
+                aligned_colorbar()
+            plt.tight_layout()
+            plt.savefig(path_desti, dpi=300)
+            break
