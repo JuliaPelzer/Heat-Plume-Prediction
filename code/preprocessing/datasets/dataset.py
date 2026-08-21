@@ -25,7 +25,7 @@ class DatasetBasis(Dataset):
         if self.cache_mode not in ["none", "cpu", "cuda"]:
             raise ValueError("cache must be one of: none, cpu, cuda")
 
-        tmp_dp = torch.load(self.path / "Labels" / self.label_names[0])
+        tmp_dp = torch.load(self.path / "Labels" / self.label_names[0], weights_only=False) # weights_only=False only for trusted sources
         self.n_output_channels = tmp_dp.shape[0]
         self.spatial_size = tmp_dp.shape[1:] # required for extend1,2 # TODO check if still works for extend (changed from Inputs to Labels for allin1)
         if box_size is not None:
@@ -79,8 +79,8 @@ class DatasetBasis(Dataset):
         return input, label
 
     def __load_datapoint(self, i:int):
-        input = torch.load(self.path / "Inputs" / self.input_names[i])[:, :self.box_size, :]
-        label = torch.load(self.path / "Labels" / self.label_names[i])[:, :self.box_size, :]
+        input = torch.load(self.path / "Inputs" / self.input_names[i], weights_only=False)[:, :self.box_size, :]
+        label = torch.load(self.path / "Labels" / self.label_names[i], weights_only=False)[:, :self.box_size, :]
         return input, label
 
 class DataPoint(DatasetBasis):

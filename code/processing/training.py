@@ -12,7 +12,7 @@ from preprocessing.data_init import init_data
 from processing.networks.unetVariants import UNetNoPad2, UNet
 from processing.solver import Solver
 from processing.loss_fcts import CombiLoss, WeightedMSELoss
-from postprocessing.visualization import visualizations
+from postprocessing.visualization import visualizations, interim_visu
 from utils.utils_args import load_yaml, save_yaml, check_model_avail, load_hyperparams
 
 def training(args: Dict):
@@ -27,9 +27,9 @@ def training(args: Dict):
     input_channels, output_channels, dataloaders = init_data(args, batchsize=args["batchsize"], tmp_bool_cutouts=args["bool_cutouts"], order_data=args["order_data"])
     
     # if (input_channels == 3 and output_channels == 1) or output_channels > 1:
-    model = UNet(in_channels=input_channels, out_channels=output_channels, depth=args["depth"], init_features=args["init_features"], kernel_size=args["kernel_size"], stride=args["stride"], dilation=args["dilation"], activation=args["activation_fct"], norm=args["norm"], repeat_inner=args["repeat_inner"]).float()
+    model = UNet(in_channels=input_channels, out_channels=output_channels, depth=args["depth"], init_features=args["init_features"], kernel_size=args["kernel_size"], stride=args["stride"], dilation=args["dilation"], activation=args["activation_fct"], norm=args["norm"], repeat_inner=args["repeat_inner"], last_activation=args["last_activation"]).float()
     # else:
-    #     model = UNetNoPad2(in_channels=input_channels, out_channels=output_channels, depth=args["depth"], init_features=args["init_features"], kernel_size=args["kernel_size"], stride=args["stride"], dilation=args["dilation"], activation=args["activation_fct"], norm=args["norm"], repeat_inner=args["repeat_inner"]).float()
+    # model = UNetNoPad2(in_channels=input_channels, out_channels=output_channels, depth=args["depth"], init_features=args["init_features"], kernel_size=args["kernel_size"], stride=args["stride"], dilation=args["dilation"], activation=args["activation_fct"], norm=args["norm"], repeat_inner=args["repeat_inner"], last_activation=args["last_activation"]).float()
     model.to(args["device"])
     print(f"Model has {model.num_of_params()} parameters")
     
@@ -68,77 +68,66 @@ def training(args: Dict):
     #             torch.save(y_out, f"{args['destination']}/prediction_{case}.pt")
 
     # postprocessing
-    for case in ["train"]: #, "val", "test"]:
-        visualizations(model, dataloaders[case], args, plot_path=args["destination"] / case, amount_datapoints_to_visu=1, pic_format="png")
+    for case in ["train", "val", "test"]:
+        interim_visu(model, dataloaders[case], path_desti=args["destination"] / f"{case}_final.png", device=args["device"])
+    # for case in ["train"]: #, "val", "test"]:
+    #     visualizations(model, dataloaders[case], args, plot_path=args["destination"] / case, amount_datapoints_to_visu=1, pic_format="png")
 
     return model
 
-def run(trial, args: Dict, PATH_DATA_PREP: Path):
-    # TODO outdated
+def run(trial, args: Dict):
     config = load_yaml(args["destination"] / "HPS_options.yaml")
-    (args["destination"] / "models").mkdir(parents=True, exist_ok=True)
 
-    run_name = trial.number
-    args["inputs"] = trial.suggest_categorical("inputs", config["inputs"]["values"])
-    args["len_box"] = trial.suggest_categorical("len_box", config["len_box"]["values"])
-    args["skip_per_dir"] = trial.suggest_categorical("skip_per_dir", config["skip_per_dir"]["values"])
-    args["stride"] = trial.suggest_categorical("stride", config["stride"]["values"])
-    args["dilation"] = trial.suggest_categorical("dilation", config["dilation"]["values"])
-    args["activation_fct"] = trial.suggest_categorical("activation_fct", config["activation_fct"]["values"])
-    args["norm"] = trial.suggest_categorical("norm", config["norm"]["values"])
-    args["repeat_inner"] = trial.suggest_categorical("repeat_inner", config["repeat_inner"]["values"])
-    args["bool_cutouts"] = trial.suggest_categorical("bool_cutouts", config["bool_cutouts"]["values"])
-    args["batchsize"] = trial.suggest_categorical("batchsize", config["batchsize"]["values"])
-    args["depth"] = trial.suggest_categorical("depth", config["depth"]["values"])
-    args["init_features"] = trial.suggest_categorical("init_features", config["init_features"]["values"])
-    args["kernel_size"] = trial.suggest_categorical("kernel_size", config["kernel_size"]["values"])
-    args["lr"] = float(trial.suggest_categorical("lr", config["lr"]["values"]))
-    args["train_loss"] = trial.suggest_categorical("train_loss", config["train_loss"]["values"])
+    args["inputs"] = trial.suggest_categorical("inputs", config["inputs"])
+    args["len_box"] = trial.suggest_categorical("len_box", config["len_box"])
+    args["skip_per_dir"] = trial.suggest_categorical("skip_per_dir", config["skip_per_dir"])
+    args["stride"] = trial.suggest_categorical("stride", config["stride"])
+    args["dilation"] = trial.suggest_categorical("dilation", config["dilation"])
+    args["activation_fct"] = trial.suggest_categorical("activation_fct", config["activation_fct"])
+    args["norm"] = trial.suggest_categorical("norm", config["norm"])
+    args["repeat_inner"] = trial.suggest_categorical("repeat_inner", config["repeat_inner"])
+    args["bool_cutouts"] = trial.suggest_categorical("bool_cutouts", config["bool_cutouts"])
+    args["batchsize"] = trial.suggest_categorical("batchsize", config["batchsize"])
+    args["depth"] = trial.suggest_categorical("depth", config["depth"])
+    args["init_features"] = trial.suggest_categorical("init_features", config["init_features"])
+    args["kernel_size"] = trial.suggest_categorical("kernel_size", config["kernel_size"])
+    args["lr"] = float(trial.suggest_categorical("lr", config["lr"]))
+    args["train_loss"] = trial.suggest_categorical("train_loss", config["train_loss"])
+    try:
+        args["last_activation"] = trial.suggest_categorical("last_activation", config["last_activation"])
+    except KeyError:
+        args["last_activation"] = False
 
     np.random.seed(1)
     torch.manual_seed(1)
     multiprocessing.set_start_method("spawn", force=True)
-    if len(args["outputs"]) == 2:
-        # TODO: change name of dataset
-        args["data_prep"] = PATH_DATA_PREP / f"dataset_giant_100hp_varyK inputs_{args['inputs']} outputs_xy"
-        # args["data_prep"] = PATH_DATA_PREP / f"dataset_100hp_giant_real_fixP0_0025 inputs_{args['inputs']} outputs_xy"
-    elif len(args["outputs"]) == 1:
-        # experiment on the inputs of step 3 not included in the automated tests, but explicitly tested
-        print(args["data_prep"])
-
     save_yaml(args, args["destination"] / "command_line_arguments.yaml")
 
     # data
-    preprocessing(args) # and save info.yaml in model folder
+    # preprocessing(args) # and save info.yaml in model folder
     input_channels, output_channels, dataloaders = init_data(args, tmp_bool_cutouts=args["bool_cutouts"], batchsize=args["batchsize"], order_data=args["order_data"])
 
     try:
         # model
-        model = UNetNoPad2(in_channels=input_channels, out_channels=output_channels, depth=args["depth"], init_features=args["init_features"], kernel_size=args["kernel_size"], stride=args["stride"], dilation=args["dilation"], activation=args["activation_fct"], norm=args["norm"], repeat_inner=args["repeat_inner"]).float()
+        model = UNet(in_channels=input_channels, out_channels=output_channels, depth=args["depth"], init_features=args["init_features"], kernel_size=args["kernel_size"], stride=args["stride"], dilation=args["dilation"], activation=args["activation_fct"], norm=args["norm"], repeat_inner=args["repeat_inner"], last_activation=args["last_activation"]).float()
         model.to(args["device"])
+        print(f"Model has {model.num_of_params()} parameters")
         
-        if args["case"] in ["test", "finetune"]:
-            check_model_avail(args)
-            model.load(args["model"], args["device"])
-        if args["case"] == "test":
-            model.eval()
+        assert args["case"] == "train", "HPS only makes sense for training, not for testing or finetuning."
 
-        if args["case"] in ["train", "finetune"]:
-            loss_mapping = {
-                "mae": L1Loss(),
-                "mse": MSELoss()
-            }
-            loss = loss_mapping.get(args["train_loss"].lower(), MSELoss())
-            solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss, finetune=(args["case"] == "finetune"), learning_rate=float(args["lr"]))
-            try:
-                solver.load_lr_schedule(args["destination"] / "learning_rate_history.csv")
-                val_loss = solver.train(args, optuna_trial=trial)
-            except KeyboardInterrupt:
-                logging.warning(f"Manually stopping training early with best model found in epoch {solver.best_model_params['epoch']}.")
-                val_loss = solver.best_model_params["loss"]
+        loss = select_loss_function(args)
+        solver = Solver(model, dataloaders["train"], dataloaders["val"], loss_func=loss, finetune=False, learning_rate=args["lr"])
+        try:
+            solver.load_lr_schedule(args["destination"] / "learning_rate_history.csv")
+            val_loss = solver.train(args, optuna_trial=trial)
+        except KeyboardInterrupt:
+            logging.warning(f"Manually stopping training early with best model found in epoch {solver.best_model_params['epoch']}.")
+            val_loss = solver.best_model_params["loss"]
 
-            # save model 
-            model.save(args["destination"] / "models", f"{run_name}.pt")
+        # save model 
+        model.load_state_dict(solver.best_model_params["state_dict"])
+        model.save(args["destination"] / f"trial{trial.number}")
+        interim_visu(model, dataloaders["val"], path_desti=args["destination"] / f"trial{trial.number}" / f"{args['case']}.png", device=args["device"])
 
     except Exception as e:
         print(f"An error occurred: {e}")

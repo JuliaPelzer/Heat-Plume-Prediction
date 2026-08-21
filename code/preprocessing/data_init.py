@@ -19,7 +19,8 @@ def init_data(args:dict, tmp_bool_cutouts:bool=False, batchsize:int=64, order_da
             dataset_train = DataPoint(args["data_prep"], i=order_data[0], cache=cache_mode, cache_device=cache_device)
         else: # large dataset with random split, no order_data provided
             dataset = DatasetBasis(args["data_prep"], cache=cache_mode, cache_device=cache_device)
-            datasets = random_split(dataset, [0.7, 0.2, 0.1], generator=Generator().manual_seed(1))
+            datasets = random_split(dataset, [0.8, 0.2, 0.0], generator=Generator().manual_seed(1))
+            print("ATTENTION!! CHANGED SPLIT to 80:20:0 because hidden test data")
             print(f"Random split of dataset: {len(datasets[0])} training, {len(datasets[1])} validation, {len(datasets[2])} test samples.")
             
     else: # DO CUTOUTS

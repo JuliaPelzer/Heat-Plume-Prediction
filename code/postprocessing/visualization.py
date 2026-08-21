@@ -130,16 +130,19 @@ def interim_visu(model, dataloader, path_desti, device):
             len_batch = inputs.shape[0]
             # for dp_in, dp_lab in zip(inputs, labels):
             y_outs = model.infer(inputs.to(device), device)
+            # torch.save(torch.stack((y_outs, labels)), path_desti.parent/"dp0.pt")
 
             plt.figure(figsize=(12,12))
             for i in range(len_batch):
+                mini = min(labels[i,0].min().cpu().numpy(), y_outs[i,0].min().cpu().detach().numpy())
+                maxi = max(labels[i,0].max().cpu().numpy(), y_outs[i,0].max().cpu().detach().numpy())
                 plt.subplot(len_batch, 3, (i + 1) * 3 - 2)
-                plt.imshow(labels[i,0].cpu().numpy(), origin="lower", cmap="RdBu_r")#,vmin=0,vmax=1)
+                plt.imshow(labels[i,0].cpu().numpy(), origin="lower", cmap="RdBu_r", vmin=mini, vmax=maxi)
                 plt.title(f"Label {i}")
                 aligned_colorbar()
 
                 plt.subplot(len_batch, 3, (i + 1) * 3 - 1)
-                plt.imshow(y_outs[i,0].cpu().detach().numpy(), origin="lower", cmap="RdBu_r")#,vmin=0,vmax=1)
+                plt.imshow(y_outs[i,0].cpu().detach().numpy(), origin="lower", cmap="RdBu_r", vmin=mini, vmax=maxi)
                 plt.title(f"Prediction {i}")
                 aligned_colorbar()
 

@@ -19,8 +19,11 @@ def read_cla(path:str):
 def load_hyperparams(args):
     hyperparams = load_yaml(args["destination"] / "HPS_options.yaml")
     for key in hyperparams.keys():
-        if "values" in hyperparams[key]:
-            args[key] = hyperparams[key]["values"][0]
+        # if "values" in hyperparams[key]:
+        #     args[key] = hyperparams[key]["values"][0]
+        # else:
+        if hyperparams[key].__class__ == list:
+            args[key] = hyperparams[key][0] #TODO check !
         else:
             args[key] = hyperparams[key]
     if "lr" in args.keys():

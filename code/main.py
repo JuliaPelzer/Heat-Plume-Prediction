@@ -21,10 +21,9 @@ if __name__ == "__main__":
         model = training(args)
 
     else:
-        PATH_DATA_PREP = Path("/scratch/sgs/pelzerja/datasets_prepared/bm")
         print("Study name: ", args["destination"])
-        study = optuna.create_study(direction="minimize", storage=f"sqlite:///{PATH_MODELS_DIR}/TEST_STUDY.db", study_name="NAME", load_if_exists=True)
-        study.optimize(lambda trial: run(trial, args, PATH_DATA_PREP), n_trials=1)
+        study = optuna.create_study(direction="minimize", storage=f"sqlite:///{PATH_MODELS_DIR}/step3.db", study_name="2026_07_17_2", load_if_exists=True)
+        study.optimize(lambda trial: run(trial, args), n_trials=30)
 
         pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
         complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
