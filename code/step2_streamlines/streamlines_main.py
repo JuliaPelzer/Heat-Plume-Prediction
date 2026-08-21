@@ -1,5 +1,4 @@
 import argparse
-from asyncio import run
 from shutil import copytree
 import time
 import signal
@@ -8,13 +7,13 @@ import torch
 from tqdm.auto import tqdm
 import numpy as np
 
-from streamlines_helpers import make_streamlines, save_new_datapoint, correct_info, extend_inputs_dims
+from step2_streamlines.streamlines_helpers import make_streamlines, save_new_datapoint, correct_info, extend_inputs_dims
 from utils.utils_args import load_yaml
 from preprocessing.transforms import NormalizeTransform
 
 def build_streamlines(dataset_path:Path=None, **kwargs):
     ## copy ixydk files (later overwrite xyd)
-    destination = dataset_path.parent/f"{dataset_path.name}+s(t0,Q,Ttrend)"
+    destination = dataset_path.parent/f"{dataset_path.name}+s(t,Q,Ttrend)"
     copytree(dataset_path,destination, dirs_exist_ok=True)
 
     prop_is = {"vx": 3,
@@ -29,9 +28,9 @@ def build_streamlines(dataset_path:Path=None, **kwargs):
     correct_info(destination, i_s=prop_is["sf"], i_s_outer=prop_is["sf_outers"], i_s_seasonal=prop_is["s_seasonal"])
     norm_after = NormalizeTransform(load_yaml(destination/"info.yaml"))
 
-    streamline_timeout = 60
-    def _timeout_handler(signum, frame):
-        raise TimeoutError("streamline calculation timed out")
+    # streamline_timeout = 60*600
+    # def _timeout_handler(signum, frame):
+    #     raise TimeoutError("streamline calculation timed out")
     
     # Square root regression (fitted on step1-train data), but if result would be too small, set width to 2 cells
     width_model = lambda Q: max(0.84 * Q**0.5 -1.32, 2)
@@ -48,8 +47,8 @@ def build_streamlines(dataset_path:Path=None, **kwargs):
         inputs_reduced = inputs.numpy()
 
         # make streamlines
-        old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
-        signal.alarm(streamline_timeout)
+        # old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+        # signal.alarm(streamline_timeout)
         try:
             streamlines_faded = make_streamlines(Qinj2D=inputs_reduced[prop_is["Q"]], vx=inputs_reduced[prop_is["vx"]], vy=inputs_reduced[prop_is["vy"]], dims=inputs_reduced[0].shape, faded=True, **kwargs)
 
@@ -60,9 +59,9 @@ def build_streamlines(dataset_path:Path=None, **kwargs):
         except TimeoutError:
             print(f"Skipping {run.stem} after {time.time()-start_time} seconds: streamline calculation timed out")
             continue
-        finally:
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, old_handler)
+        # finally:
+        #     signal.alarm(0)
+        #     signal.signal(signal.SIGALRM, old_handler)
 
         # norm inputs acc. to info
         inputs_normed = norm_after(torch.tensor(inputs_reduced), "Inputs")

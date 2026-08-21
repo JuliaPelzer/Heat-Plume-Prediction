@@ -125,7 +125,6 @@ def make_streamlines(Qinj2D, vx, vy, dims, offset:str=None, faded: bool=True, se
     
     integrator = integrate_velocity(x, y, vx/resolution, vy/resolution)
     t_end = 10*365 # adaptation because velocities not in [m/y] but in [m/d] now
-    # for hp in tqdm(pos_hps, desc="Calculating streamlines"):
     for hp in tqdm(pos_hps, desc="Calculating streamlines"):
         sol = calc_streamline(integrator, (x.max(),y.max()), np.array(hp).T, t_end=t_end, t_steps=t_end//5, **kwargs) #tsteps: 10y*365d a one step every 5days
         streamlines.append(sol)
@@ -136,12 +135,9 @@ def make_streamlines(Qinj2D, vx, vy, dims, offset:str=None, faded: bool=True, se
 
     return torch.tensor(streamlines_drawn)
 
-def save_new_datapoint(destination, runid:str, inputs_new:torch.Tensor, labels_new:torch.Tensor=None):
+def save_new_datapoint(destination, runid:str, inputs_new:torch.Tensor):
     (destination/"Inputs").mkdir(exist_ok=True, parents=True)
-    (destination/"Labels").mkdir(exist_ok=True, parents=True)
     torch.save(inputs_new, destination / "Inputs" / runid)
-    if labels_new != None:
-        torch.save(labels_new, destination / "Labels" / runid)
 
 def correct_info(destination:Path, i_s:int=3, i_s_outer:int=5, i_s_seasonal:int=None):
     info = load_yaml(destination / "info.yaml")

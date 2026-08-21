@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 import time
 from dataclasses import dataclass
+import optuna
 from torch import manual_seed, no_grad
 from torch.nn import Module, modules, MSELoss, HuberLoss
 from torch.optim import Adam, Optimizer, LBFGS
@@ -25,7 +26,7 @@ class Solver(object):
     finetune: bool = False
     best_model_params: dict = None
     metrics: dict = None
-    val_interval: int = 50
+    val_interval: int = 5 #TODO 50
 
     def __post_init__(self):
         self.opt = self.opt(self.model.parameters(),self.learning_rate, weight_decay=0.0) # TODO redo to 1e-4 ?
@@ -37,11 +38,16 @@ class Solver(object):
         
         self.metrics: dict = {"Huber": HuberLoss(), }
 
-    def train(self, args: dict):
+    def train(self, args: dict, optuna_trial=None):
         manual_seed(0)
         start_time = time.perf_counter()
         # initialize tensorboard
-        writer = SummaryWriter(args["destination"])
+        if optuna_trial:
+            log_dir = args["destination"] / f"trial{optuna_trial.number}"
+            Path(log_dir).mkdir(parents=True, exist_ok=True)
+        else:
+            log_dir = args["destination"]
+        writer = SummaryWriter(log_dir=log_dir)
         device = args["device"]
 
         epochs = tqdm(range(args["epochs"]), desc="epochs", disable=False)
@@ -60,6 +66,7 @@ class Solver(object):
                     with no_grad():
                         self.model.eval()
                         val_epoch_loss, other_losses_val = self.run_epoch(self.val_dataloader, device, eval_bool=True)
+                        val_epoch_loss = other_losses_val["Huber"]
 
                         # Keep best model
                         if self.best_model_params is None or val_epoch_loss < self.best_model_params["loss"]:
@@ -82,6 +89,11 @@ class Solver(object):
                 writer.add_scalar("val_loss", val_epoch_loss, epoch)
                 writer.add_scalar("learning_rate", self.opt.param_groups[0]["lr"], epoch)
                 epochs.set_postfix_str(f"train loss: {train_epoch_loss:.2e}, val loss: {val_epoch_loss:.2e}, lr: {self.opt.param_groups[0]['lr']:.1e}")    
+
+                if optuna_trial:
+                    optuna_trial.report(val_epoch_loss, epoch)
+                    if optuna_trial.should_prune():
+                        raise optuna.exceptions.TrialPruned()
 
             except KeyboardInterrupt:
                 # allows to interrupt training with ctrl+c to change the lr manually
