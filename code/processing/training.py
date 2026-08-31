@@ -78,7 +78,7 @@ def training(args: Dict):
 def run(trial, args: Dict):
     config = load_yaml(args["destination"] / "HPS_options.yaml")
 
-    args["inputs"] = trial.suggest_categorical("inputs", config["inputs"])
+    print("ATTENTION param args[inputs] has no effect!")
     args["len_box"] = trial.suggest_categorical("len_box", config["len_box"])
     args["skip_per_dir"] = trial.suggest_categorical("skip_per_dir", config["skip_per_dir"])
     args["stride"] = trial.suggest_categorical("stride", config["stride"])
@@ -141,14 +141,15 @@ def run(trial, args: Dict):
     return val_loss
 
 def select_loss_function(args):
-    if args["train_loss"].lower() == "mae":
-        loss = L1Loss()
-    elif args["train_loss"].lower() == "mse":
-        loss = MSELoss()
-    elif args["train_loss"].lower() == "weightedmse":
-        loss = WeightedMSELoss()
-    elif args["train_loss"].lower() == "huber":
-        loss = HuberLoss()
-    elif args["train_loss"].lower() == "combi":
-        loss = CombiLoss(0.75)
-    return loss
+    losses = {
+        "mae": L1Loss,
+        "mse": MSELoss,
+        "weightedmse": WeightedMSELoss,
+        "huber": HuberLoss,
+        "combi": lambda: CombiLoss(0.75),
+    }
+    name = str(args.get("train_loss", "")).lower()
+    if name not in losses:
+        raise ValueError(
+            f"Unknown train_loss '{args.get('train_loss')}'. Valid options: {sorted(losses)}")
+    return losses[name]()

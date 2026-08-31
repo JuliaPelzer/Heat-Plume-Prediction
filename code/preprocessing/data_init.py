@@ -11,6 +11,9 @@ def init_data(args:dict, tmp_bool_cutouts:bool=False, batchsize:int=64, order_da
     dataloaders = {}
     cache_mode = str(args.get("cache", "none")).lower()
     cache_device = args.get("device", "cpu")
+    data_split = [0.7, 0.2, 0.1]
+    # data_split = [0.8, 0.2, 0.0]
+    # print("ATTENTION!! CHANGED SPLIT to 80:20:0 because hidden test data")
     if cache_mode == "cuda" and "cuda" not in str(cache_device):
         cache_mode = "cpu"
 
@@ -29,7 +32,8 @@ def init_data(args:dict, tmp_bool_cutouts:bool=False, batchsize:int=64, order_da
             # runs = [int(f.split(".pt")[0].split("Sim_")[1]) for f in os.listdir(args["data_prep"]/"Inputs") if f.endswith(".pt")]
             runs = np.arange(len([f for f in os.listdir(args["data_prep"]/"Inputs") if f.endswith(".pt")]))
             np.random.shuffle(runs)
-            order_data = runs[:int(len(runs)*0.7)], runs[int(len(runs)*0.7):int(len(runs)*0.9)], runs[int(len(runs)*0.9):]
+            order_data = runs[:int(len(runs)*data_split[0])], runs[int(len(runs)*data_split[0]):int(len(runs)*(data_split[0]+data_split[1]))], runs[int(len(runs)*(data_split[0]+data_split[1])):]
+
         dataset_train = SimulationDatasetCuts(args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], ids=order_data[0])
         
     if order_data:

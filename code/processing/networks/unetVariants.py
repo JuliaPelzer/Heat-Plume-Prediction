@@ -79,12 +79,17 @@ class UNet(Model):
 
     @staticmethod
     def _build_norm2d(features, norm):
-        if norm.lower() == "batchnorm":
-            return nn.BatchNorm2d(num_features=features)
-        elif norm.lower() == "groupnorm":
-            return nn.GroupNorm(num_groups=4, num_channels=features)
-        else:
+        norms = {
+            "batchnorm": lambda: nn.BatchNorm2d(num_features=features),
+            "groupnorm": lambda: nn.GroupNorm(num_groups=4, num_channels=features),
+        }
+        key = str(norm).lower() if norm is not None else "none"
+        if key == "none":
             return nn.Identity()
+        if key not in norms:
+            raise ValueError(
+                f"Unknown norm '{norm}'. Valid options: ['batchnorm', 'groupnorm', 'none']")
+        return norms[key]()
 
 
 class UNetNoPad2(UNet):
@@ -166,13 +171,16 @@ class UNetNoPad2(UNet):
                 )
   
 
-def get_activation_fct(name:str):
-    if name.lower() == "relu":
-        return nn.ReLU(inplace=True)
-    elif name.lower() == "leakyrelu":
-        return nn.LeakyReLU(inplace=True)
-    elif name.lower() == "sigmoid":
-        return nn.Sigmoid()
-    elif name.lower() == "tanh":
-        return nn.Tanh()
+def get_activation_fct(name: str):
+    activations = {
+        "relu": nn.ReLU(inplace=True),
+        "leakyrelu": nn.LeakyReLU(inplace=True),
+        "sigmoid": nn.Sigmoid(),
+        "tanh": nn.Tanh(),
+    }
+    key = str(name).lower()
+    if key not in activations:
+        raise ValueError(
+            f"Unknown activation '{name}'. Valid options: {sorted(activations)}")
+    return activations[key]
       

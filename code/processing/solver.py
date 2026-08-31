@@ -79,11 +79,11 @@ class Solver(object):
                                 "training time in sec": (time.perf_counter() - start_time),
                             }
 
-                # # Logging
-                for metric_name, metric_value in other_losses_val.items():
-                    writer.add_scalar(f"val {metric_name}", metric_value, epoch)
-                for metric_name, metric_value in other_losses_train.items():
-                        writer.add_scalar(f"train {metric_name}", metric_value, epoch)
+                    # # Logging
+                    for metric_name, metric_value in other_losses_val.items():
+                        writer.add_scalar(f"val {metric_name}", metric_value, epoch)
+                    for metric_name, metric_value in other_losses_train.items():
+                            writer.add_scalar(f"train {metric_name}", metric_value, epoch)
 
                 writer.add_scalar("train_loss", train_epoch_loss, epoch)
                 writer.add_scalar("val_loss", val_epoch_loss, epoch)
