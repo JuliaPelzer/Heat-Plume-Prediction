@@ -47,18 +47,19 @@ def import_dataset(path_orig: Path, path_desti:Path, test_data:bool=False):
     norm = NormalizeTransform(norm_info)
 
     # copy temperature timeseries over
-    temp_series = np.load(path_orig / "general/temperature_injection_series.npy")
+    temp_series = np.load(path_orig / "general" / "temperature_injection_series.npy")
     np.save(path_desti / "temperature_injection_series.npy", temp_series)
 
     if not test_data:
-        data_case = "training_data"
+        data_path = path_orig / "training_data"
     else:
-        data_case = "test_data"
+        data_path = path_orig / "test_data" / "inputs"
 
     # get numpy data and save as torch tensors
-    for i in path_orig.glob(f"{data_case}/Sim_*.npz"):
+    for i in data_path.glob("Sim_*.npz"):
+        print(f"Importing {i}")
         name = i.stem
-        data = np.load(path_orig / data_case / f"{name}.npz")
+        data = np.load(data_path / f"{name}.npz")
 
         inputs = torch.from_numpy(data["inputs"])
         inputs = norm(inputs, "Inputs")
@@ -72,4 +73,6 @@ def import_dataset(path_orig: Path, path_desti:Path, test_data:bool=False):
             labels = labels.to(torch.float32)
             torch.save(labels, path_desti / "Labels" / f"{name}.pt")
         else:
+            print(f"No (hidden) labels for {name}, skipping.")
             print(name, inputs.shape)
+            continue
