@@ -6,7 +6,7 @@ import numpy as np
 
 def read_cla(path:str):
     clas = load_yaml(path / "command_line_arguments.yaml")
-    for path_typed_cla in ["data_prep", "data_raw", "model", "destination"]:
+    for path_typed_cla in ["data_prep", "model", "destination"]:
         try:
             if clas[path_typed_cla] is not None:
                 clas[path_typed_cla] = Path(clas[path_typed_cla])
@@ -19,11 +19,8 @@ def read_cla(path:str):
 def load_hyperparams(args):
     hyperparams = load_yaml(args["destination"] / "HPS_options.yaml")
     for key in hyperparams.keys():
-        # if "values" in hyperparams[key]:
-        #     args[key] = hyperparams[key]["values"][0]
-        # else:
         if hyperparams[key].__class__ == list:
-            args[key] = hyperparams[key][0] #TODO check !
+            args[key] = hyperparams[key][0]
         else:
             args[key] = hyperparams[key]
     if "lr" in args.keys():

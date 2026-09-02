@@ -1,0 +1,9 @@
+case: train
+data_prep: ..datasets_prep/step1
+destination: 
+device: cpu
+epochs: 10
+model: null
+notes: null
+visualize: true
+order_data: null

@@ -27,10 +27,6 @@ def build_streamlines(dataset_path:Path=None, **kwargs):
     norm_before = NormalizeTransform(load_yaml(destination/"info.yaml"))
     correct_info(destination, i_s=prop_is["sf"], i_s_outer=prop_is["sf_outers"], i_s_seasonal=prop_is["s_seasonal"])
     norm_after = NormalizeTransform(load_yaml(destination/"info.yaml"))
-
-    # streamline_timeout = 60*600
-    # def _timeout_handler(signum, frame):
-    #     raise TimeoutError("streamline calculation timed out")
     
     # Square root regression (fitted on step1-train data), but if result would be too small, set width to 2 cells
     width_model = lambda Q: max(0.84 * Q**0.5 -1.32, 2)
@@ -47,8 +43,6 @@ def build_streamlines(dataset_path:Path=None, **kwargs):
         inputs_reduced = inputs.numpy()
 
         # make streamlines
-        # old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
-        # signal.alarm(streamline_timeout)
         try:
             streamlines_faded = make_streamlines(Qinj2D=inputs_reduced[prop_is["Q"]], vx=inputs_reduced[prop_is["vx"]], vy=inputs_reduced[prop_is["vy"]], dims=inputs_reduced[0].shape, faded=True, **kwargs)
 
@@ -59,9 +53,6 @@ def build_streamlines(dataset_path:Path=None, **kwargs):
         except TimeoutError:
             print(f"Skipping {run.stem} after {time.time()-start_time} seconds: streamline calculation timed out")
             continue
-        # finally:
-        #     signal.alarm(0)
-        #     signal.signal(signal.SIGALRM, old_handler)
 
         # norm inputs acc. to info
         inputs_normed = norm_after(torch.tensor(inputs_reduced), "Inputs")
@@ -73,14 +64,11 @@ def build_streamlines(dataset_path:Path=None, **kwargs):
 
 
 if __name__ == "__main__":
-    PATH_DATA_PREP = Path("/scratch/sgs/pelzerja/datasets_prepared/bm/")
-
     # argparse for dataset_name with default
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", type=str, default="step1_overfit1", help="Name of the dataset folder in PATH_DATA_PREP.")
+    parser.add_argument("--data_path", type=str, default="step1", help="Name of the dataset folder in PATH_DATA_PREP.")
     args = parser.parse_args()
-    dataset_name = args.data
 
     # STEP 2: calculate streamlines with simulated or with predicted velocity fields
-    build_streamlines(PATH_DATA_PREP / dataset_name, method="Radau")
+    build_streamlines(Path(args.data_path), method="Radau")
 

@@ -127,8 +127,6 @@ def build_new_dataset(new_inputs: dict, info_old: dict, destination: Path, mins:
     print(f"Stored new dataset under {destination}")
 
 def step1_with_residuals(pred_residuals:bool, step3b_case: bool, i_vx: int, i_vy: int, MODEL_DIR: Path, DATA_DIR: Path, T0_DIR: Path, destination: Path):
-    if destination.exists():
-        raise FileExistsError(f"{destination} already exists, please remove it first.")
 
     new_inputs, info_old = predict_and_assemble(pred_residuals, DATA_DIR, MODEL_DIR, i_vx, i_vy)
     if step3b_case:
@@ -146,24 +144,22 @@ def step1_with_residuals(pred_residuals:bool, step3b_case: bool, i_vx: int, i_vy
     del new_inputs
 
 def main():
-    PATH_DATA_PREP = Path("../datasets_prep")
+    PATH_DATA_PREP = Path("../datasets_prepared/bm")
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--residuals", action="store_true", help="whether residuals were predicted or the full velocity field directly")
     parser.add_argument("--test", action="store_true", help="only process one datapoint and skip streamlines")
-    parser.add_argument("--model-dir", type=Path, default=Path("runs/s3v-BEST_residuals_exclude11_13_wf_MSE_allData"), help="Directory containing the trained model",)
-    parser.add_argument("--dataset-name", type=Path, default="step3_TEST_wf_renorm", help="Input data directory, relative to PATH_DATA_PREP",)
+    parser.add_argument("--model-dir", type=Path, default=Path("../runs/s3v-BEST_residuals_exclude11_13_wf_MSE_allData"), help="Directory containing the trained model",)
+    parser.add_argument("--dataset-name", type=Path, help="Input data directory, relative to PATH_DATA_PREP",)
     parser.add_argument("--t0-dir", type=Path, default="step3_TEST", help="Initial/background data directory, relative to PATH_DATA_PREP",)
-    parser.add_argument("--new-dir", type=Path, default="step3_TEST_wf_prededV" , help="Output data directory, relative to PATH_DATA_PREP",)
+    parser.add_argument("--new-dir", type=Path, help="Output data directory, relative to PATH_DATA_PREP",)
     parser.add_argument("--i-vx", type=int, default=3, help="Channel index of the background x-velocity",)
     parser.add_argument("--i-vy", type=int, default=4, help="Channel index of the background y-velocity",)
     args = parser.parse_args()
 
-    # MODEL_DIR = Path("/home/pelzerja/pelzerja/test_nn/LGCNN_bm/runs/bm/s3/ehlers/BEST_residuals_exclude11_13_wf_MSE_allData")
-    DATA_DIR = PATH_DATA_PREP / args.dataset_name #"step3_predV_residual_exclude11_13_wf"
-    T0_DIR = PATH_DATA_PREP /  args.t0_dir #(t0)"
-    NEW_DIR = PATH_DATA_PREP / args.new_dir #"step3_prededV_based_on_residual_exclude11_13_wf"
-    # I_VX, I_VY = 3, 4  # background velocity channels in Inputs
+    DATA_DIR = PATH_DATA_PREP / args.dataset_name 
+    T0_DIR = PATH_DATA_PREP /  args.t0_dir 
+    NEW_DIR = PATH_DATA_PREP / args.new_dir 
     destination = Path(f"{NEW_DIR}_test") if args.test else NEW_DIR
 
     step1_with_residuals(args.residuals, args.test, args.i_vx, args.i_vy, Path(args.model_dir), DATA_DIR, T0_DIR, destination)

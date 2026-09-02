@@ -82,16 +82,7 @@ def compute_fields(inp, info, cell, vfloor, vmax, rmin_cells, with_head):
         vy = vy * scale
     return vy, vx, dh, wells
 
-def generate_wellflow_field(
-    src,
-    dest=None,
-    vfloor=5e-3,
-    vmax=50.0,
-    rmin_cells=0.5,
-    with_head=False,
-    replace_v=False,
-    limit=None,
-):
+def generate_wellflow_field(src, dest=None, vfloor=5e-3, vmax=50.0, rmin_cells=0.5, with_head=False, replace_v=False, limit=None):
 
     dest = dest or Path(f"{str(src)}_wf{'_replace_v' if replace_v else '_not_replace_v'}")
     info = yaml.load(open(src / "info.yaml"), Loader=yaml.FullLoader)

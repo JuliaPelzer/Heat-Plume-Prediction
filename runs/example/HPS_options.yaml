@@ -1,48 +1,15 @@
-batchsize:
-  values:
-  - 20
-kernel_size:
-  values:
-  - 5
-depth:
-  values:
-  - 4
-init_features:
-  values:
-  - 32
-stride:
-  values:
-  - 1
-dilation:
-  values:
-  - 1
-activation_fct:
-  values:
-  - ReLU
-norm:
-  values:
-  - batchnorm
-repeat_inner:
-  values:
-  - False
-skip_per_dir:
-  values:
-  - 16
-len_box:
-  values:
-  - 256
-inputs:
-  values:
-    - pki
-train_loss:
-  values:
-  - MSE
-bool_cutouts:
-  values:
-  - True
-optimizer_switch:
-  values:
-  - False
-lr:
-  values:
-  - 0.0001
+batchsize: 20
+kernel_size: 5
+depth: 4
+init_features: 32
+stride: 1
+dilation: 1
+activation_fct: ReLU
+norm: batchnorm
+repeat_inner: False
+skip_per_dir: 16
+len_box: 256
+train_loss: MSE
+bool_cutouts: True
+optimizer_switch: False
+lr: 0.0001
