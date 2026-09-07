@@ -94,6 +94,10 @@ class UNet(Model):
 
     @staticmethod
     def _block(in_channels, features, kernel_size, norm):
+        # Two norms are intentional: this is one U-Net "double conv" unit
+        # (Conv->Norm->ReLU) twice. Each norm follows its own conv, not two norms
+        # stacked on the same tensor. Dropping the second would be a lighter
+        # single-conv block, not the usual U-Net design.
         use_bias = norm is None or not norm
         return nn.Sequential(
             nn.Conv2d(
@@ -236,6 +240,9 @@ class UNetNoPad2(UNet):
 
     @staticmethod
     def _block(in_channels, features, kernel_size, stride, dilation, activation, norm: str, repeat_inner):
+        # Same as UNet._block: with repeat_inner, second Conv->Norm->Act is the
+        # usual U-Net double-conv (norm per conv, not stacked norms). Set
+        # repeat_inner=false for a single Conv->Norm->Act if a lighter block is wanted.
         use_bias = norm is None or not norm
         layers = [
             UNetNoPad2._build_conv2d(in_channels, features, kernel_size, stride, dilation, use_bias),

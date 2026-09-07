@@ -1,8 +1,11 @@
+# Minimal seasonal smoke config (1 epoch, 2 RUNs, tiny streamlines).
+# Prep expects tests/heatplume_seasonal_smoke/datasets/paper-results-seasonal
+# with RUN_0, RUN_1 (+ inputs/, settings.yaml) — created by the unittest helper.
 run_configuration:
-  run_name: seasonal
+  run_name: seasonal_smoke
   dataset: paper-results-seasonal
   seed: 2406
-  device: cuda:1
+  device: cpu
   use_velocity_model: false
 
   pipeline:
@@ -17,12 +20,12 @@ run_configuration:
 general_configuration:
   step1:
     datapoints:
-      train: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-      validation: [20, 21, 22]
-      test: [23, 24]
+      train: [0]
+      validation: [1]
+      test: [1]
     general:
-      epochs: 100
-      visualize: true
+      epochs: 1
+      visualize: false
     scheduler:
       type: ReduceLROnPlateau
       init_lr: 1e-4
@@ -35,10 +38,10 @@ general_configuration:
       network: unet
       inputs: [p, k, i]
       outputs: [x, y]
-      batchsize: 20
+      batchsize: 1
       kernel_size: 5
-      depth: 4
-      init_features: 32
+      depth: 2
+      init_features: 8
       stride: 1
       dilation: 1
       norm: batchnorm
@@ -46,20 +49,20 @@ general_configuration:
       skip_per_dir: 16
       len_box: 256
       train_loss: MSE
-      bool_cutouts: true
+      bool_cutouts: false
       optimizer_switch: false
       optimizer: Adam
       activation: ReLU
 
   step2:
     streamlines:
-      samples: 10000
-      steps: 5000
+      samples: 4
+      steps: 4
       diffusion_scale: 0.05
       diffusion_base: 1.8
     rwpt:
-      samples: 150000
-      steps: 5000
+      samples: 8
+      steps: 4
     physical_parameters:
       resolution_m: 5.0
       duration_years: 27.5
@@ -160,12 +163,12 @@ general_configuration:
 
   step3:
     datapoints:
-      train: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-      validation: [20, 21, 22]
-      test: [23, 24]
+      train: [0]
+      validation: [1]
+      test: [1]
     general:
-      epochs: 100
-      visualize: true
+      epochs: 1
+      visualize: false
     scheduler:
       type: ReduceLROnPlateau
       init_lr: 1e-3
@@ -178,23 +181,23 @@ general_configuration:
       network: unet
       inputs: [p, k, i, x, y, 1, 2, 3, 5, 7]
       outputs: [t]
-      batchsize: 20
+      batchsize: 1
       kernel_size: 3
-      depth: 3
-      init_features: 64
+      depth: 2
+      init_features: 8
       stride: 1
       dilation: 1
-      norm: batchnorm # instancenorm, groupnorm
+      norm: batchnorm
       repeat_inner: false
       skip_per_dir: 8
       len_box: 256
       train_loss: Huber
-      bool_cutouts: true
+      bool_cutouts: false
       optimizer_switch: false
       optimizer: AdamW
       activation: LeakyReLU
 
 paths:
-  datasets_raw: ./datasets
-  datasets_prep: ./datasets_prep
-  results: ./results
+  datasets_raw: ./tests/heatplume_seasonal_smoke/datasets
+  datasets_prep: ./tests/heatplume_seasonal_smoke/datasets_prep
+  results: ./tests/heatplume_seasonal_smoke/results

@@ -129,6 +129,9 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+tests/heatplume_unet_smoke/
+tests/heatplume_seasonal_smoke/
+tests/heatplume_steady_smoke/
 
 # Translations
 *.mo

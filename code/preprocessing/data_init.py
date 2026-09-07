@@ -24,6 +24,7 @@ def init_data(
             )
 
     if network in ["convlstm", "rnn", "lstm"]:
+        # this part is not actively used in this branch. Sequential nets need cut-shaped (C,T,H,W) batches; val uses cuts for shape parity with training, not as spatial augmentation. UNet val stays full-field.
         dataset_val = SimulationDatasetCutsSequential(
             args["data_prep"], skip_per_dir=args["skip_per_dir"], box_size=args["len_box"], ids=datapoint_validate[0]
         )

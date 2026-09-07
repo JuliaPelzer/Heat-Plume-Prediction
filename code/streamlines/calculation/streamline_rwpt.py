@@ -13,9 +13,9 @@ secondsPerYear_s = 365.25 * 24 * 3600
 
 
 @dataclass
-class SimulationConfig:
+class RwptConfig:
     """
-    Configuration for the Seasonal Steady-State Heat Plume Simulation.
+    Configuration for the RWPT / stochastic-streamline thermal approximation.
     """
 
     device: str
@@ -26,7 +26,7 @@ class SimulationConfig:
     injectionRate_m3_per_s: torch.Tensor
     injectionTemp_C: torch.Tensor
 
-    # Simulation Timeline
+    # Solve timeline
     timeSteps_count: int
     timeEnd_years: float
     seasonalCycleSteps: int
@@ -133,6 +133,8 @@ def rwpt_seasonal_stream_kernel(
     invWidth_per_px = 2.0 / (width_px - 1.0)
     invHeight_per_px = 2.0 / (height_px - 1.0)
     sqrt2Dt_sqrt_s = torch.sqrt(torch.tensor(2.0 * timeStep_s, device=device))
+    if cycle_steps < 1:
+        cycle_steps = 1
 
     geometryConst_per_m2 = 1.0 / (2.0 * torch.pi * thicknessAquifer_m * porosity_frac * resolution_m_per_px**2)
     thermalRetardationScale_dimless = 1.0 / retardationFactor_dimless
@@ -155,7 +157,7 @@ def rwpt_seasonal_stream_kernel(
         )
 
         # --- 1. MASKING ---
-        # Particles are active if current simulation step >= birth step
+        # Particles are active if current solve step >= birth step
         active_sim_mask = i >= birthIndices
 
         # --- 2. PHYSICS (SEASONAL) ---
@@ -220,7 +222,7 @@ def rwpt_seasonal_stream_kernel(
 
             diff = p2 - p1
             dist_seg = (diff.pow(2).sum(dim=1)).sqrt()
-            n_steps = torch.ceil(dist_seg * 1.5).long().clamp(min=1)
+            n_steps = torch.ceil(dist_seg * 1.5).long().clamp(min=1, max=64)
 
             # Vectorized Expansion
             p1_exp = torch.repeat_interleave(p1, n_steps, dim=0)
@@ -263,14 +265,19 @@ def rwpt_seasonal_stream_kernel(
 
 
 def generate_physical_plumes(
-    config: SimulationConfig,
+    config: RwptConfig,
     heatPumpPositions_px: torch.Tensor,
     vx_m_per_year: torch.Tensor,
     vy_m_per_year: torch.Tensor,
     dims_px: tuple[int, int],
 ) -> torch.Tensor:
     """
-    Main entry point for generating heat plumes using RWPT with seasonal logic.
+    Generate a heat-plume temperature map via seasonal RWPT (random-walk particle tracking).
+
+    Releases particles over one seasonal injection cycle, advects them with the velocity
+    field, accumulates deposited energy on the grid, and converts energy to °C.
+    Returns a CPU tensor of shape (H, W). PFLOTRAN injection-rate scaling is applied
+    upstream in ``run_rwpt_thermal_prior``.
     """
     device = torch.device(config.device)
     gridWidth_px, gridHeight_px = dims_px
@@ -286,10 +293,10 @@ def generate_physical_plumes(
         # Extract just one cycle of rates for the kernel
         cycle_len = config.seasonalCycleSteps
 
-        # 3. Simulation Loop (Batched by Source)
+        # 3. RWPT loop (batched by source)
         hpBatchSize_count = 10
 
-        for bIdx in tqdm(range(0, numHps_count, hpBatchSize_count), "Direct Solver"):
+        for bIdx in tqdm(range(0, numHps_count, hpBatchSize_count), "RWPT"):
             bEnd = min(bIdx + hpBatchSize_count, numHps_count)
             batchPos = heatPumpPositions_px[bIdx:bEnd]
             currBatchSize = bEnd - bIdx
@@ -384,8 +391,8 @@ def generate_physical_plumes(
     return finalTempMap_C.t().cpu()
 
 
-def direct_solve(
-    modeDirectSolver: Any,
+def run_rwpt_thermal_prior(
+    mode_rwpt: Any,
     modeConstants: Any,
     heatPumpPositions_px: torch.Tensor,
     vx_m_per_year: torch.Tensor,
@@ -393,7 +400,10 @@ def direct_solve(
     dims_px: tuple[int, int],
 ) -> torch.Tensor:
     """
-    Setup and run the simulation.
+    Build RWPT config from YAML, run ``generate_physical_plumes``, normalize T to [0, 1].
+
+    Returns the channel-7 thermal prior for step3, not streamline density maps
+    (those come from ``make_streamlines_gpu``, channels 1–6).
     """
     numHps_count = len(heatPumpPositions_px)
 
@@ -401,24 +411,24 @@ def direct_solve(
     PFLOTRAN_SCALING_FACTOR = 0.25
     (rate, seasonalCycleSteps1) = convert_injection_config(
         modeConstants.injection_rate_m3_per_s,
-        modeDirectSolver.steps,
+        mode_rwpt.steps,
         modeConstants.duration_years,
         heatPumpPositions_px.device,
     )
     (temp, seasonalCycleSteps2) = convert_injection_config(
         modeConstants.injection_temperature_C,
-        modeDirectSolver.steps,
+        mode_rwpt.steps,
         modeConstants.duration_years,
         heatPumpPositions_px.device,
     )
     assert seasonalCycleSteps1 == seasonalCycleSteps2, "Mismatch in seasonal cycle steps between rate and temperature"
     seasonalCycleSteps = seasonalCycleSteps1
 
-    simConfig = SimulationConfig(
+    simConfig = RwptConfig(
         device=heatPumpPositions_px.device,
         # props
-        samplesPerSource_count=modeDirectSolver.samples,
-        timeSteps_count=modeDirectSolver.steps,
+        samplesPerSource_count=mode_rwpt.samples,
+        timeSteps_count=mode_rwpt.steps,
         # consts
         resolution_m_per_px=modeConstants.resolution_m,
         ambientTemp_C=modeConstants.ambient_temperature_C,

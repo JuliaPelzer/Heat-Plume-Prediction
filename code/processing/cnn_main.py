@@ -22,10 +22,7 @@ def step_cnn(run_configuration: RunConfiguration, paths: Paths, step_config: MLS
         "device": run_configuration.device,
         "scheduler": step_config.scheduler,
     }
-    # TODO unused params:
-    # - network
-    # - optimizer
-    # - activation
+    # YAML network/optimizer fields are unused here (UNet + AdamW fixed in training)
 
     args["destination"].mkdir(parents=True, exist_ok=True)
 
@@ -53,6 +50,7 @@ def step_cnn(run_configuration: RunConfiguration, paths: Paths, step_config: MLS
             args_copy["activation_fct"] = trial.suggest_categorical("activation_fct", hopt.activation)
             args_copy["norm"] = trial.suggest_categorical("norm", hopt.norm)
             args_copy["repeat_inner"] = trial.suggest_categorical("repeat_inner", hopt.repeat_inner)
+            # Currently unused: Solver no longer switches to LBFGS mid-training.
             args_copy["optimizer_switch"] = trial.suggest_categorical("optimizer_switch", hopt.optimizer_switch)
             args_copy["bool_cutouts"] = trial.suggest_categorical("bool_cutouts", hopt.bool_cutouts)
             args_copy["batchsize"] = trial.suggest_categorical("batchsize", hopt.batchsize)
@@ -90,6 +88,7 @@ def step_cnn(run_configuration: RunConfiguration, paths: Paths, step_config: MLS
         args["activation_fct"] = parameter.activation
         args["norm"] = parameter.norm
         args["repeat_inner"] = parameter.repeat_inner
+        # Currently unused: Solver no longer switches to LBFGS mid-training.
         args["optimizer_switch"] = parameter.optimizer_switch
         args["bool_cutouts"] = parameter.bool_cutouts
         args["batchsize"] = parameter.batchsize

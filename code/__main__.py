@@ -40,7 +40,13 @@ def set_seed(seed: int) -> None:
 
 
 def main() -> None:
-    """Main execution entry point handling configuration parsing and pipeline orchestration."""
+    """Run the LGCNN pipeline from a YAML config.
+
+    ``run_configuration.pipeline`` is an ordered list of actions. Each entry is one of:
+    ``clean``, ``step1`` (velocity CNN), ``step2`` (stochastic streamlines / RWPT priors),
+    or ``step3`` (temperature CNN). Actions run strictly in listed order; a config may
+    include the full sequence or only isolated steps (e.g. only ``step2: run``).
+    """
     parser = argparse.ArgumentParser(description="Run the application with a specific configuration.")
     parser.add_argument("config_path", type=str, help="Path to the .yaml configuration file")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")

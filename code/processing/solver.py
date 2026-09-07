@@ -6,7 +6,6 @@ from code.preprocessing.datasets.dataset import DatasetType
 from code.processing.loss_fcts import LinfLoss, PATLoss, SSIMLoss
 from code.processing.networks.convLSTM import Seq2Seq
 from code.processing.networks.convLSTM import weights_init as convlstm_weights_init
-from code.processing.networks.model import weights_init as model_weights_init
 from code.utils import logging as log  # noqa: F401
 from code.utils.utils_args import save_yaml
 from copy import deepcopy
@@ -16,7 +15,7 @@ from pathlib import Path
 import torch
 from torch import manual_seed
 from torch.nn import HuberLoss, L1Loss, Module, MSELoss, modules
-from torch.optim import LBFGS, AdamW, Optimizer
+from torch.optim import AdamW, Optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
@@ -31,17 +30,14 @@ class Solver:
     loss_func: modules.loss._Loss = MSELoss()
     batchsize: int = 32
     opt: Optimizer = AdamW
-    optimizer_switch: bool = False
     finetune: bool = False
     best_model_params: dict = None
     metrics: dict = None
 
     def __post_init__(self):
-        if not self.finetune:
-            if isinstance(self.model, Seq2Seq):
-                self.model.apply(convlstm_weights_init)
-            else:
-                self.model.apply(model_weights_init)
+        # UNet / UNetNoPad2 already apply kaiming_init in __init__; do not overwrite.
+        if not self.finetune and isinstance(self.model, Seq2Seq):
+            self.model.apply(convlstm_weights_init)
         self.metrics: dict = {
             "Huber": HuberLoss(),
         }
@@ -61,11 +57,6 @@ class Solver:
         log.info(f"Trainable Parameters: {trainable_params:,}")
 
         log.info(f"Total Parameters: {total_params:,}, Trainable: {trainable_params:,}")
-
-        # if optimizer_switch is True, switch to LBFGS optimizer after 90% of epochs
-        self.epoch_switch_optimizer = args["epochs"] + 1
-        if self.optimizer_switch:
-            self.epoch_switch_optimizer = int(0.9 * self.epoch_switch_optimizer)
 
         epochs = tqdm(range(args["epochs"]), "CNN Training Epochs", dynamic_ncols=True, unit="epoch", leave=True)
         self.best_model_params = None
@@ -94,24 +85,13 @@ class Solver:
 
         try:
             for epoch in epochs:
-                if epoch == self.epoch_switch_optimizer:
-                    self.opt = LBFGS(self.model.parameters(), history_size=20, line_search_fn="strong_wolfe")
-                    log.info(f"Switched to LBFGS optimizer at epoch {epoch}.")
-
                 # Training
                 self.model.train()
                 train_epoch_loss, other_losses_train = self.run_epoch(train_dataloader, device)
 
-                # Validation
+                # Validation — keep eval mode (including BatchNorm running stats)
                 self.model.eval()
-                if False:
-                    for m in self.model.modules():
-                        if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
-                            m.train()  # Force BN to use the current batch's stats
                 val_epoch_loss, other_losses_val = self.run_epoch(val_dataloader, device)
-
-                if False:  # realK
-                    val_epoch_loss = other_losses_val["Huber"]  # TODO for realK
 
                 scheduler.step(val_epoch_loss)
 
@@ -137,7 +117,6 @@ class Solver:
                         "train loss": train_epoch_loss,
                         "state_dict": self.model.state_dict(),
                         "optimizer": self.opt.state_dict(),
-                        # "parameters": self.model.parameters(),
                         "training time in sec": (time.perf_counter() - start_time),
                     }
                     early_stop_counter = 0
@@ -234,24 +213,9 @@ class Solver:
             with torch.set_grad_enabled(self.model.training):
                 if self.model.training:
                     self.opt.zero_grad(set_to_none=True)
-
-                    if False:
-                      pass
-                    # if self.opt.__class__.__name__ == "LBFGS":
-                    #     def closure():
-                    #         self.opt.zero_grad()
-                    #         _, _, loss = _forward_pass(x, y)
-                    #         loss.backward()
-                    #         return loss
-
-                    #     self.opt.step(closure)
-
-                    #     with torch.no_grad():
-                    #         y_pred, y_reduced, loss = _forward_pass(x, y)
-                    else:
-                        y_pred, y_reduced, loss = _forward_pass(x, y)
-                        loss.backward()
-                        self.opt.step()
+                    y_pred, y_reduced, loss = _forward_pass(x, y)
+                    loss.backward()
+                    self.opt.step()
                 else:
                     y_pred, y_reduced, loss = _forward_pass(x, y)
 

@@ -1,4 +1,4 @@
-from code.streamlines.calculation.streamline_direct_solver import direct_solve
+from code.streamlines.calculation.streamline_rwpt import run_rwpt_thermal_prior
 from code.streamlines.calculation.streamline_tensors import make_streamlines_gpu
 from code.utils import logging as log  # noqa: F401
 from code.utils.yaml_parser import SimulationStepConfig
@@ -14,7 +14,7 @@ def compute_physics_streamlines(
     vy_m_per_year: torch.Tensor,
     dims: Any,
 ) -> dict[str, torch.Tensor]:
-    """Compute GPU streamlines and direct solver physics, returning keyed tensor results."""
+    """Compute stochastic streamline heatmaps (1–6) and RWPT thermal prior (7)."""
 
     (
         stream_sum_pos,
@@ -32,8 +32,8 @@ def compute_physics_streamlines(
         dims,
     )
 
-    streamline_direct_solver: torch.Tensor = direct_solve(
-        step2_config.directsolver,
+    thermal_prior: torch.Tensor = run_rwpt_thermal_prior(
+        step2_config.rwpt,
         step2_config.physical_parameters,
         heat_pump_pos.clone(),
         vx_m_per_year,
@@ -49,5 +49,5 @@ def compute_physics_streamlines(
         "4": stream_max_faded,
         "5": stream_sum_seasons_pos,
         "6": stream_max_seasons,
-        "7": streamline_direct_solver,
+        "7": thermal_prior,
     }

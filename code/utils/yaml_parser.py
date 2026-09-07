@@ -84,9 +84,9 @@ class UNetParameters(BaseModel):
 
 
 class RNNParameters(BaseModel):
-    """Hyperparameters specific to RNN architecture."""
+    """Incomplete RNN config stub; extra fields allowed until the architecture is fully wired. This branch does not use RNN actively."""
 
-    model_config = ConfigDict(extra="allow")  # TODO @Johanna: Allow dynamic fields for incomplete implementation
+    model_config = ConfigDict(extra="allow")
     network: Literal["rnn"]
     inputs: list[CoercedString]
     outputs: list[CoercedString]
@@ -96,7 +96,7 @@ ModelConfig = Annotated[UNetParameters | RNNParameters, Field(discriminator="net
 
 
 class HoptParameters(BaseModel):
-    """Search space for hyperparameter optimization."""
+    """Optuna search space: list-valued mirrors of ``UNetParameters`` scalar fields."""
 
     network: list[str]
     inputs: list[list[CoercedString]]
@@ -137,8 +137,8 @@ class Streamlines(BaseModel):
     diffusion_base: float
 
 
-class DirectSolver(BaseModel):
-    """Direct solver parameters."""
+class Rwpt(BaseModel):
+    """RWPT parameters."""
 
     samples: int
     steps: int
@@ -176,7 +176,7 @@ class SimulationStepConfig(BaseModel):
     """Configuration for physics simulation step."""
 
     streamlines: Streamlines
-    directsolver: DirectSolver
+    rwpt: Rwpt
     physical_parameters: PhysicalParameters
 
 
@@ -278,6 +278,6 @@ def convert_injection_config(
     cycle_values = np.interp(t_eval, full_times, full_values)
 
     # Calculate seasonal cycles
-    steps_per_year = int((steps_count - 1) / time_end_years)
+    steps_per_year = max(1, int((steps_count - 1) / time_end_years))
 
     return torch.from_numpy(cycle_values).float().to(device), steps_per_year

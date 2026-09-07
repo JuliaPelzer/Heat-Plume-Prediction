@@ -38,11 +38,12 @@ def is_unprepared(path: Path):
 
 
 def get_time_prediction(data_path):
+    """Return the HDF5 time group for the final prediction snapshot (27.5 years)."""
     with h5py.File(data_path, "r") as file:
         for item in file.keys():
-            if "2.75000E+01" in item or "2.50000E+01" in item:
+            if "2.75000E+01" in item:
                 return item
-    raise ValueError("Could not find time prediction in h5 file")
+    raise ValueError("Could not find time prediction (27.5y) in h5 file")
 
 
 def prepare_dataset(args: dict, info: dict = None):

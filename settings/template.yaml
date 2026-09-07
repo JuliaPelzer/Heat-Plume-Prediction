@@ -5,21 +5,21 @@ run_configuration:
   device: cuda:0                            # Compute device ('cpu', 'cuda:0', 'cuda:1', etc.)
   use_velocity_model: true                  # If true, uses model to calculate velocities; otherwise loads optimal velocities
 
-  pipeline:                                 # Sequence of execution steps
-    - clean: data_prep                      # Cleans data preparation cache
-    - clean: results-step1                  # Cleans results from step 1
-    - clean: results-step2                  # Cleans results from step 2
-    - clean: results-step3                  # Cleans results from step 3 (be careful with this, as it will also delete trained models)
+  pipeline:                                 # Ordered list of actions (run top→bottom; full LGCNN or isolated steps)
+    - clean: data_prep                      # Deletes prepared dataset cache for this run's dataset
+    - clean: results-step1                  # Deletes step1 results including trained velocity model
+    - clean: results-step2                  # Deletes step2 results (streamline / RWPT priors)
+    - clean: results-step3                  # Deletes step3 results including trained temperature model
     - step1: train                          # Train velocity model [options: test, train, hopt, finetune]
-    - step2: run                            # Execute physics simulation [options: run]
+    - step2: run                            # Physics-based calculation of stochastic streamline fields (+ RWPT thermal prior) [options: run]
     - step3: train                          # Train temperature model [options: test, train, hopt, finetune]
 
 general_configuration:
   step1:
-    datapoints:                             # Data indices selection
-      validation: [0, 1]                    # Indicies of data points used for validation
-      test: [2, 3]                          # Indicies of data points used for test
-      train: [4, 5]                         # Indicies of data points used for training
+    datapoints:                             # Explicit RUN_* index lists only (no automatic train/val/test split)
+      validation: [0, 1]                    # Indices of data points used for validation
+      test: [2, 3]                          # Indices of data points used for test
+      train: [4, 5]                         # Indices of data points used for training
     general:
       epochs: 20                            # Number of training cycles
       visualize: true                       # Enable generation of plot/visualizations during training
@@ -81,9 +81,9 @@ general_configuration:
       steps: 5000                           # Time steps
       diffusion_scale: 0.05                 # Scale factor for diffusion random walk
       diffusion_base: 1.8                   # Base diffusion coefficient
-    directsolver:                           # Direct numerical solver settings
-      samples: 150000                       # Number of particles/samples for direct solver
-      steps: 5000                           # Time steps for direct solver
+    rwpt:                           # RWPT thermal prior settings
+      samples: 150000                       # Number of particles/samples for RWPT
+      steps: 5000                           # Time steps for RWPT
     physical_parameters:                    # Constants defining the physical environment
       resolution_m: 5.0                     # Grid resolution in meters
       duration_years: 27.5                  # Total simulation duration
@@ -140,7 +140,7 @@ general_configuration:
           0.95890: 5.6
           0.98630: 5.6
           1.00000: 5.6
-      injection_rate_m3_per_s:              # Time-variant Injection Rate Profile
+      injection_rate_m3_per_s:              # Must match VampireMan/PFLOTRAN injection schedule for this dataset
         time_unit: year
         values:                             # Key: Time fraction (year), Value: Flow rate (m3/s)
           0.00000: 0.0013300686453449914
@@ -183,10 +183,10 @@ general_configuration:
           1.00000: 0.0014145377053988591
 
   step3:
-    datapoints:                             # Datapoint indices
-      validation: [0, 1]                    # Indicies of data points used for validation
-      test: [2, 3]                          # Indicies of data points used for test
-      train: [4, 5]                         # Indicies of data points used for training
+    datapoints:                             # Explicit RUN_* index lists only (no automatic train/val/test split)
+      validation: [0, 1]                    # Indices of data points used for validation
+      test: [2, 3]                          # Indices of data points used for test
+      train: [4, 5]                         # Indices of data points used for training
     general:
       epochs: 300
       visualize: true

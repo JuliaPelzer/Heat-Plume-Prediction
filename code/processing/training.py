@@ -143,7 +143,6 @@ def training(args: dict):
             datasets["val"],
             loss_func=loss,
             finetune=is_pretrained,
-            optimizer_switch=args["optimizer_switch"],
             batchsize=args["batchsize"],
         )
         training_time = datetime.now()
@@ -183,7 +182,6 @@ def training(args: dict):
             datasets["val"],
             loss_func=loss,
             finetune=is_pretrained,
-            optimizer_switch=args["optimizer_switch"],
             batchsize=args["batchsize"],
         )
         solver.save_metrics_separate_yaml(dataloaders, args["destination"], args["device"], {})

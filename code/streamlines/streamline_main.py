@@ -45,7 +45,7 @@ def process_single_datapoint(
     step1_map: dict[str, int],
     device: torch.device,
 ) -> None:
-    """Orchestrates physics calculation, visualization, and saving for a single simulation run."""
+    """For one datapoint: load velocity, run stochastic streamline priors + RWPT thermal field (step2), visualize, write step3 inputs."""
     run_id = run_path.name
     start_time = time.time()
 
@@ -76,7 +76,7 @@ def process_single_datapoint(
 
     (temp, seasonalCycleSteps) = convert_injection_config(
         step2_config.physical_parameters.injection_temperature_C,
-        step2_config.directsolver.steps,
+        step2_config.rwpt.steps,
         step2_config.physical_parameters.duration_years,
         device,
     )

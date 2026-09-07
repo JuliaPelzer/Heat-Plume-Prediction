@@ -422,10 +422,15 @@ def make_streamlines_gpu(
     torch.Tensor,
 ]:
     """
-    Main driver to generate stochastic streamlines on GPU.
+    Generate stochastic streamline heatmaps on GPU (channels 1–6 for step3).
+
+    Unlike ``run_rwpt_thermal_prior`` (channel 7 temperature via energy deposition),
+    this advects stochastic particle paths and accumulates density / uncertainty /
+    time / seasonal influence maps.
 
     Args:
-      mode: Simulation configuration object.
+      streamline_config: Streamline sampling parameters (samples, steps, diffusion).
+      physical_parameters: Physical constants including duration_years.
       heat_pump_positions: Starting coordinates (N, 2).
       vx: Velocity X field.
       vy: Velocity Y field.
@@ -441,7 +446,7 @@ def make_streamlines_gpu(
     device = heat_pump_positions.device
     vram_available = torch.cuda.get_device_properties(device).total_memory - torch.cuda.memory_allocated(device)
 
-    info(f"Running simulation on: {device}")
+    info(f"Running streamline advection on: {device}")
     info(f"Available VRAM: {vram_available / (1024**3):.2f} GB")
 
     # Heuristic for batch sizing based on VRAM
