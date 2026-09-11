@@ -6,6 +6,7 @@ from code.preprocessing.datasets.dataset import DatasetType
 from code.processing.loss_fcts import LinfLoss, PATLoss, SSIMLoss
 from code.processing.networks.convLSTM import Seq2Seq
 from code.processing.networks.convLSTM import weights_init as convlstm_weights_init
+from code.processing.networks.model import weights_init as model_weights_init
 from code.utils import logging as log  # noqa: F401
 from code.utils.utils_args import save_yaml
 from copy import deepcopy
@@ -35,9 +36,14 @@ class Solver:
     metrics: dict = None
 
     def __post_init__(self):
-        # UNet / UNetNoPad2 already apply kaiming_init in __init__; do not overwrite.
-        if not self.finetune and isinstance(self.model, Seq2Seq):
-            self.model.apply(convlstm_weights_init)
+        # UNet.__init__ applies kaiming first; overwrite with the trained recipe
+        # (N(0, 0.02)). Leaving kaiming alone makes early outputs leave [0, 1]
+        # and explode after Rescale denormalization.
+        if not self.finetune:
+            if isinstance(self.model, Seq2Seq):
+                self.model.apply(convlstm_weights_init)
+            else:
+                self.model.apply(model_weights_init)
         self.metrics: dict = {
             "Huber": HuberLoss(),
         }
