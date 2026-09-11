@@ -1,4 +1,7 @@
+from code.utils import logging as log  # noqa: F401
+
 import torch
+
 
 class WelfordStatistics:
     """
@@ -25,8 +28,8 @@ class WelfordStatistics:
             # use Welford's online algorithm
             self.__ns[key] += 1
             delta = value - self.__means[key]
-            self.__means[key] += delta/self.__ns[key]
-            self.__m2s[key] += delta*(value - self.__means[key].mean())
+            self.__means[key] += delta / self.__ns[key]
+            self.__m2s[key] += delta * (value - self.__means[key].mean())
             self.__mins[key] = torch.min(self.__mins[key], value.min())
             self.__maxs[key] = torch.max(self.__maxs[key], value.max())
 
@@ -40,9 +43,9 @@ class WelfordStatistics:
         result = dict()
         for key in self.__ns:
             if self.__ns[key] < 2:
-                result[key] = 0
+                result[key] = torch.tensor(0)  # Why set to zero?
             else:
-                result[key] = (self.__m2s[key]/(self.__ns[key]-1)).mean()
+                result[key] = (self.__m2s[key] / (self.__ns[key] - 1)).mean()
         return result
 
     def std(self):
@@ -50,13 +53,13 @@ class WelfordStatistics:
         for key in self.__ns:
             result[key] = (torch.sqrt(self.var()[key])).item()
         return result
-    
+
     def min(self):
         result = dict()
         for key in self.__ns:
             result[key] = self.__mins[key].item()
         return result
-    
+
     def max(self):
         result = dict()
         for key in self.__ns:

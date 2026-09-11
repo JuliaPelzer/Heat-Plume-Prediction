@@ -1,10 +1,13 @@
+from code.utils import logging as log  # noqa: F401
 from pathlib import Path
-import yaml
-from typing import List, Union
-from torch import Tensor
-import numpy as np
 
-def read_cla(path:str):
+import h5py
+import numpy as np
+import yaml
+from torch import Tensor
+
+
+def read_cla(path: str):
     clas = load_yaml(path / "command_line_arguments.yaml")
     for path_typed_cla in ["data_prep", "data_raw", "model", "destination"]:
         try:
@@ -15,27 +18,38 @@ def read_cla(path:str):
     clas["destination"] = path
 
     return clas
-    
-def make_data_prep_dir(args:dict, prep_dir: Path=None):
-    print(f"Dataset_pre path: {args['data_prep']}")
-    if args["data_prep"] is None:
-        args["data_prep"] = args["data_raw"].name + " inputs_" + args["inputs"] + " outputs_" + args["outputs"]
-        args["data_prep"] = prep_dir / args["data_prep"]
 
-    args["data_prep"].mkdir(parents=True, exist_ok=True)
-    (args["data_prep"] / "Inputs").mkdir(parents=True, exist_ok=True)
-    (args["data_prep"] / "Labels").mkdir(parents=True, exist_ok=True)
-    save_yaml(args, args["destination"] / "command_line_arguments.yaml")
 
-def check_model_avail(args:dict):
+def get_data_prep_path(prep_dir: Path, inputs: str, outputs: str, data_raw: Path) -> Path:
+    return prep_dir / data_raw.name / f"inputs_{inputs} outputs_{outputs}"
+
+
+def make_data_prep_dir(data_prep: Path):
+    log.info(f"Dataset_pre path: {data_prep}")
+    data_prep.mkdir(parents=True, exist_ok=True)
+    (data_prep / "Inputs").mkdir(parents=True, exist_ok=True)
+    (data_prep / "Labels").mkdir(parents=True, exist_ok=True)
+
+
+def check_model_avail(args: dict):
     # model, destination
-    if not (args["model"] / "model.pt").exists() or not (args["model"] / "info.yaml").exists() or not (args["model"] / "HPS_options.yaml").exists():
-        raise FileNotFoundError(f"model.pt or info.yaml or HPS_options.yaml not found in {args['model']}")
+    if not (args["model"] / "model.pt").exists():
+        raise FileNotFoundError(f"model.pt not found in {args['model']}")
+    if not (args["model"] / "info.yaml").exists():
+        raise FileNotFoundError(f"info.yaml not found in {args['model']}")
+
 
 def load_yaml(path: Path, **kwargs) -> dict:
-    with open(path, "r") as file:
+    with open(path) as file:
         args = yaml.safe_load(file, **kwargs)
     return args
+
+
+def load_time_steps(path: Path) -> list[float]:
+    with h5py.File(path, "r") as file:
+        times = list(file.keys())
+    return times
+
 
 # Convert tensors to Python-native types
 def convert_to_python_datatypes(data):
@@ -51,35 +65,38 @@ def convert_to_python_datatypes(data):
         return data
 
 
-def save_yaml(args:dict, destination_file):
+def save_yaml(args: dict, destination_file):
     with open(destination_file, "w") as file:
         tmp = args.copy()
         for arg in args.keys():
             try:
                 for info in arg.keys():
                     tmp[info] = path_to_str(arg[info])
-            except:
+            except Exception:
                 tmp[arg] = path_to_str(args[arg])
         # Convert tensors to Python-native types
         tmp = convert_to_python_datatypes(tmp)
         # Save to YAML file
         yaml.dump(tmp, file, default_flow_style=False)
 
-def path_to_str(arg: Union[Path, str]) -> str:
-    '''if arg a Path object, convert to string'''
+
+def path_to_str(arg: Path | str) -> str:
+    """if arg a Path object, convert to string"""
     if isinstance(arg, Path):
         return str(arg)
     return arg
 
-def get_run_ids_from_prep(dir: Path) -> List[int]:
+
+def get_run_ids_from_prep(dir: Path) -> list[int]:
     run_ids = []
     for file in dir.iterdir():
         if file.suffix == ".pt":
             run_ids.append(int(file.stem.split("_")[-1]))
-            # print(f"Found run_id {run_ids[-1]}")
+            # log.info(f"Found run_id {run_ids[-1]}")
     run_ids.sort()
     return run_ids
 
+
 # OTHER UTILS
-def is_empty(path:Path):
+def is_empty(path: Path):
     return not bool(list(path.iterdir()))
