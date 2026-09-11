@@ -1,4 +1,4 @@
-# Training, Hyperparameter Search and Evaluation of LGCNN (and UNet $_{3dp}$)
+# Training, Hyperparameter Search and Evaluation of LGCNN
 This repository contains code for hyperparameter optimization and training of LGCNN and a vanilla UNet model using PyTorch. It also includes functionality for evaluating the trained model and reproducing results from the associated research paper.
 
 Pre-trained models and raw datasets are part of the supplementary material of the paper. The preparation of the datasets for the first step or the full pipeline is done automatically, when `main.py` is run and the datasets is not yet prepared or not in the correct folder (see below). For Step 3, the data has to be prepared manually, see Step 2.
